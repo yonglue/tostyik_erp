@@ -42,7 +42,10 @@
             activeTab === item.key ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900']"
         >
           <component :is="item.icon" :size="18" class="shrink-0" />
-          <span class="truncate leading-tight text-left">{{ t[item.labelKey] || item.defaultLabel }}</span>
+          <span class="truncate leading-tight text-left">
+            <!-- 🌟 将系统设置菜单项名称固定显示为系统设置 -->
+            {{ item.key === 'backup' ? '系统设置' : (t[item.labelKey] || item.defaultLabel) }}
+          </span>
         </button>
 
         <!-- 组间分隔线 -->
@@ -78,7 +81,8 @@ import {
   Calculator, 
   FileText, 
   Database,
-  ShieldAlert
+  ShieldAlert,
+  Settings
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -125,7 +129,7 @@ const groupedMenuItems = computed(() => {
       items: [
         { key: 'staff', labelKey: 'menuStaff', icon: ShieldCheck, adminOnly: true },
         { key: 'audit_logs', labelKey: 'menuAuditLogs', icon: ShieldAlert, adminOnly: true },
-        { key: 'backup', labelKey: 'menuBackup', icon: Database, adminOnly: true },
+        { key: 'backup', labelKey: 'menuBackup', icon: Settings, adminOnly: true }, // 🌟 图标改为 Settings，文字直接显示系统设置
       ]
     }
   ]

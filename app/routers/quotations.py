@@ -1,9 +1,17 @@
+"""报价单 PDF 生成（ReportLab）。
+
+从 main.py 的 `/api/quotations/generate` 中抽离，原文逻辑与排版逐行保留，
+仅把 `payload` 依赖改为显式入参。
+"""
+
+"""报价单：列表 / 删除 / 生成（含开单出库 + PDF）/ 下载最新 PDF。"""
+
 """报价单：列表 / 删除 / 生成（含开单出库 + PDF）/ 下载最新 PDF。"""
 
 import json
 import os
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -19,6 +27,7 @@ from app.services.bcv import get_official_rate
 from app.services.numbering import make_quotation_no
 from app.services.quotation_pdf import build_quotation_pdf, normalize_lang
 
+# 🌟 必须显式声明 router，否则主应用引入时会报 AttributeError
 router = APIRouter(tags=["报价单"])
 
 
@@ -130,7 +139,6 @@ def generate_and_save_quotation(
                 ),
             )
 
-    # 🌟 获取前端传过来的语言并归一化处理
     lang = normalize_lang(getattr(payload, "lang", "es"))
 
     record = QuotationRecord(
@@ -167,7 +175,6 @@ def generate_and_save_quotation(
 
     pdf_path = os.path.join(UPLOAD_DIR, f"quotation_{quotation_no}.pdf")
     
-    # 🌟 关键修复：把动态获取的 lang 传给 PDF 生成函数！
     build_quotation_pdf(
         pdf_path=pdf_path,
         quotation_no=quotation_no,
@@ -188,28 +195,28 @@ def generate_and_save_quotation(
 
 @router.get("/api/quotation/pdf/download")
 def download_existing_pdf(quotation_no: str = None, session: Session = Depends(get_session)):
-    """支持按单号下载对应语言的 PDF，如果未传单号则降级返回最新的 PDF。"""
+    """支持按单号下载对应语言的 PDF，每次都根据最新系统设置实时重新生成以确保抬头同步。"""
     if quotation_no:
         record = session.exec(select(QuotationRecord).where(QuotationRecord.quotation_no == quotation_no)).first()
         if record:
             pdf_path = os.path.join(UPLOAD_DIR, f"quotation_{quotation_no}.pdf")
-            # 如果对应单号的 PDF 不存在或者需要用正确的语言重新生成
-            if not os.path.exists(pdf_path):
-                import json
-                items_data = json.loads(record.items_json)
-                from app.schemas import QuotationItemPayload
-                items = [QuotationItemPayload(**i) for i in items_data]
-                client_obj = session.exec(select(Client).where(Client.name == record.client_name)).first()
-                build_quotation_pdf(
-                    pdf_path=pdf_path,
-                    quotation_no=record.quotation_no,
-                    client_name=record.client_name,
-                    client_obj=client_obj,
-                    items=items,
-                    total_usd=record.total_usd,
-                    total_bs=record.total_bs,
-                    lang=normalize_lang(record.lang),
-                )
+            import json
+            items_data = json.loads(record.items_json)
+            from app.schemas import QuotationItemPayload
+            items = [QuotationItemPayload(**i) for i in items_data]
+            client_obj = session.exec(select(Client).where(Client.name == record.client_name)).first()
+            
+            # 🌟 每次下载都实时重生成，确保最新的公司名称和 RIF 立即生效
+            build_quotation_pdf(
+                pdf_path=pdf_path,
+                quotation_no=record.quotation_no,
+                client_name=record.client_name,
+                client_obj=client_obj,
+                items=items,
+                total_usd=record.total_usd,
+                total_bs=record.total_bs,
+                lang=normalize_lang(record.lang),
+            )
             if os.path.exists(pdf_path):
                 return FileResponse(pdf_path, media_type="application/pdf", filename=f"Quotation_{quotation_no}.pdf")
 
@@ -221,7 +228,5 @@ def download_existing_pdf(quotation_no: str = None, session: Session = Depends(g
         return FileResponse(latest_pdf, media_type="application/pdf", filename="Tostiyk_Quotation.pdf")
 
     raise HTTPException(status_code=404, detail="PDF 文件不存在")
-
-
 
     

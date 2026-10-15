@@ -349,7 +349,8 @@
 
         <div class="flex-1 overflow-y-auto p-6 space-y-4 font-mono text-xs bg-slate-50/40">
           <div class="text-center pb-3 border-b border-dashed border-slate-300 space-y-1">
-            <div class="font-black text-sm text-slate-900">TOSTIKYK ERP - SHIFT SUMMARY</div>
+            <div class="font-black text-sm text-slate-900">{{ systemConfig.company_name || 'TOSTIKYK ERP' }}</div>
+            <div class="text-[10px] text-slate-500">RIF: {{ systemConfig.rif }}</div>
             <div class="text-[10px] text-slate-500">Operator: {{ currentUser?.username || 'admin' }}</div>
             <div class="text-[10px] text-slate-500">Time: {{ currentDateTime }}</div>
           </div>
@@ -411,9 +412,13 @@
 
         <div class="flex-1 overflow-y-auto p-6 space-y-4 font-mono text-xs bg-slate-50/40">
           <div class="text-center pb-3 border-b border-dashed border-slate-300 space-y-1">
-            <div class="font-black text-sm text-slate-900">TOSTIKYK ERP AUTO PARTS</div>
-            <div class="text-[10px] text-slate-500">POS Sales Ticket</div>
-            <div class="text-[10px] text-slate-500">Time: {{ currentDateTime }}</div>
+            <!-- 🌟 动态读取系统设置中的公司抬头与 RIF -->
+            <div class="font-black text-sm text-slate-900">{{ systemConfig.company_name || 'TOSTIKYK ERP AUTO PARTS' }}</div>
+            <div class="text-[10px] text-blue-600 font-bold">RIF: {{ systemConfig.rif || 'J-00000000-0' }}</div>
+            <div class="text-[10px] text-slate-500">{{ systemConfig.address || 'Valencia, Estado Carabobo, Venezuela' }}</div>
+            <div class="text-[10px] text-slate-500">Telf: {{ systemConfig.phone || '+58 412-0000000' }}</div>
+            <div class="text-[10px] text-slate-400 pt-1">POS Sales Ticket</div>
+            <div class="text-[10px] text-slate-400">Time: {{ currentDateTime }}</div>
           </div>
 
           <div class="space-y-1 text-slate-700 pb-3 border-b border-dashed border-slate-300">
@@ -559,7 +564,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { apiFetch } from '../utils/api'
+import { apiFetch, apiUrl } from '../utils/api'
 import { useI18n } from '../composables/useI18n'
 import ConfirmDialog from './ConfirmDialog.vue'
 import PosHelpModal from './pos/PosHelpModal.vue'
@@ -586,6 +591,26 @@ const searchInputRef = ref(null)
 const selectedIndex = ref(0)
 const activeItemRef = ref(null)
 const exitConfirmVisible = ref(false)
+
+// 🌟 系统设置状态（公司名称、RIF、地址、电话）
+const systemConfig = ref({
+  company_name: 'TOSTIYK (TK) - AUTOPARTES VENEZUELA',
+  rif: 'J-00000000-0',
+  address: 'Valera, Estado Trujillo, Venezuela',
+  phone: '+58 412-0000000'
+})
+
+const fetchSystemSettings = async () => {
+  try {
+    const res = await fetch(apiUrl('/api/settings'))
+    if (res.ok) {
+      const data = await res.json()
+      systemConfig.value = { ...systemConfig.value, ...data }
+    }
+  } catch (e) {
+    console.error('获取系统设置失败:', e)
+  }
+}
 
 // 现金实收找零计算
 const cashReceivedUsd = ref(0)
@@ -851,9 +876,10 @@ const executeExitPos = () => {
   emit('exit-pos')
 }
 
-// 点击结算按钮时打开预览窗口
-const openPreviewModal = () => {
+// 点击结算按钮时打开预览窗口（并实时获取最新公司设置）
+const openPreviewModal = async () => {
   if (props.cartItems.length === 0) return
+  await fetchSystemSettings()
   previewModalVisible.value = true
 }
 
@@ -1033,6 +1059,7 @@ onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeydown)
   focusSearch()
   fetchCompletedOrders()
+  fetchSystemSettings()
 })
 
 onUnmounted(() => {

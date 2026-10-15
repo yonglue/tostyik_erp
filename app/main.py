@@ -37,6 +37,7 @@ from app.routers import (
     quotations,
     reports,
     transactions,
+    settings,
 )
 from app.security import hash_password, verify_password
 from app.startup_checks import config_warnings, report
@@ -137,6 +138,7 @@ app.include_router(auth.router)
 app.include_router(audit_logs.router)
 app.include_router(purchase_orders.router)
 app.include_router(pos.router)
+app.include_router(settings.router)
 
 
 @app.get("/")
