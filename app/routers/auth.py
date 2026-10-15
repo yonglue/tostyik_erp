@@ -1,6 +1,7 @@
 """登录、管理员重置、员工账号管理。"""
 
 import hmac
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
@@ -138,7 +139,21 @@ def get_staff_list(
     actor: Actor = Depends(get_current_actor),
     session: Session = Depends(get_session),
 ):
-    return session.exec(select(StaffUser)).all()
+    staffs = session.exec(select(StaffUser)).all()
+    result = []
+    for s in staffs:
+        try:
+            perms = json.loads(s.permissions_json) if hasattr(s, "permissions_json") else []
+        except Exception:
+            perms = []
+        result.append({
+            "id": s.id,
+            "username": s.username,
+            "role": s.role,
+            "permissions": perms,
+            "created_at": getattr(s, "created_at", "")
+        })
+    return result
 
 
 @router.post("/api/staff")
@@ -154,18 +169,23 @@ def create_staff(
     if existing:
         raise HTTPException(status_code=400, detail="该员工账号已存在")
 
+    # 兼容处理细粒度权限数组转换为 JSON 字符串
+    permissions_list = getattr(payload, "permissions", [])
+    
     new_staff = StaffUser(
         username=payload.username,
         password_hash=hash_password(payload.password),
         role=payload.role,
+        permissions_json=json.dumps(permissions_list) if permissions_list else "[]"
     )
     session.add(new_staff)
     session.commit()
 
+    # 🌟 审计日志联动：记录详细的细粒度权限分配情况
     log_action(
         session=session, username=actor.username, role=actor.role,
         action="CREATE_STAFF",
-        details=f"创建了新店员: {payload.username}，分配角色: {payload.role}",
+        details=f"创建了新店员: {payload.username}，角色: {payload.role}，授权模块数: {len(permissions_list)} 项",
     )
     return {"status": "success", "message": "Staff created successfully"}
 

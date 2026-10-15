@@ -41,6 +41,7 @@ from app.routers import (
 )
 from app.security import hash_password, verify_password
 from app.startup_checks import config_warnings, report
+from app.routers import staff
 
 # 首次启动、库存表为空时写入的演示数据
 _SEED_PARTS = [
@@ -139,6 +140,7 @@ app.include_router(audit_logs.router)
 app.include_router(purchase_orders.router)
 app.include_router(pos.router)
 app.include_router(settings.router)
+app.include_router(staff.router)
 
 
 @app.get("/")

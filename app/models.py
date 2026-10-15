@@ -20,13 +20,25 @@
 
 from datetime import datetime
 from typing import List, Optional
+import json
 
 from pydantic import NaiveDatetime
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, Column, Text
 
 # 说明：SQLModel 0.0.48 默认拒绝 naive datetime（要求带时区）。而本库历史数据全部是以
 # "2026-10-13 06:23:37.238411" 形式存储的 naive UTC 时间，因此所有 datetime 字段统一
 # 标注为 NaiveDatetime，保持读写格式与存量数据完全兼容。
+
+
+# ══════════════════════════ 细粒度权限定义 ══════════════════════════
+ALL_PERMISSIONS = [
+    "pos:access", "pos:checkout", "pos:hold", "pos:discount",
+    "parts:view", "parts:manage", "parts:import",
+    "clients:view", "clients:manage", "fiado:pay",
+    "quotations:export", "procurement:view",
+    "financial:view", "shift:report", "transactions:history",
+    "settings:manage", "db:maintenance", "users:manage"
+]
 
 
 # ══════════════════════════ 库存与商品 ══════════════════════════
@@ -97,7 +109,6 @@ class ClientPaymentRecord(SQLModel, table=True):
 
 
 # ══════════════════════════ 采购与供应商 ══════════════════════════
-# 以下 4 张表原本是 SQLAlchemy declarative_base 模型，表结构逐字段等价迁移为 SQLModel。
 class Supplier(SQLModel, table=True):
     """供应商档案与应付账款。"""
 
@@ -226,7 +237,7 @@ class AdminUser(SQLModel, table=True):
 
 
 class StaffUser(SQLModel, table=True):
-    """店员账号。"""
+    """店员账号（支持细粒度权限存储）。"""
 
     __tablename__ = "staffuser"
 
@@ -234,7 +245,19 @@ class StaffUser(SQLModel, table=True):
     username: str = Field(index=True, unique=True)
     password_hash: str
     role: str = Field(default="staff")
+    permissions_json: str = Field(default="[]", sa_column=Column(Text))  # 细粒度权限列表 JSON
     created_at: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M"))
+
+    @property
+    def permissions(self) -> list[str]:
+        try:
+            return json.loads(self.permissions_json)
+        except Exception:
+            return []
+
+    @permissions.setter
+    def permissions(self, perm_list: list[str]):
+        self.permissions_json = json.dumps(perm_list)
 
 
 class AuditLog(SQLModel, table=True):
@@ -252,6 +275,7 @@ class AuditLog(SQLModel, table=True):
 
 
 __all__ = [
+    "ALL_PERMISSIONS",
     "AutoPart",
     "InventoryTransaction",
     "Client",

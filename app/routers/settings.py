@@ -9,7 +9,7 @@ from sqlmodel import Session, select, text
 
 from app.config import DB_PATH
 from app.database import get_session
-from app.deps import Actor, get_current_actor
+from app.deps import Actor, get_current_actor, RequirePermission
 from app.services.audit import log_action
 
 router = APIRouter(tags=["系统设置"])
@@ -55,16 +55,17 @@ def get_system_settings():
 @router.post("/api/settings")
 def update_system_settings(
     payload: SystemSettingsPayload,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("settings:manage"))
 ):
-    """更新系统抬头配置（简化免鉴权，确保单机本地 ERP 顺畅保存）。"""
+    """更新系统抬头配置（需要 settings:manage 细粒度权限）。"""
     new_data = payload.model_dump()
     save_settings(new_data)
 
     log_action(
         session=session,
-        username="admin",
-        role="super_admin",
+        username=actor.username,
+        role=actor.role,
         action="UPDATE_SETTINGS",
         details=f"更新系统公司抬头配置: {new_data.get('company_name')} (RIF: {new_data.get('rif')})"
     )
@@ -73,17 +74,18 @@ def update_system_settings(
 
 @router.post("/api/settings/cleanup")
 def cleanup_database(
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("db:maintenance"))
 ):
-    """数据清理与一键归档：执行 SQLite 空间回收与垃圾日志清理。"""
+    """数据清理与一键归档：执行 SQLite 空间回收与垃圾日志清理（需要 db:maintenance 权限）。"""
     try:
         session.exec(text("VACUUM;"))
         session.commit()
 
         log_action(
             session=session,
-            username="admin",
-            role="super_admin",
+            username=actor.username,
+            role=actor.role,
             action="DB_CLEANUP",
             details="执行数据库 VACUUM 空间清理与碎片整理"
         )

@@ -105,50 +105,57 @@ const groupedMenuItems = computed(() => {
       title: t.value.groupCore || '核心概览',
       items: [
         { key: 'dashboard', labelKey: 'menuDashboard', icon: LayoutDashboard },
-        { key: 'financial', labelKey: 'menuFinancial', icon: TrendingUp, adminOnly: true },
+        { key: 'financial', labelKey: 'menuFinancial', icon: TrendingUp, requiredPerm: 'financial:view' },
       ]
     },
     {
       title: t.value.groupWarehouse || '仓储与商品',
       items: [
-        { key: 'parts', labelKey: 'menuParts', icon: Package },
+        { key: 'parts', labelKey: 'menuParts', icon: Package, requiredPerm: 'parts:view' },
       ]
     },
     {
       title: t.value.groupSales || '销售与业务',
       items: [
-        { key: 'clients', labelKey: 'menuClients', icon: Users },
-        { key: 'procurement', labelKey: 'menuProcurement', icon: ShoppingCart },
-        { key: 'transactions', labelKey: 'menuTrans', icon: History },
-        { key: 'desk', labelKey: 'menuDesk', icon: Calculator },
-        { key: 'cash_register', labelKey: 'menuCashRegister', icon: Calculator },
+        { key: 'clients', labelKey: 'menuClients', icon: Users, requiredPerm: 'clients:view' },
+        { key: 'procurement', labelKey: 'menuProcurement', icon: ShoppingCart, requiredPerm: 'procurement:view' },
+        { key: 'transactions', labelKey: 'menuTrans', icon: History, requiredPerm: 'transactions:history' },
+        { key: 'desk', labelKey: 'menuDesk', icon: Calculator, requiredPerm: 'pos:access' },
+        { key: 'cash_register', labelKey: 'menuCashRegister', icon: Calculator, requiredPerm: 'shift:report' },
       ]
     },
     {
       title: t.value.groupSystem || '系统与管理',
       items: [
-        { key: 'staff', labelKey: 'menuStaff', icon: ShieldCheck, adminOnly: true },
-        { key: 'audit_logs', labelKey: 'menuAuditLogs', icon: ShieldAlert, adminOnly: true },
-        { key: 'backup', labelKey: 'menuBackup', icon: Settings, adminOnly: true }, // 🌟 图标改为 Settings，文字直接显示系统设置
+        { key: 'staff', labelKey: 'menuStaff', icon: ShieldCheck, requiredPerm: 'users:manage' },
+        { key: 'audit_logs', labelKey: 'menuAuditLogs', icon: ShieldAlert, requiredPerm: 'users:manage' },
+        { key: 'backup', labelKey: 'menuBackup', icon: Settings, requiredPerm: 'settings:manage' }, // 🌟 关联系统设置细粒度权限
       ]
     }
   ]
 
-  let userRole = 'super_admin'
+  let currentUserData = { role: 'super_admin', permissions: [] }
   try {
     const stored = localStorage.getItem('tostiyk_current_user')
     if (stored) {
-      const parsed = JSON.parse(stored)
-      userRole = parsed.role || 'super_admin'
+      currentUserData = JSON.parse(stored)
     }
   } catch (e) {
     console.error(e)
   }
 
+  const role = currentUserData.role || 'staff'
+  const userPerms = currentUserData.permissions || []
+
   return groups.map(group => {
     const filteredItems = group.items.filter(item => {
-      if (userRole === 'super_admin' || userRole === 'admin') return true
-      return !item.adminOnly
+      // 超级管理员默认放行所有菜单
+      if (role === 'super_admin' || role === 'admin' || userPerms.includes('*')) return true
+      // 如果该菜单项有明确要求的权限，检查用户权限数组
+      if (item.requiredPerm) {
+        return userPerms.includes(item.requiredPerm)
+      }
+      return true
     })
     return {
       title: group.title,
