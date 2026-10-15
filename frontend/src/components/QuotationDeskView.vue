@@ -15,10 +15,10 @@
       <div class="flex items-center space-x-4">
         <span class="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-lg font-mono font-bold">POS v1.0</span>
         <span class="text-sm font-semibold text-slate-700">📅 {{ currentDateTime }}</span>
-        <span class="text-xs text-emerald-600 font-mono font-bold">BCV 官方汇率: {{ bcvRate }}</span>
+        <span class="text-xs text-emerald-600 font-mono font-bold">{{ t.bcvLabel }}: {{ bcvRate }}</span>
         <!-- 挂单池徽标 -->
         <button v-if="heldOrders.length > 0" @click="openRecallModal" class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
-          <span>📦 挂单池 ({{ heldOrders.length }}) [Ctrl+R]</span>
+          <span>📦 {{ t.posHoldPool || '挂单池' }} ({{ heldOrders.length }}) [Ctrl+R]</span>
         </button>
       </div>
       <div class="flex items-center space-x-4">
@@ -30,19 +30,19 @@
         </div>
         <!-- 销售历史与退换货入口 -->
         <button @click="openHistoryModal" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs">
-          <span>📜 销售历史与退货</span>
+          <span>📜 {{ t.posSalesHistory || '销售历史与退货' }}</span>
         </button>
         <!-- 今日班结报表按钮 -->
         <button @click="openShiftReportModal" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs">
-          <span>📊 今日班结 (Z-Report)</span>
+          <span>📊 {{ t.posShiftReport || '今日班结 (Z-Report)' }}</span>
         </button>
         <!-- 快捷键指南按钮 -->
         <button @click="helpModalVisible = true" class="bg-blue-50/80 hover:bg-blue-100 text-blue-600 border border-blue-200/60 px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs">
-          <span>⌨️ 快捷键指南</span>
+          <span>⌨️ {{ t.posShortcutGuide || '快捷键指南' }}</span>
         </button>
         <!-- 退出收银台按钮 -->
         <button @click="confirmExitPos" class="bg-rose-50/80 hover:bg-rose-100 text-rose-600 border border-rose-200/60 px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs">
-          <span>✕ 退出收银台 (Admin)</span>
+          <span>✕ {{ t.posExit || '退出收银台 (Admin)' }}</span>
         </button>
       </div>
     </header>
@@ -61,7 +61,7 @@
               v-model="deskSearchQuery" 
               @keydown="handleSearchKeydown"
               type="text" 
-              placeholder="按 [/] 键聚焦，输入 OEM / 互换号 / 品名搜索 (按 Esc 确认退出)..." 
+              :placeholder="t.posSearchPlaceholder || '按 [/] 键聚焦，输入 OEM / 互换号 / 品名搜索 (按 Esc 确认退出)...'" 
               class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-blue-500 font-mono shadow-xs"
               autofocus
             />
@@ -76,10 +76,10 @@
               <div class="flex items-center gap-2 truncate">
                 <span class="text-blue-600">👤</span>
                 <span class="truncate" :class="quoteClientName ? 'text-slate-900' : 'text-slate-400'">
-                  {{ quoteClientName || '🔍 搜索选择客户 (Ctrl+F)...' }}
+                  {{ quoteClientName || (t.posSelectClient || '🔍 搜索选择客户 (Ctrl+F)...') }}
                 </span>
               </div>
-              <span class="text-xs text-slate-400 ml-1">选择</span>
+              <span class="text-xs text-slate-400 ml-1">{{ t.btnSelect || '选择' }}</span>
             </button>
             <button 
               v-if="quoteClientName"
@@ -114,13 +114,13 @@
             </div>
             <div class="flex items-center gap-4">
               <span :class="p.stock > 0 ? 'text-emerald-600' : 'text-rose-600 font-bold'" class="text-xs font-mono font-bold">
-                库存: {{ p.stock }} {{ p.stock <= 0 ? '(缺货)' : '' }}
+                {{ t.colStock }}: {{ p.stock }} {{ p.stock <= 0 ? '(缺货)' : '' }}
               </span>
               <span class="text-sm font-mono font-bold text-slate-900">${{ p.price.toFixed(2) }}</span>
             </div>
           </div>
           <div v-if="filteredParts.length === 0" class="text-center py-4 text-xs text-slate-400">
-            未找到相关配件商品
+            {{ t.posNoPartsFound || '未找到相关配件商品' }}
           </div>
         </div>
 
@@ -129,12 +129,12 @@
           <table class="w-full text-left border-collapse">
             <thead>
               <tr class="border-b border-slate-200 text-slate-400 text-xs font-semibold uppercase">
-                <th class="py-3 px-3">OEM / 编号</th>
-                <th class="py-3 px-3">商品名称</th>
-                <th class="py-3 px-3 text-right">单价 (USD)</th>
-                <th class="py-3 px-3 text-center">数量</th>
-                <th class="py-3 px-3 text-right">小计 (USD)</th>
-                <th class="py-3 px-3 text-center">操作</th>
+                <th class="py-3 px-3">{{ t.colOem }}</th>
+                <th class="py-3 px-3">{{ t.colName }}</th>
+                <th class="py-3 px-3 text-right">{{ t.colPriceUsd }}</th>
+                <th class="py-3 px-3 text-center">{{ t.txQty }}</th>
+                <th class="py-3 px-3 text-right">{{ t.subtotal || '小计 (USD)' }}</th>
+                <th class="py-3 px-3 text-center">{{ t.colActions }}</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 text-sm">
@@ -153,12 +153,12 @@
                   ${{ (item.price * item.quantity).toFixed(2) }}
                 </td>
                 <td class="py-3 px-3 text-center">
-                  <button @click="cartItems.splice(index, 1)" class="text-rose-600 hover:text-rose-700 text-xs font-bold px-2.5 py-1 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors">删除</button>
+                  <button @click="cartItems.splice(index, 1)" class="text-rose-600 hover:text-rose-700 text-xs font-bold px-2.5 py-1 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors">{{ t.btnDelete }}</button>
                 </td>
               </tr>
               <tr v-if="cartItems.length === 0">
                 <td colspan="6" class="text-center py-20 text-slate-400 text-sm">
-                  🛒 购物车为空，请按 [/] 键聚焦搜索框添加配件 (可按 Ctrl+H 挂单)
+                  🛒 {{ t.deskEmptyCart }}
                 </td>
               </tr>
             </tbody>
@@ -172,13 +172,13 @@
         
         <div class="space-y-4">
           <h3 class="font-bold text-base text-slate-800 border-b border-slate-100 pb-3 flex items-center justify-between">
-            <span>💳 结算台与支付方式</span>
+            <span>💳 {{ t.deskCartTitle }}</span>
             <span class="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">Items: {{ cartItems.length }}</span>
           </h3>
 
           <!-- 支付方式选择 -->
           <div class="space-y-2">
-            <label class="block text-xs font-semibold text-slate-400 uppercase">选择支付渠道 / 类型 (Alt+P 切挂账)</label>
+            <label class="block text-xs font-semibold text-slate-400 uppercase">{{ t.posPaymentChannelLabel || '选择支付渠道 / 类型 (Alt+P 切挂账)' }}</label>
             <div class="grid grid-cols-2 gap-2">
               <button 
                 @click="selectedPaymentMethod = 'Cash_USD'"
@@ -206,7 +206,7 @@
                 :class="selectedPaymentMethod === 'Fiado_Debt' ? 'bg-amber-600 text-white shadow-md shadow-amber-500/20 border-amber-600' : 'bg-slate-50 border-slate-200 text-amber-700 hover:bg-slate-100'"
                 class="py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-left cursor-pointer"
               >
-                📋 挂账 (Fiado)
+                📋 {{ t.posFiado || '挂账 (Fiado)' }}
               </button>
             </div>
           </div>
@@ -214,12 +214,12 @@
           <!-- Cash USD 找零计算器输入框 -->
           <div v-if="selectedPaymentMethod === 'Cash_USD'" class="bg-blue-50/60 p-3.5 rounded-2xl border border-blue-100 space-y-2">
             <div class="flex justify-between items-center text-xs font-bold text-blue-900">
-              <span>💵 现金实收 (USD):</span>
+              <span>💵 {{ t.posCashReceived || '现金实收 (USD)' }}:</span>
               <input v-model.number="cashReceivedUsd" type="number" step="0.1" placeholder="0.00" class="w-28 bg-white border border-blue-200 rounded-xl px-3 py-1.5 text-right font-mono text-sm outline-none focus:border-blue-500 font-bold" />
             </div>
             <div v-if="cashReceivedUsd >= totalUsd" class="pt-2 border-t border-blue-200/60 flex justify-between items-center">
               <div>
-                <span class="text-[11px] font-bold text-emerald-700 block">应找零 (USD): ${{ (cashReceivedUsd - totalUsd).toFixed(2) }}</span>
+                <span class="text-[11px] font-bold text-emerald-700 block">{{ t.posChangeDue || '应找零 (USD)' }}: ${{ (cashReceivedUsd - totalUsd).toFixed(2) }}</span>
                 <span class="text-[10px] font-mono text-emerald-600">Bs. {{ ((cashReceivedUsd - totalUsd) * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</span>
               </div>
               <span class="text-xl font-black font-mono text-emerald-600">${{ (cashReceivedUsd - totalUsd).toFixed(2) }}</span>
@@ -228,20 +228,20 @@
 
           <!-- 支付参考号 -->
           <div>
-            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">支付流水号 / 备注 (Reference)</label>
-            <input v-model="paymentReference" type="text" placeholder="选填，如 Zelle 回执号..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-500 font-mono" />
+            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">{{ t.posRefLabel || '支付流水号 / 备注 (Reference)' }}</label>
+            <input v-model="paymentReference" type="text" :placeholder="t.posRefPlaceholder || '选填，如 Zelle 回执号...'" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-500 font-mono" />
           </div>
         </div>
 
         <!-- 底部价格大卡片与结算按钮 -->
         <div class="space-y-3 pt-4 border-t border-slate-100">
           <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-1.5 text-right">
-            <div class="text-xs text-slate-400 font-mono">折合委内瑞拉官方汇率 (Bs.)</div>
+            <div class="text-xs text-slate-400 font-mono">{{ t.posBcvEquivalent || '折合委内瑞拉官方汇率 (Bs.)' }}</div>
             <div class="text-2xl font-black font-mono text-emerald-600">
               Bs. {{ (totalUsd * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
             </div>
             <div class="pt-2 border-t border-slate-200/60 flex justify-between items-center">
-              <span class="text-xs font-semibold text-slate-500">总计金额 (USD)</span>
+              <span class="text-xs font-semibold text-slate-500">{{ t.posTotalUsd || '总计金额 (USD)' }}</span>
               <span class="text-3xl font-black font-mono text-slate-900">${{ totalUsd.toFixed(2) }}</span>
             </div>
           </div>
@@ -251,7 +251,7 @@
             :disabled="cartItems.length === 0"
             class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl font-black text-base shadow-lg shadow-emerald-600/20 transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            <span>🚀 确认结账并打印票据</span>
+            <span>🚀 {{ t.deskGenerateBtn }}</span>
           </button>
         </div>
 
@@ -263,27 +263,27 @@
     <footer class="absolute bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 px-6 flex items-center justify-between z-30 shadow-md">
       <div class="grid grid-cols-6 gap-3 w-full">
         <div @click="focusSearch" class="bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-xl px-3 py-2 flex items-center justify-between text-xs cursor-pointer transition-colors">
-          <span class="text-slate-600 font-medium">聚焦搜索</span>
+          <span class="text-slate-600 font-medium">{{ t.posKeyFocus || '聚焦搜索' }}</span>
           <span class="bg-blue-100 text-blue-700 font-mono font-bold px-2 py-0.5 rounded">[/]</span>
         </div>
         <div @click="openClientSearchModal" class="bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-xl px-3 py-2 flex items-center justify-between text-xs cursor-pointer transition-colors">
-          <span class="text-slate-600 font-medium">选客户</span>
+          <span class="text-slate-600 font-medium">{{ t.posKeyClient || '选客户' }}</span>
           <span class="bg-blue-100 text-blue-700 font-mono font-bold px-2 py-0.5 rounded">Ctrl+F</span>
         </div>
         <div @click="holdCurrentOrder" class="bg-slate-50 hover:bg-amber-50 border border-slate-200 rounded-xl px-3 py-2 flex items-center justify-between text-xs cursor-pointer transition-colors">
-          <span class="text-slate-600 font-medium">挂单暂存</span>
+          <span class="text-slate-600 font-medium">{{ t.posKeyHold || '挂单暂存' }}</span>
           <span class="bg-amber-100 text-amber-700 font-mono font-bold px-2 py-0.5 rounded">Ctrl+H</span>
         </div>
         <div @click="$emit('clear-cart')" class="bg-slate-50 hover:bg-rose-50 border border-slate-200 rounded-xl px-3 py-2 flex items-center justify-between text-xs cursor-pointer transition-colors">
-          <span class="text-slate-600 font-medium">清空购物车</span>
+          <span class="text-slate-600 font-medium">{{ t.posKeyClear || '清空购物车' }}</span>
           <span class="bg-rose-100 text-rose-700 font-mono font-bold px-2 py-0.5 rounded">Ctrl+B</span>
         </div>
         <div @click="deleteLastItem" class="bg-slate-50 hover:bg-rose-50 border border-slate-200 rounded-xl px-3 py-2 flex items-center justify-between text-xs cursor-pointer transition-colors">
-          <span class="text-slate-600 font-medium">删末项</span>
+          <span class="text-slate-600 font-medium">{{ t.posKeyDeleteLast || '删末项' }}</span>
           <span class="bg-rose-100 text-rose-700 font-mono font-bold px-2 py-0.5 rounded">Delete</span>
         </div>
         <div @click="confirmExitPos" class="bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 flex items-center justify-between text-xs cursor-pointer transition-colors">
-          <span class="text-slate-700 font-medium">返回后台</span>
+          <span class="text-slate-700 font-medium">{{ t.posKeyBack || '返回后台' }}</span>
           <span class="bg-slate-200 text-slate-700 font-mono font-bold px-2 py-0.5 rounded">Esc</span>
         </div>
       </div>
@@ -303,7 +303,7 @@
       <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 flex flex-col max-h-[80vh]">
         <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
-            <span>📦 挂单恢复池 (共 {{ heldOrders.length }} 单)</span>
+            <span>📦 {{ t.posHoldPoolTitle || '挂单恢复池' }} (共 {{ heldOrders.length }} 单)</span>
           </h3>
           <button @click="recallModalVisible = false" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 cursor-pointer">✕</button>
         </div>
@@ -315,23 +315,23 @@
                 <span>👤 {{ order.clientName || '散客' }}</span>
                 <span class="text-xs font-mono bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Items: {{ order.items.length }}</span>
               </div>
-              <div class="text-xs text-slate-400 font-mono">挂单时间: {{ order.time }}</div>
+              <div class="text-xs text-slate-400 font-mono">{{ t.posHoldTime || '挂单时间' }}: {{ order.time }}</div>
             </div>
             <div class="flex items-center gap-3">
               <span class="text-base font-mono font-black text-slate-900">${{ order.totalUsd.toFixed(2) }}</span>
               <button @click="recallOrder(index)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-sm">
-                恢复取单
+                {{ t.posRecallBtn || '恢复取单' }}
               </button>
             </div>
           </div>
           <div v-if="heldOrders.length === 0" class="text-center py-12 text-slate-400 text-xs">
-            当前没有暂存的挂单
+            {{ t.posHoldEmpty || '当前没有暂存的挂单' }}
           </div>
         </div>
 
         <div class="p-3 bg-slate-50 border-t border-slate-100 text-right">
           <button @click="recallModalVisible = false" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-300 transition-colors cursor-pointer">
-            关闭
+            {{ t.btnCancel }}
           </button>
         </div>
       </div>
@@ -342,7 +342,7 @@
       <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
         <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
           <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
-            <span>📊 今日班结营业汇总 (Z-Report)</span>
+            <span>📊 {{ t.posZReportTitle || '今日班结营业汇总 (Z-Report)' }}</span>
           </h3>
           <button @click="shiftReportModalVisible = false" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 cursor-pointer">✕</button>
         </div>
@@ -350,50 +350,50 @@
         <div class="flex-1 overflow-y-auto p-6 space-y-4 font-mono text-xs bg-slate-50/40">
           <div class="text-center pb-3 border-b border-dashed border-slate-300 space-y-1">
             <div class="font-black text-sm text-slate-900">TOSTIKYK ERP - SHIFT SUMMARY</div>
-            <div class="text-[10px] text-slate-500">操作员: {{ currentUser?.username || 'admin' }}</div>
-            <div class="text-[10px] text-slate-500">统计时间: {{ currentDateTime }}</div>
+            <div class="text-[10px] text-slate-500">Operator: {{ currentUser?.username || 'admin' }}</div>
+            <div class="text-[10px] text-slate-500">Time: {{ currentDateTime }}</div>
           </div>
 
           <div class="space-y-2.5 pb-3 border-b border-dashed border-slate-300 text-slate-700">
             <div class="flex justify-between font-bold">
-              <span>支付渠道</span>
-              <span>笔数 / 金额 (USD)</span>
+              <span>{{ t.posChannel || 'Método de Pago' }}</span>
+              <span>{{ t.posCountOrAmount || 'Cant. / Monto (USD)' }}</span>
             </div>
             <div class="flex justify-between">
               <span>💵 Cash USD</span>
-              <span class="font-bold">${{ shiftStats.cashUsd.amount.toFixed(2) }} ({{ shiftStats.cashUsd.count }}笔)</span>
+              <span class="font-bold">${{ shiftStats.cashUsd.amount.toFixed(2) }} ({{ shiftStats.cashUsd.count }} {{ t.posOrdersUnit || 'pedidos' }})</span>
             </div>
             <div class="flex justify-between">
               <span>📱 Zelle</span>
-              <span class="font-bold">${{ shiftStats.zelle.amount.toFixed(2) }} ({{ shiftStats.zelle.count }}笔)</span>
+              <span class="font-bold">${{ shiftStats.zelle.amount.toFixed(2) }} ({{ shiftStats.zelle.count }} {{ t.posOrdersUnit || 'pedidos' }})</span>
             </div>
             <div class="flex justify-between">
               <span>⚡ Pago Móvil</span>
-              <span class="font-bold">${{ shiftStats.pagoMovil.amount.toFixed(2) }} ({{ shiftStats.pagoMovil.count }}笔)</span>
+              <span class="font-bold">${{ shiftStats.pagoMovil.amount.toFixed(2) }} ({{ shiftStats.pagoMovil.count }} {{ t.posOrdersUnit || 'pedidos' }})</span>
             </div>
             <div class="flex justify-between">
-              <span>📋 挂账 (Fiado)</span>
-              <span class="font-bold">${{ shiftStats.fiado.amount.toFixed(2) }} ({{ shiftStats.fiado.count }}笔)</span>
+              <span>📋 {{ t.posFiado || 'A Crédito (Fiado)' }}</span>
+              <span class="font-bold">${{ shiftStats.fiado.amount.toFixed(2) }} ({{ shiftStats.fiado.count }} {{ t.posOrdersUnit || 'pedidos' }})</span>
             </div>
           </div>
 
           <div class="space-y-1.5 text-right">
-            <div class="text-slate-500 text-[11px]">总计折合 Bs. (BCV: {{ bcvRate }})</div>
+            <div class="text-slate-500 text-[11px]">{{ t.posTotalBsEquivalent || '总计折合 Bs.' }} (BCV: {{ bcvRate }})</div>
             <div class="text-lg font-black text-emerald-600">
               Bs. {{ (shiftStats.totalUsd * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
             </div>
             <div class="text-xl font-black text-slate-900 pt-1">
-              营业总额 USD: ${{ shiftStats.totalUsd.toFixed(2) }} (共 {{ shiftStats.totalCount }} 笔)
+              Total USD: ${{ shiftStats.totalUsd.toFixed(2) }} ({{ shiftStats.totalCount }} orders)
             </div>
           </div>
         </div>
 
         <div class="p-4 bg-white border-t border-slate-100 flex gap-3">
           <button @click="shiftReportModalVisible = false" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-colors cursor-pointer">
-            关闭
+            {{ t.btnCancel }}
           </button>
           <button @click="showToast('🖨️ 班结小票已发送物理打印！', 'success')" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black shadow-md shadow-emerald-600/20 transition-colors cursor-pointer flex items-center justify-center gap-1.5">
-            <span>🖨️ 打印交班小票</span>
+            <span>🖨️ {{ t.posPrintShift || '打印交班小票' }}</span>
           </button>
         </div>
       </div>
@@ -404,7 +404,7 @@
       <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
         <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
           <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
-            <span>🧾 收银小票实时预览</span>
+            <span>🧾 {{ t.posTicketPreviewTitle || '收银小票实时预览' }}</span>
           </h3>
           <button @click="previewModalVisible = false" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 cursor-pointer">✕</button>
         </div>
@@ -412,25 +412,25 @@
         <div class="flex-1 overflow-y-auto p-6 space-y-4 font-mono text-xs bg-slate-50/40">
           <div class="text-center pb-3 border-b border-dashed border-slate-300 space-y-1">
             <div class="font-black text-sm text-slate-900">TOSTIKYK ERP AUTO PARTS</div>
-            <div class="text-[10px] text-slate-500">POS 销售小票凭证</div>
-            <div class="text-[10px] text-slate-500">时间: {{ currentDateTime }}</div>
+            <div class="text-[10px] text-slate-500">POS Sales Ticket</div>
+            <div class="text-[10px] text-slate-500">Time: {{ currentDateTime }}</div>
           </div>
 
           <div class="space-y-1 text-slate-700 pb-3 border-b border-dashed border-slate-300">
-            <div><span class="font-bold">客户:</span> {{ quoteClientName || 'Cliente General (散客)' }}</div>
-            <div><span class="font-bold">收银员:</span> {{ currentUser?.username || 'admin' }}</div>
-            <div><span class="font-bold">支付方式:</span> {{ selectedPaymentMethod }}</div>
-            <div v-if="paymentReference"><span class="font-bold">支付参考号:</span> {{ paymentReference }}</div>
+            <div><span class="font-bold">Client:</span> {{ quoteClientName || 'Cliente General (散客)' }}</div>
+            <div><span class="font-bold">Operator:</span> {{ currentUser?.username || 'admin' }}</div>
+            <div><span class="font-bold">Payment:</span> {{ selectedPaymentMethod }}</div>
+            <div v-if="paymentReference"><span class="font-bold">Ref:</span> {{ paymentReference }}</div>
             <div v-if="selectedPaymentMethod === 'Cash_USD' && cashReceivedUsd > 0">
-              <span class="font-bold">实收/找零:</span> ${{ cashReceivedUsd.toFixed(2) }} / 找零: ${{ Math.max(0, cashReceivedUsd - totalUsd).toFixed(2) }}
+              <span class="font-bold">Cash/Change:</span> ${{ cashReceivedUsd.toFixed(2) }} / Change: ${{ Math.max(0, cashReceivedUsd - totalUsd).toFixed(2) }}
             </div>
-            <div><span class="font-bold">BCV 汇率:</span> {{ bcvRate }}</div>
+            <div><span class="font-bold">BCV Rate:</span> {{ bcvRate }}</div>
           </div>
 
           <div class="space-y-2 pb-3 border-b border-dashed border-slate-300">
             <div class="text-[10px] text-slate-400 uppercase font-bold flex justify-between">
-              <span>商品明细</span>
-              <span>小计</span>
+              <span>{{ t.posItemsList || '商品明细' }}</span>
+              <span>Subtotal</span>
             </div>
             <div v-for="item in cartItems" :key="item.oem" class="flex justify-between items-start gap-2">
               <div>
@@ -442,26 +442,26 @@
           </div>
 
           <div class="space-y-1.5 text-right pb-2">
-            <div class="text-slate-500 text-[11px]">折合委内瑞拉官方汇率 (Bs.)</div>
+            <div class="text-slate-500 text-[11px]">{{ t.posBcvEquivalent || '折合委内瑞拉官方汇率 (Bs.)' }}</div>
             <div class="text-2xl font-black text-emerald-600">
               Bs. {{ (totalUsd * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
             </div>
             <div class="text-xl font-black text-slate-900 pt-1">
-              总计 USD: ${{ totalUsd.toFixed(2) }}
+              Total USD: ${{ totalUsd.toFixed(2) }}
             </div>
           </div>
 
           <div class="text-center text-[10px] text-slate-400 pt-3 border-t border-dashed border-slate-300">
-            *** 感谢您的光顾，请妥善保管小票 ***
+            *** Gracias por su compra / 感谢您的光顾 ***
           </div>
         </div>
 
         <div class="p-4 bg-white border-t border-slate-100 flex gap-3">
           <button @click="previewModalVisible = false" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-colors cursor-pointer">
-            返回修改
+            {{ t.posBackToEdit || '返回修改' }}
           </button>
           <button @click="confirmAndPrint" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black shadow-md shadow-emerald-600/20 transition-colors cursor-pointer flex items-center justify-center gap-1.5">
-            <span>🖨️ 确认出单并打印</span>
+            <span>🖨️ {{ t.posConfirmCheckout || '确认出单并打印' }}</span>
           </button>
         </div>
       </div>
@@ -475,7 +475,7 @@
       <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 flex flex-col max-h-[80vh]">
         <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
-            <span>👥 快捷选择客户 (支持 ↑↓ 键选择，Enter 确认)</span>
+            <span>👥 {{ t.posSelectClientModalTitle || '快捷选择客户 (支持 ↑↓ 键选择，Enter 确认)' }}</span>
           </h3>
           <button @click="clientModalVisible = false" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 cursor-pointer">✕</button>
         </div>
@@ -486,7 +486,7 @@
             v-model="clientFilterQuery" 
             @keydown="handleClientModalKeydown"
             type="text" 
-            placeholder="输入客户名称 / 电话 / RIF 快速检索..." 
+            :placeholder="t.clientSearchPlaceholder" 
             class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 font-medium"
           />
         </div>
@@ -512,19 +512,19 @@
             </div>
             <div class="text-right">
               <span class="text-xs font-mono font-bold" :class="(c.debt || 0) > 0 ? 'text-amber-600' : 'text-slate-400'">
-                欠款: ${{ (c.debt || 0).toFixed(2) }}
+                {{ t.clientColDebt }}: ${{ (c.debt || 0).toFixed(2) }}
               </span>
             </div>
           </div>
 
           <div v-if="filteredModalClients.length === 0" class="text-center py-8 text-xs text-slate-400">
-            未找到匹配的客户记录
+            {{ t.noClientsFound }}
           </div>
         </div>
 
         <div class="p-3 bg-slate-50 border-t border-slate-100 text-right">
           <button @click="clientModalVisible = false" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-300 transition-colors cursor-pointer">
-            关闭
+            {{ t.btnCancel }}
           </button>
         </div>
       </div>
@@ -535,9 +535,9 @@
       :visible="exitConfirmVisible"
       icon="⚠️"
       icon-class="bg-amber-50 text-amber-600"
-      title="确认退出收银台？"
-      message="当前收银台若有未结算的商品，退出后购物车可能会被清空，是否继续？"
-      confirm-text="确认退出"
+      :title="t.posExitConfirmTitle || '确认退出收银台？'"
+      :message="t.posExitConfirmMsg || '当前收银台若有未结算的商品，退出后购物车可能会被清空，是否继续？'"
+      :confirm-text="t.btnConfirm"
       @cancel="exitConfirmVisible = false"
       @confirm="executeExitPos"
     />
@@ -547,9 +547,9 @@
       :visible="returnConfirmVisible"
       icon="🔄"
       icon-class="bg-rose-50 text-rose-600"
-      title="确认执行退货处理？"
-      message="该操作会自动将商品库存回滚至仓库，是否继续？"
-      confirm-text="确认退货"
+      :title="t.posReturnConfirmTitle || '确认执行退货处理？'"
+      :message="t.posReturnConfirmMsg || '该操作会自动将商品库存回滚至仓库，是否继续？'"
+      :confirm-text="t.btnConfirm"
       @cancel="returnConfirmVisible = false"
       @confirm="executeReturnOrder"
     />
@@ -560,9 +560,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { apiFetch } from '../utils/api'
+import { useI18n } from '../composables/useI18n'
 import ConfirmDialog from './ConfirmDialog.vue'
 import PosHelpModal from './pos/PosHelpModal.vue'
 import PosHistoryModal from './pos/PosHistoryModal.vue'
+
+const { t } = useI18n()
 
 const props = defineProps({
   partsList: Array,
@@ -881,7 +884,6 @@ const confirmAndPrint = async () => {
     }
     const data = await res.json()
     
-    // 🌟 核心：关闭预览弹窗，绝不弹出中间多余提示，只在右上角显示绿色成功提示
     previewModalVisible.value = false
     showToast(`✅ 开单成功！单号: ${data.order_no}`, 'success')
     

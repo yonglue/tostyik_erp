@@ -27,7 +27,7 @@
             </button>
             <div class="flex items-center gap-2">
               <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span class="text-xs font-bold text-slate-700 tracking-wide uppercase">系统在线</span>
+              <span class="text-xs font-bold text-slate-700 tracking-wide uppercase">{{ t.sysStatus }}</span>
               <span class="text-xs font-mono text-slate-400">v4.3 Enterprise</span>
             </div>
           </div>
@@ -61,7 +61,7 @@
                 <span class="text-xs font-bold text-slate-800">{{ currentUserObj.username }}</span>
               </div>
               <button @click="handleLogout" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">
-                退出登录
+                {{ t.logoutBtn }}
               </button>
             </div>
           </div>
@@ -98,7 +98,6 @@
             @open-add-client="clientDialogVisible = true"
             @delete-client="openDeleteClientModal"
           />
-          <!-- 🌟 挂载我们全新合并后的采购与供应链中心组件 -->
           <PurchaseOrdersView 
             v-else-if="activeTab === 'procurement'"
           />
@@ -266,7 +265,6 @@
       @next="nextGalleryImage"
     />
 
-    <!-- 删除确认（报价单 / 商品 / 客户 / 流水，统一组件）-->
     <ConfirmDialog
       :visible="deleteModalVisible"
       overlay-class="bg-slate-900/40"
@@ -325,14 +323,12 @@ import CashRegisterView from './components/CashRegisterView.vue'
 import { ref, computed, defineAsyncComponent, onMounted, onUnmounted } from 'vue'
 import { useI18n } from './composables/useI18n'
 
-// 常驻组件：登录页 / 侧边栏 / 全局弹窗，首屏即需要，保持同步加载
 import Sidebar from './components/Sidebar.vue'
 import LoginView from './components/LoginView.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import ImageGalleryModal from './components/ImageGalleryModal.vue'
 import GlobalNoticeModal from './components/GlobalNoticeModal.vue'
 
-// 业务页签：按需加载，各自切分成独立 chunk，首屏不再下载未打开的页面
 const DashboardView = defineAsyncComponent(() => import('./components/DashboardView.vue'))
 const FinancialView = defineAsyncComponent(() => import('./components/FinancialView.vue'))
 const PartsView = defineAsyncComponent(() => import('./components/PartsView.vue'))
@@ -341,7 +337,6 @@ const TransactionsView = defineAsyncComponent(() => import('./components/Transac
 const QuotationDeskView = defineAsyncComponent(() => import('./components/QuotationDeskView.vue'))
 const BackupView = defineAsyncComponent(() => import('./components/BackupView.vue'))
 const AuditLogsView = defineAsyncComponent(() => import('./components/AuditLogsView.vue'))
-// 🌟 引入我们全新合并后的 ProcurementCenterView 组件，并命名为 PurchaseOrdersView 供 activeTab 使用
 const PurchaseOrdersView = defineAsyncComponent(() => import('./components/ProcurementCenterView.vue'))
 
 import { apiFetch, apiUrl } from './utils/api'
@@ -354,13 +349,11 @@ import { useGallery } from './composables/useGallery'
 
 const { t, currentLang } = useI18n()
 
-// ── 全局提示（成功弹窗 / 拦截提示）──
 const {
   successModalVisible, successModalMessage, isErrorMessage,
   showSuccessModal, closeSuccessModal
 } = useNotifications()
 
-// ── 登录态与账号操作 ──
 const {
   isLoggedIn, currentAdminUser, currentUserObj,
   loginForm, loginError, resetMessage,
@@ -429,7 +422,6 @@ const confirmDeleteTx = async () => {
   } catch (e) { console.error(e) }
 }
 
-// ── 业务数据（库存 / 客户 / 流水 / 报价 / 看板）──
 const {
   bcvRate, partsList, clientsList, transactionsList, quotationsList,
   stats, brandsList,
@@ -437,12 +429,10 @@ const {
   fetchDashboardStats, fetchBcvRate
 } = useInventory()
 
-// ── 开单购物车 ──
 const {
   cartItems, quoteClientName, selectedPaymentMethod, paymentReference, addToCart
 } = usePosCart()
 
-// ── 顶栏时钟（自行注册生命周期）──
 const { currentDateTime } = useClock()
 
 const handleMenuClick = (key) => {
@@ -450,7 +440,6 @@ const handleMenuClick = (key) => {
   if (key === 'clients' || key === 'desk') fetchClients()
   if (key === 'quotations') fetchQuotations()
 }
-
 
 const exportTransactionsExcel = () => window.open(apiUrl('/api/export/transactions'), '_blank')
 const exportQuotationsExcel = () => window.open(apiUrl('/api/export/quotations'), '_blank')
@@ -468,7 +457,6 @@ const handleImportParts = async (e) => {
   if (res.ok) { fetchParts(); fetchDashboardStats(); }
 }
 
-// src/App.vue 中的 generateAndArchiveQuote 函数修改
 const generateAndArchiveQuote = async () => {
   if (cartItems.value.length === 0) return
   
@@ -490,8 +478,6 @@ const generateAndArchiveQuote = async () => {
       cartItems.value = []
       paymentReference.value = ''
       fetchQuotations(); fetchParts(); fetchTransactions(); fetchDashboardStats(); fetchClients()
-      
-      // 🌟 彻底移除 App.vue 里的中间大弹窗触发，改为静默完成（由于收银台已经有了右上角提示，这里无需重复弹窗）
     } else {
       const errData = await res.json()
       showSuccessModal(`❌ 拒绝: ${errData.detail || '开单请求失败'}`)
@@ -579,8 +565,6 @@ const handleAddClient = async () => {
 }
 
 const handleGlobalKeydown = (e) => {
-  // 🌟 核心修复：只要当前在收银台页面（desk），所有键盘事件全部交由 QuotationDeskView 内部处理，
-  // App.vue 绝不越权拦截或触发任何自动开单！
   if (activeTab.value === 'desk') {
     return
   }
@@ -619,13 +603,12 @@ const handleGlobalKeydown = (e) => {
   }
   if (deleteTxModalVisible.value) {
     e.preventDefault()
-    confirmDeleteTx()
+    confirmDateTx()
     return
   }
 }
 
 onMounted(() => {
-  // 时钟的 interval 由 useClock 自行注册与清理
   fetchParts(); fetchClients(); fetchTransactions(); fetchQuotations(); fetchDashboardStats(); fetchBcvRate()
   window.addEventListener('keydown', handleGlobalKeydown)
 })

@@ -25,7 +25,7 @@
       </button>
     </div>
 
-    <!-- 导航菜单列表（分组标题 + 分隔线模式） -->
+    <!-- 导航菜单列表 -->
     <nav class="flex-1 px-4 py-4 space-y-4 overflow-y-auto">
       <div v-for="(group, groupIndex) in groupedMenuItems" :key="groupIndex" class="space-y-1">
         <!-- 分组标题 -->
@@ -96,33 +96,32 @@ const handleMenuClick = (key) => {
 }
 
 const groupedMenuItems = computed(() => {
-  // 🌟 精简合并后的 4 大业务组（去除了冗余单列，移除了单独的仓库与历史报价入口）
   const groups = [
     {
-      title: '核心概览',
+      title: t.value.groupCore || '核心概览',
       items: [
         { key: 'dashboard', labelKey: 'menuDashboard', icon: LayoutDashboard },
         { key: 'financial', labelKey: 'menuFinancial', icon: TrendingUp, adminOnly: true },
       ]
     },
     {
-      title: '仓储与商品',
+      title: t.value.groupWarehouse || '仓储与商品',
       items: [
-        { key: 'parts', labelKey: 'menuParts', icon: Package }, // 内部包含 Tab 切换：商品库存明细 & 仓库与库位
+        { key: 'parts', labelKey: 'menuParts', icon: Package },
       ]
     },
     {
-      title: '销售与业务',
+      title: t.value.groupSales || '销售与业务',
       items: [
         { key: 'clients', labelKey: 'menuClients', icon: Users },
         { key: 'procurement', labelKey: 'menuProcurement', icon: ShoppingCart },
         { key: 'transactions', labelKey: 'menuTrans', icon: History },
-        { key: 'desk', labelKey: 'menuDesk', icon: Calculator }, // 内部包含 Tab 切换：快速开单台 & 历史报价单据
+        { key: 'desk', labelKey: 'menuDesk', icon: Calculator },
         { key: 'cash_register', labelKey: 'menuCashRegister', icon: Calculator },
       ]
     },
     {
-      title: '系统与管理',
+      title: t.value.groupSystem || '系统与管理',
       items: [
         { key: 'staff', labelKey: 'menuStaff', icon: ShieldCheck, adminOnly: true },
         { key: 'audit_logs', labelKey: 'menuAuditLogs', icon: ShieldAlert, adminOnly: true },
