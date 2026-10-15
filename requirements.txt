@@ -1,0 +1,26 @@
+# Tostiyk ERP — 后端依赖（Python 3.12+，已在 3.14 验证）
+# 安装： python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+# 全部升级： .venv/bin/pip install -U -r requirements.txt
+
+# --- Web 框架 ---
+fastapi==0.143.0
+uvicorn==0.54.0
+python-multipart==0.0.32        # Form / UploadFile 解析（缺少会导致启动即报错）
+
+# --- ORM / 数据校验 ---
+sqlmodel==0.0.48
+SQLAlchemy==2.1.4
+pydantic==2.14.0
+
+# --- 外部数据抓取（BCV 汇率）---
+requests==2.34.2
+beautifulsoup4==4.15.0
+curl_cffi==0.16.3
+
+# --- PDF 报价单生成 ---
+reportlab==5.0.1
+
+# --- 测试（生产部署可不装）---
+pytest==9.1.1
+pytest-cov==7.1.0
+httpx==0.28.1                   # fastapi.testclient 依赖

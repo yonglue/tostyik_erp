@@ -1,0 +1,63 @@
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# ---------- 数据库（运行期数据，通过 backups/ 或 /api/backup/download 备份）----------
+*.db
+*.sqlite
+*.sqlite3
+
+# ---------- 上传的用户文件（配件图片 / 生成的报价单 PDF）----------
+uploads/*
+!uploads/.gitkeep
+
+# ---------- 本地备份归档（保留在磁盘，但不进版本库）----------
+backups/
+
+# ---------- 大体积二进制资源 ----------
+# 华文细黑字体 55MB，PDF 中文渲染依赖它；如需随仓库分发请用: git add -f "STHeiti Light.ttc"
+*.ttc
+*.ttf
+*.otf
+
+# ---------- 前端 ----------
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+
+# ---------- 自动生成的密钥（未配 TK_JWT_SECRET 时由程序落盘）----------
+.jwt_secret
+
+# ---------- 环境变量与密钥 ----------
+# 只忽略含真实密钥的 .env 及本地覆盖文件；
+# .env.example / frontend/.env.development / frontend/.env.production 需入库
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ---------- 编辑器 / 操作系统 ----------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# ---------- 日志 / 临时文件 ----------
+*.log
+logs/
+*.tmp
