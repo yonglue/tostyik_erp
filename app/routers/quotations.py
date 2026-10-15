@@ -56,11 +56,8 @@ def generate_and_save_quotation(
     if not client_obj and client_name != "Cliente General":
         client_obj = Client(name=client_name, client_type="Regular", debt=0.0)
         session.add(client_obj)
-        # 只 flush 取 id：新客户也并入本单事务，开单失败时不会留下孤立客户档案
         session.flush()
 
-    # 库存变动先只做扣减、不写审计日志：log_action 内部会 session.commit()，
-    # 若在循环里调用，会把前面几件的扣减提前提交，导致后续某件校验失败时无法整体回滚。
     stock_logs: list[tuple[str, str, int, int]] = []
 
     for item in payload.items:
@@ -77,9 +74,6 @@ def generate_and_save_quotation(
         old_stock = part.stock
         new_stock = old_stock - item.quantity
 
-        # ⚠️ SQLite 不支持 SELECT ... FOR UPDATE（with_for_update 会被静默忽略），
-        # 因此"先读库存再写库存"存在并发超卖竞态：5 人抢 1 件可能多人同时成功。
-        # 改为原子条件更新 + 校验影响行数。
         result = session.exec(
             update(AutoPart)
             .where(AutoPart.oem == item.oem, AutoPart.stock >= item.quantity)
@@ -108,7 +102,6 @@ def generate_and_save_quotation(
     if client_obj and (is_fiado or payload.payment_method in ["Fiado_Debt", "Fiado", "赊账", "挂账", "Debt"]):
         projected_debt = client_obj.debt + total_usd
         if projected_debt > client_obj.credit_limit:
-            # 必须回滚：此时本单的库存扣减还未提交，不回滚就会变成"拒单但扣了库存"
             session.rollback()
             raise HTTPException(
                 status_code=400,
@@ -118,7 +111,6 @@ def generate_and_save_quotation(
                     f"(${client_obj.credit_limit:.2f})，拒绝挂账！"
                 ),
             )
-        # 带额度守卫的原子自增：并发挂账时由数据库保证不会突破信用上限
         claimed = session.exec(
             update(Client)
             .where(
@@ -138,22 +130,21 @@ def generate_and_save_quotation(
                 ),
             )
 
-    # 报价单记录也是本单的一部分，必须与库存扣减、流水、欠款同事务落库
+    # 🌟 获取前端传过来的语言并归一化处理
+    lang = normalize_lang(getattr(payload, "lang", "es"))
+
     record = QuotationRecord(
         quotation_no=quotation_no,
         client_name=client_name,
         total_usd=total_usd,
         total_bs=total_bs,
         bcv_rate=bcv_rate,
-        lang=payload.lang,
+        lang=lang,
         items_json=json.dumps(items_snapshot, ensure_ascii=False),
     )
     session.add(record)
-
-    # 唯一一次提交：库存扣减 + 进销存流水 + 客户欠款 + 报价单记录
     session.commit()
 
-    # 数据落库之后再写审计日志（log_action 自带 commit，放前面会把业务数据提前提交）
     for part_name, item_oem, old_stock, new_stock in stock_logs:
         log_action(
             session=session,
@@ -174,8 +165,9 @@ def generate_and_save_quotation(
         ),
     )
 
-    lang = normalize_lang(getattr(payload, "lang", "es"))
     pdf_path = os.path.join(UPLOAD_DIR, f"quotation_{quotation_no}.pdf")
+    
+    # 🌟 关键修复：把动态获取的 lang 传给 PDF 生成函数！
     build_quotation_pdf(
         pdf_path=pdf_path,
         quotation_no=quotation_no,
@@ -195,8 +187,33 @@ def generate_and_save_quotation(
 
 
 @router.get("/api/quotation/pdf/download")
-def download_existing_pdf():
-    """返回 uploads 目录下最新生成的一份报价单 PDF。"""
+def download_existing_pdf(quotation_no: str = None, session: Session = Depends(get_session)):
+    """支持按单号下载对应语言的 PDF，如果未传单号则降级返回最新的 PDF。"""
+    if quotation_no:
+        record = session.exec(select(QuotationRecord).where(QuotationRecord.quotation_no == quotation_no)).first()
+        if record:
+            pdf_path = os.path.join(UPLOAD_DIR, f"quotation_{quotation_no}.pdf")
+            # 如果对应单号的 PDF 不存在或者需要用正确的语言重新生成
+            if not os.path.exists(pdf_path):
+                import json
+                items_data = json.loads(record.items_json)
+                from app.schemas import QuotationItemPayload
+                items = [QuotationItemPayload(**i) for i in items_data]
+                client_obj = session.exec(select(Client).where(Client.name == record.client_name)).first()
+                build_quotation_pdf(
+                    pdf_path=pdf_path,
+                    quotation_no=record.quotation_no,
+                    client_name=record.client_name,
+                    client_obj=client_obj,
+                    items=items,
+                    total_usd=record.total_usd,
+                    total_bs=record.total_bs,
+                    lang=normalize_lang(record.lang),
+                )
+            if os.path.exists(pdf_path):
+                return FileResponse(pdf_path, media_type="application/pdf", filename=f"Quotation_{quotation_no}.pdf")
+
+    # 降级逻辑：返回最新的 PDF
     files = [f for f in os.listdir(UPLOAD_DIR) if f.startswith("quotation_") and f.endswith(".pdf")]
     if files:
         files.sort(key=lambda x: os.path.getmtime(os.path.join(UPLOAD_DIR, x)), reverse=True)
@@ -204,3 +221,7 @@ def download_existing_pdf():
         return FileResponse(latest_pdf, media_type="application/pdf", filename="Tostiyk_Quotation.pdf")
 
     raise HTTPException(status_code=404, detail="PDF 文件不存在")
+
+
+
+    

@@ -34,11 +34,11 @@ class QuotationItemPayload(BaseModel):
 
 
 class CreateQuotationRequest(BaseModel):
-    client_name: str = "Cliente General"
-    lang: str = "es"
+    client_name: Optional[str] = "Cliente General"
+    lang: Optional[str] = "es"
     payment_method: Optional[str] = "Cash_USD"
     payment_reference: Optional[str] = ""
-    items: List[QuotationItemPayload]
+    items: List[QuotationItemPayload]  # 🌟 修复：将 QuotationItem 改为正确定义的 QuotationItemPayload
 
 
 # ──────────────────────────── 客户还款 ────────────────────────────

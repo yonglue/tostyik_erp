@@ -228,7 +228,9 @@ const translations = {
     groupSystem: "Sistema y Gestión",
     logoutBtn: "Cerrar Sesión",
     menuStaff: "Gestión de Personal",
-    menuAuditLogs: "Registros de Auditoría"  
+    menuAuditLogs: "Registros de Auditoría",
+    posSearchOrderPlaceholder: "Buscar por N° de pedido o cliente...",
+    btnClearFilter: "Limpiar filtros"
   },
   zh: {
     menuDashboard: "数据看板",
@@ -450,7 +452,9 @@ const translations = {
     groupSystem: "系统与管理",
     logoutBtn: "退出登录",
     menuStaff: "员工权限管理",
-    menuAuditLogs: "系统审计日志"  
+    menuAuditLogs: "系统审计日志",
+    posSearchOrderPlaceholder: "输入订单编号 / 客户名称搜索...",
+    btnClearFilter: "清除筛选"
   },
   en: {
     menuDashboard: "Dashboard",
@@ -646,7 +650,9 @@ const translations = {
     groupSystem: "System & Management",
     logoutBtn: "Logout",
     menuStaff: "Staff Management",
-    menuAuditLogs: "Audit Logs"
+    menuAuditLogs: "Audit Logs",
+    posSearchOrderPlaceholder: "Search by order no. or client...",
+    btnClearFilter: "Clear Filters"
   }
 }
 
