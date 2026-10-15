@@ -76,7 +76,6 @@
             @navigate="(tab) => activeTab = tab" 
           />
           <FinancialView v-else-if="activeTab === 'financial'" />
-          <WarehouseView v-else-if="activeTab === 'warehouse'" :partsList="partsList" />
           <StaffManagementView v-else-if="activeTab === 'staff'" />
           <AuditLogsView v-else-if="activeTab === 'audit_logs'" />
           <CashRegisterView v-else-if="activeTab === 'cash_register'" />
@@ -99,7 +98,7 @@
             @open-add-client="clientDialogVisible = true"
             @delete-client="openDeleteClientModal"
           />
-          <!-- 🌟 采购订单与收货管理模块 -->
+          <!-- 🌟 挂载我们全新合并后的采购与供应链中心组件 -->
           <PurchaseOrdersView 
             v-else-if="activeTab === 'procurement'"
           />
@@ -122,13 +121,6 @@
             @generate-quote="generateAndArchiveQuote"
             @exit-pos="activeTab = 'dashboard'"
             @clear-cart="cartItems = []"
-          />
-          <QuotationsView 
-            v-else-if="activeTab === 'quotations'"
-            :quotationsList="quotationsList"
-            @export-quotations="exportQuotationsExcel"
-            @download-pdf="downloadExistingPdf"
-            @delete-quote="openDeleteModal"
           />
           <BackupView 
             v-else-if="activeTab === 'backup'"
@@ -347,11 +339,11 @@ const PartsView = defineAsyncComponent(() => import('./components/PartsView.vue'
 const ClientsView = defineAsyncComponent(() => import('./components/ClientsView.vue'))
 const TransactionsView = defineAsyncComponent(() => import('./components/TransactionsView.vue'))
 const QuotationDeskView = defineAsyncComponent(() => import('./components/QuotationDeskView.vue'))
-const QuotationsView = defineAsyncComponent(() => import('./components/QuotationsView.vue'))
 const BackupView = defineAsyncComponent(() => import('./components/BackupView.vue'))
-const WarehouseView = defineAsyncComponent(() => import('./components/WarehouseView.vue'))
 const AuditLogsView = defineAsyncComponent(() => import('./components/AuditLogsView.vue'))
-const PurchaseOrdersView = defineAsyncComponent(() => import('./components/PurchaseOrdersView.vue'))
+// 🌟 引入我们全新合并后的 ProcurementCenterView 组件，并命名为 PurchaseOrdersView 供 activeTab 使用
+const PurchaseOrdersView = defineAsyncComponent(() => import('./components/ProcurementCenterView.vue'))
+
 import { apiFetch, apiUrl } from './utils/api'
 import { useAuth } from './composables/useAuth'
 import { useNotifications } from './composables/useNotifications'
