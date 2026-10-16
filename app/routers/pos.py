@@ -229,3 +229,53 @@ def delete_held_order(
     session.delete(held)
     session.commit()
     return {"status": "success", "message": "挂单已成功清除"}
+
+# ==========================================
+# 🌟 收银员交接班与盲盘点钞归档 API
+# ==========================================
+
+@router.post("/api/pos/shift-handover")
+def create_shift_handover(
+    payload: dict,
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("pos:access"))
+):
+    shift_no = f"SHIFT-{int(datetime.now().timestamp())}"
+    
+    actual_cash = float(payload.get("actual_cash_usd", 0.0))
+    system_cash = float(payload.get("system_cash_usd", 0.0))
+    difference = actual_cash - system_cash
+
+    record = ShiftRecord(
+        shift_no=shift_no,
+        operator=actor.username,
+        start_time=payload.get("start_time", "今天开业"),
+        end_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        system_cash_usd=system_cash,
+        system_electronic_usd=float(payload.get("system_electronic_usd", 0.0)),
+        system_debt_usd=float(payload.get("system_debt_usd", 0.0)),
+        system_total_usd=float(payload.get("system_total_usd", 0.0)),
+        actual_cash_usd=actual_cash,
+        difference_usd=difference,
+        notes=payload.get("notes", "")
+    )
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    
+    log_action(
+        session, 
+        actor.username, 
+        actor.role, 
+        "SHIFT_HANDOVER", 
+        f"完成收银交接班, 班次: {shift_no}, 实盘现金: ${actual_cash:.2f}, 盈亏差额: ${difference:.2f}"
+    )
+
+    return {
+        "status": "success", 
+        "shift_no": shift_no, 
+        "difference": difference,
+        "message": "交接班归档成功"
+    }
+
+

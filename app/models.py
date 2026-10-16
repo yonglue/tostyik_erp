@@ -303,3 +303,28 @@ class HeldOrder(SQLModel, table=True):
     total_amount: float               # 订单总金额
     timestamp: str                    # 挂单时间文本
 
+
+
+# ══════════════════════════ 收银交接班审计表 ══════════════════════════
+class ShiftRecord(SQLModel, table=True):
+    """收银员交接班盲盘点钞与盈亏审计记录。"""
+
+    __tablename__ = "shift_records"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    shift_no: str = Field(index=True)     # 班次流水号，如 SHIFT-17290001
+    operator: str                         # 交班收银员
+    start_time: str                       # 班次开始时间
+    end_time: str                         # 交班时间
+    
+    # 系统统计值
+    system_cash_usd: float                # 系统应收现金
+    system_electronic_usd: float          # 系统电子支付（Zelle/PagoMovil）
+    system_debt_usd: float                # 本班挂账
+    system_total_usd: float               # 本班总营业额
+    
+    # 实盘与盈亏
+    actual_cash_usd: float                # 实盘现金
+    difference_usd: float                 # 现金盈亏差额
+    notes: Optional[str] = Field(default="")  # 盈亏原因备注
+

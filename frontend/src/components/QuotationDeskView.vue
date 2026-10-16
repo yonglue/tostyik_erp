@@ -29,7 +29,7 @@
         </button>
         <!-- 今日班结报表按钮 -->
         <button @click="openShiftReportModal" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs">
-          <span>📊 {{ t.posShiftReport || '今日班结 (Z-Report)' }}</span>
+          <span>📊 {{ t.posShiftReport || '收银交接班 (Shift)' }}</span>
         </button>
         <!-- 快捷键指南按钮 -->
         <button @click="helpModalVisible = true" class="bg-blue-50/80 hover:bg-blue-100 text-blue-600 border border-blue-200/60 px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs">
@@ -308,7 +308,7 @@
       @return="processReturnOrder"
     />
 
-    <!-- 🌟 云端挂单池/取单大厅弹窗 Modal -->
+    <!-- 云端挂单池/取单大厅弹窗 Modal -->
     <div v-if="recallModalVisible" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden border border-slate-100 flex flex-col max-h-[80vh]">
         <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -350,64 +350,84 @@
       </div>
     </div>
 
-    <!-- 今日班结报表 Modal (Z-Report) -->
+    <!-- 📊 升级版：收银交接班与盘点向导 Modal (Shift Handover) -->
     <div v-if="shiftReportModalVisible" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+      <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
         <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
           <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
-            <span>📊 {{ t.posZReportTitle || '今日班结营业汇总 (Z-Report)' }}</span>
+            <span>📊 收银交接班与营业汇总 (Shift Handover)</span>
           </h3>
           <button @click="shiftReportModalVisible = false" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 cursor-pointer">✕</button>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-6 space-y-4 font-mono text-xs bg-slate-50/40">
-          <div class="text-center pb-3 border-b border-dashed border-slate-300 space-y-1">
-            <div class="font-black text-sm text-slate-900">{{ systemConfig.company_name || 'TOSTIKYK ERP' }}</div>
-            <div class="text-[10px] text-slate-500">RIF: {{ systemConfig.rif }}</div>
-            <div class="text-[10px] text-slate-500">Operator: {{ currentUser?.username || 'admin' }}</div>
-            <div class="text-[10px] text-slate-500">Time: {{ currentDateTime }}</div>
-          </div>
-
-          <div class="space-y-2.5 pb-3 border-b border-dashed border-slate-300 text-slate-700">
-            <div class="flex justify-between font-bold">
-              <span>{{ t.posChannel || 'Método de Pago' }}</span>
-              <span>{{ t.posCountOrAmount || 'Cant. / Monto (USD)' }}</span>
+        <div class="flex-1 overflow-y-auto p-6 space-y-5 text-xs bg-slate-50/40">
+          
+          <!-- 1. 系统统计应收 (独立拆分 Zelle 与 Pago Móvil) -->
+          <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-2.5 shadow-2xs font-mono">
+            <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">
+              1. 系统统计应收 (System Snapshot)
             </div>
-            <div class="flex justify-between">
-              <span>💵 Cash USD</span>
-              <span class="font-bold">${{ shiftStats.cashUsd.amount.toFixed(2) }} ({{ shiftStats.cashUsd.count }} pedidos)</span>
+            <div class="flex justify-between items-center text-slate-700">
+              <span>💵 现金应收 (Cash USD):</span>
+              <span class="font-bold text-slate-900">$ {{ shiftStats.cashUsd.amount.toFixed(2) }} ({{ shiftStats.cashUsd.count }} 笔)</span>
             </div>
-            <div class="flex justify-between">
-              <span>📱 Zelle</span>
-              <span class="font-bold">${{ shiftStats.zelle.amount.toFixed(2) }} ({{ shiftStats.zelle.count }} pedidos)</span>
+            <div class="flex justify-between items-center text-slate-700">
+              <span>📱 Zelle (USD):</span>
+              <span class="font-bold text-blue-600">$ {{ shiftStats.zelle.amount.toFixed(2) }} ({{ shiftStats.zelle.count }} 笔)</span>
             </div>
-            <div class="flex justify-between">
-              <span>⚡ Pago Móvil</span>
-              <span class="font-bold">${{ shiftStats.pagoMovil.amount.toFixed(2) }} ({{ shiftStats.pagoMovil.count }} pedidos)</span>
+            <div class="flex justify-between items-center text-slate-700">
+              <span>⚡ Pago Móvil (Bs.折合 USD):</span>
+              <span class="font-bold text-indigo-600">$ {{ shiftStats.pagoMovil.amount.toFixed(2) }} ({{ shiftStats.pagoMovil.count }} 笔)</span>
             </div>
-            <div class="flex justify-between">
-              <span>📋 {{ t.posFiado || 'A Crédito (Fiado)' }}</span>
-              <span class="font-bold">${{ shiftStats.fiado.amount.toFixed(2) }} ({{ shiftStats.fiado.count }} pedidos)</span>
+            <div class="flex justify-between items-center text-slate-700">
+              <span>📋 本班挂账 (Fiado):</span>
+              <span class="font-bold text-amber-600">$ {{ shiftStats.fiado.amount.toFixed(2) }} ({{ shiftStats.fiado.count }} 笔)</span>
+            </div>
+            <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-sm font-black">
+              <span class="text-slate-900">系统总营业额 (USD):</span>
+              <span class="text-emerald-600">$ {{ shiftStats.totalUsd.toFixed(2) }}</span>
             </div>
           </div>
 
-          <div class="space-y-1.5 text-right">
-            <div class="text-slate-500 text-[11px]">{{ t.posTotalBsEquivalent || '总计折合 Bs.' }} (BCV: {{ bcvRate }})</div>
-            <div class="text-lg font-black text-emerald-600">
-              Bs. {{ (shiftStats.totalUsd * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+          <!-- 2. 抽屉现金盲盘点钞 -->
+          <div class="bg-blue-50/60 p-4 rounded-2xl border border-blue-200/80 space-y-3 font-mono">
+            <div class="text-[11px] font-bold text-blue-800 uppercase tracking-wider border-b border-blue-200/60 pb-2">
+              2. 抽屉现金盲盘点钞 (Blind Count)
             </div>
-            <div class="text-xl font-black text-slate-900 pt-1">
-              Total USD: ${{ shiftStats.totalUsd.toFixed(2) }} ({{ shiftStats.totalCount }} orders)
+            <div class="flex justify-between items-center">
+              <span class="font-semibold text-blue-900">实盘点清的美元现金 (USD):</span>
+              <input 
+                v-model.number="actualCashInput" 
+                type="number" 
+                step="0.5" 
+                placeholder="0.00" 
+                class="w-32 bg-white border border-blue-300 rounded-xl px-3 py-2 text-right font-mono text-sm outline-none focus:border-blue-500 font-bold text-slate-900"
+              />
+            </div>
+
+            <div class="pt-2 border-t border-blue-200/60 flex justify-between items-center text-sm">
+              <span class="font-bold text-slate-700">现金盈亏差额 (Diferencia):</span>
+              <span :class="cashDifference === 0 ? 'text-emerald-600' : (cashDifference > 0 ? 'text-blue-600' : 'text-rose-600')" class="font-black font-mono">
+                {{ cashDifference >= 0 ? '+' : '' }}$ {{ cashDifference.toFixed(2) }}
+                <span class="text-[10px] ml-1">({{ cashDifference === 0 ? '✅ 平账' : (cashDifference > 0 ? '📈 盈余' : '⚠️ 亏损') }})</span>
+              </span>
             </div>
           </div>
+
+          <!-- 3. 盈亏备注 -->
+          <div v-if="cashDifference !== 0" class="space-y-1.5">
+            <label class="block font-semibold text-slate-500 uppercase">盈亏原因备注 (必需说明原因)</label>
+            <input v-model="handoverNotes" type="text" placeholder="例如：找零误差、老客户抹零等..." class="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500" />
+          </div>
+
         </div>
 
         <div class="p-4 bg-white border-t border-slate-100 flex gap-3">
           <button @click="shiftReportModalVisible = false" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-colors cursor-pointer">
             {{ t.btnCancel }}
           </button>
-          <button @click="showToast('🖨️ 班结小票已发送物理打印！', 'success')" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black shadow-md shadow-emerald-600/20 transition-colors cursor-pointer flex items-center justify-center gap-1.5">
-            <span>🖨️ {{ t.posPrintShift || '打印交班小票' }}</span>
+          <button @click="submitShiftHandover" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black shadow-md shadow-emerald-600/20 transition-colors cursor-pointer flex items-center justify-center gap-1.5">
+            <span>🔒 确认交班并锁定锁班</span>
           </button>
         </div>
       </div>
@@ -654,6 +674,40 @@ const shiftStats = ref({
   totalCount: 0
 })
 
+// 🌟 交接班盲盘点钞状态
+const actualCashInput = ref(0)
+const handoverNotes = ref('')
+
+const systemCashUsd = computed(() => shiftStats.value.cashUsd.amount)
+const cashDifference = computed(() => Number((actualCashInput.value - systemCashUsd.value).toFixed(2)))
+
+const submitShiftHandover = async () => {
+  try {
+    const payload = {
+      system_cash_usd: systemCashUsd.value,
+      system_electronic_usd: shiftStats.value.zelle.amount + shiftStats.value.pagoMovil.amount,
+      system_debt_usd: shiftStats.value.fiado.amount,
+      system_total_usd: shiftStats.value.totalUsd,
+      actual_cash_usd: actualCashInput.value,
+      notes: handoverNotes.value
+    }
+
+    const res = await apiFetch('/api/pos/shift-handover', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    })
+
+    if (!res.ok) throw new Error('交接班归档失败')
+
+    showToast('🔒 交接班成功，班次已成功锁定归档！', 'success')
+    shiftReportModalVisible.value = false
+    actualCashInput.value = 0
+    handoverNotes.value = ''
+  } catch (err) {
+    showToast('❌ ' + (err.message || '交接班请求异常'), 'error')
+  }
+}
+
 const previewModalVisible = ref(false)
 const helpModalVisible = ref(false)
 
@@ -869,7 +923,42 @@ const fetchCompletedOrders = async () => {
   try {
     const res = await apiFetch('/api/pos/orders')
     if (!res.ok) throw new Error('获取历史订单失败')
-    completedOrders.value = await res.json()
+    const ordersData = await res.json()
+    completedOrders.value = ordersData
+
+    // 自动计算班结/交接班各项统计
+    let cUsd = 0, cCount = 0
+    let zUsd = 0, zCount = 0
+    let pUsd = 0, pCount = 0
+    let fUsd = 0, fCount = 0
+    let tUsd = 0
+
+    ordersData.forEach(o => {
+      tUsd += o.totalUsd
+      if (o.paymentMethod === 'Cash_USD') {
+        cUsd += o.totalUsd
+        cCount++
+      } else if (o.paymentMethod === 'Zelle') {
+        zUsd += o.totalUsd
+        zCount++
+      } else if (o.paymentMethod === 'Pago_Movil') {
+        pUsd += o.totalUsd
+        pCount++
+      } else if (o.paymentMethod === 'Fiado_Debt') {
+        fUsd += o.totalUsd
+        fCount++
+      }
+    })
+
+    shiftStats.value = {
+      cashUsd: { amount: cUsd, count: cCount },
+      zelle: { amount: zUsd, count: zCount },
+      pagoMovil: { amount: pUsd, count: pCount },
+      fiado: { amount: fUsd, count: fCount },
+      totalUsd: tUsd,
+      totalCount: ordersData.length
+    }
+    actualCashInput.value = cUsd // 默认实盘等于系统应收现金，方便平账微调
   } catch (err) {
     console.error('获取历史订单失败:', err)
   }
@@ -912,7 +1001,8 @@ const executeReturnOrder = async () => {
   }
 }
 
-const openShiftReportModal = () => {
+const openShiftReportModal = async () => {
+  await fetchCompletedOrders()
   shiftReportModalVisible.value = true
 }
 
