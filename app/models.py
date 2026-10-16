@@ -290,3 +290,16 @@ __all__ = [
     "StaffUser",
     "AuditLog",
 ]
+
+
+class HeldOrder(SQLModel, table=True):
+    __tablename__ = "held_orders"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    hold_no: str = Field(index=True)  # 挂单编号，如 HOLD-17290001
+    client_name: str                  # 客户名称
+    payment_method: str               # 支付方式
+    items_json: str                   # 购物车商品明细 JSON 串
+    total_amount: float               # 订单总金额
+    timestamp: str                    # 挂单时间文本
+

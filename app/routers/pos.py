@@ -1,4 +1,4 @@
-"""POS 收银：下单（扣库存 + 落订单）/ 历史订单 / 退货回滚。"""
+"""POS 收银：下单（扣库存 + 落订单）/ 历史订单 / 退货回滚 / 云端挂单。"""
 
 from datetime import datetime
 
@@ -8,10 +8,11 @@ from sqlmodel import Session, select, update
 
 from app.database import get_session
 from app.deps import Actor, get_current_actor, RequirePermission
-from app.models import AutoPart, Client, InventoryTransaction, Order, OrderItem
+from app.models import AutoPart, Client, InventoryTransaction, Order, OrderItem, HeldOrder
 from app.schemas import POSOrderCreatePayload
 from app.services.numbering import make_order_no
 from app.services.audit import log_action
+import json
 
 router = APIRouter(tags=["POS 收银"])
 
@@ -44,8 +45,7 @@ def create_pos_order(
         if not part:
             raise HTTPException(status_code=404, detail=f"商品 {item.oem} 不存在")
 
-        # ⚠️ 同 quotations.py：SQLite 会静默忽略 with_for_update()，
-        # 必须用原子条件更新来避免并发超卖。
+        # ⚠️ SQLite 会静默忽略 with_for_update()，必须用原子条件更新来避免并发超卖。
         result = session.exec(
             update(AutoPart)
             .where(AutoPart.oem == item.oem, AutoPart.stock >= item.quantity)
@@ -78,10 +78,6 @@ def create_pos_order(
         status="COMPLETED",
     )
     session.add(new_order)
-    # 只 flush，不 commit：INSERT 在本事务内执行并回填主键，从而拿到 new_order.id，
-    # 但库存扣减 / 流水 / 订单明细 / 客户欠款全部留在同一个事务里，
-    # 由下面唯一一次 commit 原子落库。
-    # （历史实现此处是 commit，导致第二次提交失败时会留下"有主表、无明细"的脏订单。）
     session.flush()
 
     # 写入订单明细表
@@ -97,7 +93,6 @@ def create_pos_order(
 
     # 挂账则同步累加客户欠款
     if _is_debt_payment(payload.payment_method):
-        # SQL 级自增，避免同一客户并发挂账时丢失更新
         session.exec(
             update(Client)
             .where(Client.name == client_name)
@@ -113,7 +108,7 @@ def create_pos_order(
 @router.get("/api/pos/orders")
 def get_pos_orders(
     session: Session = Depends(get_session),
-    actor: Actor = Depends(RequirePermission("pos:access"))  # 🛡️ 校验查看收银历史权限
+    actor: Actor = Depends(RequirePermission("pos:access"))
 ):
     orders = session.exec(select(Order).order_by(Order.id.desc())).all()
     result = []
@@ -143,16 +138,13 @@ def get_pos_orders(
 @router.post("/api/pos/orders/{order_id}/refund")
 def refund_pos_order(
     order_id: int,
-    actor: Actor = Depends(RequirePermission("transactions:history")),  # 🛡️ 退货回滚需要流水与单据操作权限
+    actor: Actor = Depends(RequirePermission("transactions:history")),
     session: Session = Depends(get_session),
 ):
     order = session.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
 
-    # 原子地抢占"退货权"：用带条件的 UPDATE 代替"先读 status 再判断"。
-    # 并发发起多次退货时，只有第一个事务能把 status 从非 REFUNDED 改成 REFUNDED，
-    # 其余的 rowcount 为 0 —— 否则会重复回滚库存（实测库存 7 -> 13）。
     claimed = session.exec(
         update(Order)
         .where(Order.id == order_id, Order.status != "REFUNDED")
@@ -162,9 +154,7 @@ def refund_pos_order(
         session.rollback()
         raise HTTPException(status_code=400, detail="该订单已经退货，请勿重复操作")
 
-    # 回滚库存并写入退货流水
     for item in order.items:
-        # 原子自增，避免与其它出入库并发时丢失更新
         session.exec(
             update(AutoPart)
             .where(AutoPart.oem == item.oem)
@@ -181,9 +171,7 @@ def refund_pos_order(
             customer_or_supplier=f"退货回滚-{order.client_name}",
         ))
 
-    # 挂账订单需扣减客户欠款
     if _is_debt_payment(order.payment_method):
-        # SQL 级 max(0, debt - amount)：同一客户的多张挂账单被并发退货时不会丢失更新
         session.exec(
             update(Client)
             .where(Client.name == order.client_name)
@@ -194,3 +182,50 @@ def refund_pos_order(
 
     log_action(session, actor.username, actor.role, "POS_REFUND", f"执行POS退货, 单号: {order.order_no}")
     return {"status": "success", "message": f"订单 {order.order_no} 已成功退货并回滚库存！"}
+
+
+# ==========================================
+# 🌟 云端挂单与取单 API 接口
+# ==========================================
+
+@router.get("/api/held-orders")
+def get_held_orders(
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("pos:access"))
+):
+    return session.exec(select(HeldOrder).order_by(HeldOrder.id.desc())).all()
+
+
+@router.post("/api/held-orders")
+def create_held_order(
+    payload: dict,
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("pos:access"))
+):
+    hold_no = f"HOLD-{int(datetime.now().timestamp())}"
+    held = HeldOrder(
+        hold_no=hold_no,
+        client_name=payload.get("client_name", "Cliente General"),
+        payment_method=payload.get("payment_method", "Cash_USD"),
+        items_json=json.dumps(payload.get("items", [])),
+        total_amount=float(payload.get("total_amount", 0.0)),
+        timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    )
+    session.add(held)
+    session.commit()
+    session.refresh(held)
+    return {"status": "success", "held_order": held}
+
+
+@router.delete("/api/held-orders/{order_id}")
+def delete_held_order(
+    order_id: int,
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("pos:access"))
+):
+    held = session.get(HeldOrder, order_id)
+    if not held:
+        raise HTTPException(status_code=404, detail="挂单记录不存在")
+    session.delete(held)
+    session.commit()
+    return {"status": "success", "message": "挂单已成功清除"}

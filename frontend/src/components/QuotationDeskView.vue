@@ -16,9 +16,9 @@
         <span class="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-lg font-mono font-bold">POS v1.0</span>
         <span class="text-sm font-semibold text-slate-700">📅 {{ currentDateTime }}</span>
         <span class="text-xs text-emerald-600 font-mono font-bold">{{ t.bcvLabel }}: {{ bcvRate }}</span>
-        <!-- 挂单池徽标 -->
+        <!-- 🌟 云端挂单池徽标 -->
         <button v-if="heldOrders.length > 0" @click="openRecallModal" class="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
-          <span>📦 {{ t.posHoldPool || '挂单池' }} ({{ heldOrders.length }}) [Ctrl+R]</span>
+          <span>📦 {{ t.posHoldPool || '云端挂单池' }} ({{ heldOrders.length }}) [Ctrl+R]</span>
         </button>
       </div>
       
@@ -281,7 +281,7 @@
           <span class="bg-blue-100 text-blue-700 font-mono font-bold px-2 py-0.5 rounded">Ctrl+F</span>
         </div>
         <div @click="holdCurrentOrder" class="bg-slate-50 hover:bg-amber-50 border border-slate-200 rounded-xl px-3 py-2 flex items-center justify-between text-xs cursor-pointer transition-colors">
-          <span class="text-slate-600 font-medium">{{ t.posKeyHold || '挂单暂存' }}</span>
+          <span class="text-slate-600 font-medium">{{ t.posKeyHold || '云端挂单' }}</span>
           <span class="bg-amber-100 text-amber-700 font-mono font-bold px-2 py-0.5 rounded">Ctrl+H</span>
         </div>
         <div @click="$emit('clear-cart')" class="bg-slate-50 hover:bg-rose-50 border border-slate-200 rounded-xl px-3 py-2 flex items-center justify-between text-xs cursor-pointer transition-colors">
@@ -308,34 +308,37 @@
       @return="processReturnOrder"
     />
 
-    <!-- 挂单池/取单弹窗 Modal -->
+    <!-- 🌟 云端挂单池/取单大厅弹窗 Modal -->
     <div v-if="recallModalVisible" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 flex flex-col max-h-[80vh]">
+      <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden border border-slate-100 flex flex-col max-h-[80vh]">
         <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
-            <span>📦 {{ t.posHoldPoolTitle || '挂单恢复池' }} (共 {{ heldOrders.length }} 单)</span>
+            <span>📦 {{ t.posHoldPoolTitle || '云端挂单恢复大厅' }} (共 {{ heldOrders.length }} 单)</span>
           </h3>
           <button @click="recallModalVisible = false" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 cursor-pointer">✕</button>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-4 space-y-2">
-          <div v-for="(order, index) in heldOrders" :key="index" class="p-4 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-blue-50/40 transition-all flex items-center justify-between">
+        <div class="flex-1 overflow-y-auto p-4 space-y-3">
+          <div v-for="(order, index) in heldOrders" :key="order.id" class="p-4 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-blue-50/40 transition-all flex items-center justify-between">
             <div class="space-y-1">
               <div class="font-bold text-sm text-slate-800 flex items-center gap-2">
-                <span>👤 {{ order.clientName || '散客' }}</span>
-                <span class="text-xs font-mono bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Items: {{ order.items.length }}</span>
+                <span class="font-mono text-blue-600">{{ order.hold_no }}</span>
+                <span>👤 {{ order.client_name || '散客' }}</span>
               </div>
-              <div class="text-xs text-slate-400 font-mono">{{ t.posHoldTime || '挂单时间' }}: {{ order.time }}</div>
+              <div class="text-xs text-slate-400 font-mono">挂单时间: {{ order.timestamp }}</div>
             </div>
             <div class="flex items-center gap-3">
-              <span class="text-base font-mono font-black text-slate-900">${{ order.totalUsd.toFixed(2) }}</span>
-              <button @click="recallOrder(index)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-sm">
+              <span class="text-base font-mono font-black text-slate-900">${{ order.total_amount.toFixed(2) }}</span>
+              <button @click="recallOrder(order)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-sm">
                 {{ t.posRecallBtn || '恢复取单' }}
+              </button>
+              <button @click="deleteHeldOrder(order.id)" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+                作废
               </button>
             </div>
           </div>
           <div v-if="heldOrders.length === 0" class="text-center py-12 text-slate-400 text-xs">
-            {{ t.posHoldEmpty || '当前没有暂存的挂单' }}
+            {{ t.posHoldEmpty || '当前云端挂单池为空' }}
           </div>
         </div>
 
@@ -372,19 +375,19 @@
             </div>
             <div class="flex justify-between">
               <span>💵 Cash USD</span>
-              <span class="font-bold">${{ shiftStats.cashUsd.amount.toFixed(2) }} ({{ shiftStats.cashUsd.count }} {{ t.posOrdersUnit || 'pedidos' }})</span>
+              <span class="font-bold">${{ shiftStats.cashUsd.amount.toFixed(2) }} ({{ shiftStats.cashUsd.count }} pedidos)</span>
             </div>
             <div class="flex justify-between">
               <span>📱 Zelle</span>
-              <span class="font-bold">${{ shiftStats.zelle.amount.toFixed(2) }} ({{ shiftStats.zelle.count }} {{ t.posOrdersUnit || 'pedidos' }})</span>
+              <span class="font-bold">${{ shiftStats.zelle.amount.toFixed(2) }} ({{ shiftStats.zelle.count }} pedidos)</span>
             </div>
             <div class="flex justify-between">
               <span>⚡ Pago Móvil</span>
-              <span class="font-bold">${{ shiftStats.pagoMovil.amount.toFixed(2) }} ({{ shiftStats.pagoMovil.count }} {{ t.posOrdersUnit || 'pedidos' }})</span>
+              <span class="font-bold">${{ shiftStats.pagoMovil.amount.toFixed(2) }} ({{ shiftStats.pagoMovil.count }} pedidos)</span>
             </div>
             <div class="flex justify-between">
               <span>📋 {{ t.posFiado || 'A Crédito (Fiado)' }}</span>
-              <span class="font-bold">${{ shiftStats.fiado.amount.toFixed(2) }} ({{ shiftStats.fiado.count }} {{ t.posOrdersUnit || 'pedidos' }})</span>
+              <span class="font-bold">${{ shiftStats.fiado.amount.toFixed(2) }} ({{ shiftStats.fiado.count }} pedidos)</span>
             </div>
           </div>
 
@@ -601,11 +604,11 @@ const selectedIndex = ref(0)
 const activeItemRef = ref(null)
 const exitConfirmVisible = ref(false)
 
-// 🌟 系统设置状态（公司名称、RIF、地址、电话）
+// 系统设置状态
 const systemConfig = ref({
   company_name: 'TOSTIYK (TK) - AUTOPARTES VENEZUELA',
   rif: 'J-00000000-0',
-  address: 'Valera, Estado Trujillo, Venezuela',
+  address: 'Valencia, Estado Carabobo, Venezuela',
   phone: '+58 412-0000000'
 })
 
@@ -621,18 +624,26 @@ const fetchSystemSettings = async () => {
   }
 }
 
-// 现金实收找零计算
 const cashReceivedUsd = ref(0)
 
-// 挂单池状态
+// 🌟 云端挂单池状态
 const heldOrders = ref([])
 const recallModalVisible = ref(false)
 
-// 🌟 后端持久化的已完成订单历史记录状态
+const fetchHeldOrders = async () => {
+  try {
+    const res = await apiFetch('/api/held-orders')
+    if (res.ok) {
+      heldOrders.value = await res.json()
+    }
+  } catch (e) {
+    console.error("获取云端挂单失败", e)
+  }
+}
+
 const completedOrders = ref([])
 const historyModalVisible = ref(false)
 
-// 班结报表状态
 const shiftReportModalVisible = ref(false)
 const shiftStats = ref({
   cashUsd: { amount: 0, count: 0 },
@@ -643,13 +654,11 @@ const shiftStats = ref({
   totalCount: 0
 })
 
-// 弹窗状态控制
 const previewModalVisible = ref(false)
 const helpModalVisible = ref(false)
 
-// 右上角轻量提示状态
 const toastMessage = ref('')
-const toastType = ref('success') // 'success' 或 'error'
+const toastType = ref('success')
 let toastTimer = null
 
 const showToast = (msg, type = 'error') => {
@@ -661,7 +670,6 @@ const showToast = (msg, type = 'error') => {
   }, 1500)
 }
 
-// 客户选择 Modal 弹窗相关状态与键盘上下键控制
 const clientModalVisible = ref(false)
 const clientFilterQuery = ref('')
 const clientModalInputRef = ref(null)
@@ -788,40 +796,75 @@ const deleteLastItem = () => {
   }
 }
 
-// 挂单与取单逻辑
-const holdCurrentOrder = () => {
+// 🌟 1. 提交挂单到云端后端
+const holdCurrentOrder = async () => {
   if (props.cartItems.length === 0) {
     showToast('当前购物车为空，无需挂单！', 'error')
     return
   }
-  heldOrders.value.push({
-    clientName: quoteClientName.value,
-    items: [...props.cartItems],
-    totalUsd: totalUsd.value,
-    time: new Date().toLocaleTimeString()
-  })
-  props.cartItems.splice(0, props.cartItems.length)
-  quoteClientName.value = ''
-  showToast('📦 当前订单已成功挂单暂存！', 'success')
+
+  try {
+    const res = await apiFetch('/api/held-orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        client_name: quoteClientName.value || 'Cliente General',
+        payment_method: selectedPaymentMethod.value,
+        items: props.cartItems,
+        total_amount: totalUsd.value
+      })
+    })
+
+    if (res.ok) {
+      props.cartItems.splice(0, props.cartItems.length)
+      quoteClientName.value = ''
+      showToast('📌 订单已成功挂入云端挂单池！', 'success')
+      await fetchHeldOrders()
+    }
+  } catch (e) {
+    showToast('❌ 云端挂单异常', 'error')
+  }
 }
 
-const openRecallModal = () => {
+const openRecallModal = async () => {
+  await fetchHeldOrders()
   if (heldOrders.value.length === 0) {
-    showToast('挂单池为空！', 'error')
+    showToast('云端挂单池为空！', 'error')
     return
   }
   recallModalVisible.value = true
 }
 
-const recallOrder = (index) => {
-  const order = heldOrders.value.splice(index, 1)[0]
-  props.cartItems.splice(0, props.cartItems.length, ...order.items)
-  quoteClientName.value = order.clientName
-  recallModalVisible.value = false
-  showToast('✅ 成功恢复挂单！', 'success')
+// 🌟 2. 调回云端挂单到购物车
+const recallOrder = (order) => {
+  try {
+    const parsedItems = JSON.parse(order.items_json)
+    props.cartItems.splice(0, props.cartItems.length, ...parsedItems)
+    quoteClientName.value = order.client_name
+    selectedPaymentMethod.value = order.payment_method || 'Cash_USD'
+
+    // 从后端删除已调回的挂单
+    apiFetch(`/api/held-orders/${order.id}`, { method: 'DELETE' }).then(() => {
+      fetchHeldOrders()
+    })
+
+    recallModalVisible.value = false
+    showToast(`✅ 成功从云端调回挂单: ${order.hold_no}`, 'success')
+  } catch (e) {
+    showToast('❌ 解析挂单明细失败', 'error')
+  }
 }
 
-// 🌟 从后端加载销售历史订单
+// 3. 作废云端挂单
+const deleteHeldOrder = async (orderId) => {
+  try {
+    await apiFetch(`/api/held-orders/${orderId}`, { method: 'DELETE' })
+    await fetchHeldOrders()
+    showToast('🗑️ 挂单已成功作废清除', 'success')
+  } catch (e) {
+    showToast('❌ 操作失败', 'error')
+  }
+}
+
 const fetchCompletedOrders = async () => {
   try {
     const res = await apiFetch('/api/pos/orders')
@@ -837,12 +880,10 @@ const openHistoryModal = async () => {
   historyModalVisible.value = true
 }
 
-// 补打小票
 const reprintOrderTicket = (order) => {
   showToast(`🖨️ 正在重新打印订单 #${order.orderId} 小票...`, 'success')
 }
 
-// 🌟 申请退货/退款（调用后端接口自动回滚库存）
 const targetReturnDbId = ref(null)
 const returnConfirmVisible = ref(false)
 
@@ -871,7 +912,6 @@ const executeReturnOrder = async () => {
   }
 }
 
-// 班结报表统计逻辑
 const openShiftReportModal = () => {
   shiftReportModalVisible.value = true
 }
@@ -885,14 +925,12 @@ const executeExitPos = () => {
   emit('exit-pos')
 }
 
-// 点击结算按钮时打开预览窗口（并实时获取最新公司设置）
 const openPreviewModal = async () => {
   if (props.cartItems.length === 0) return
   await fetchSystemSettings()
   previewModalVisible.value = true
 }
 
-// 🌟 在预览窗口中确认出单：正式通过 Axios 提交到后端数据库持久化
 const confirmAndPrint = async () => {
   try {
     const payload = {
@@ -1069,6 +1107,7 @@ onMounted(() => {
   focusSearch()
   fetchCompletedOrders()
   fetchSystemSettings()
+  fetchHeldOrders()
 })
 
 onUnmounted(() => {
