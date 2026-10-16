@@ -11,7 +11,7 @@
     </transition>
 
     <!-- 顶部状态栏 -->
-    <header class="h-14 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-xs">
+    <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-xs">
       <div class="flex items-center space-x-4">
         <span class="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-lg font-mono font-bold">POS v1.0</span>
         <span class="text-sm font-semibold text-slate-700">📅 {{ currentDateTime }}</span>
@@ -21,29 +21,39 @@
           <span>📦 {{ t.posHoldPool || '挂单池' }} ({{ heldOrders.length }}) [Ctrl+R]</span>
         </button>
       </div>
-      <div class="flex items-center space-x-4">
-        <div class="text-right">
-          <span class="text-[10px] text-slate-400 block uppercase font-bold">Operator</span>
-          <span class="text-xs font-bold text-slate-800">
-            {{ currentUser?.username || 'admin' }} ({{ currentUser?.role || 'super_admin' }})
-          </span>
-        </div>
+      
+      <div class="flex items-center space-x-3">
         <!-- 销售历史与退换货入口 -->
-        <button @click="openHistoryModal" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs">
+        <button @click="openHistoryModal" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs">
           <span>📜 {{ t.posSalesHistory || '销售历史与退货' }}</span>
         </button>
         <!-- 今日班结报表按钮 -->
-        <button @click="openShiftReportModal" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs">
+        <button @click="openShiftReportModal" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs">
           <span>📊 {{ t.posShiftReport || '今日班结 (Z-Report)' }}</span>
         </button>
         <!-- 快捷键指南按钮 -->
         <button @click="helpModalVisible = true" class="bg-blue-50/80 hover:bg-blue-100 text-blue-600 border border-blue-200/60 px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs">
           <span>⌨️ {{ t.posShortcutGuide || '快捷键指南' }}</span>
         </button>
-        <!-- 退出收银台按钮 -->
-        <button @click="confirmExitPos" class="bg-rose-50/80 hover:bg-rose-100 text-rose-600 border border-rose-200/60 px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs">
-          <span>✕ {{ t.posExit || '退出收银台 (Admin)' }}</span>
-        </button>
+
+        <!-- 🌟 与主页完全一致的用户与登出胶囊样式 -->
+        <div class="flex items-center gap-3 pl-3 border-l border-slate-200">
+          <div class="flex items-center gap-2.5 bg-slate-50 border border-slate-200/70 pl-2 pr-3.5 py-1 rounded-2xl shadow-2xs">
+            <div class="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs shadow-md shadow-blue-500/20 uppercase shrink-0">
+              {{ currentUser?.username ? currentUser.username.charAt(0) : 'A' }}
+              <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></span>
+            </div>
+            <div class="text-left">
+              <span class="text-[9px] text-slate-400 block uppercase font-extrabold tracking-wider leading-none">{{ currentUser?.role || 'super_admin' }}</span>
+              <span class="text-xs font-bold text-slate-800 tracking-tight leading-tight mt-0.5 block">{{ currentUser?.username || 'admin' }}</span>
+            </div>
+          </div>
+
+          <!-- 退出收银台按钮 -->
+          <button @click="confirmExitPos" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-2xs">
+            {{ t.posExit || '退出收银台' }}
+          </button>
+        </div>
       </div>
     </header>
 
@@ -412,8 +422,7 @@
 
         <div class="flex-1 overflow-y-auto p-6 space-y-4 font-mono text-xs bg-slate-50/40">
           <div class="text-center pb-3 border-b border-dashed border-slate-300 space-y-1">
-            <!-- 🌟 动态读取系统设置中的公司抬头与 RIF -->
-            <div class="font-black text-sm text-slate-900">{{ systemConfig.company_name || 'TOSTIKYK ERP AUTO PARTS' }}</div>
+            <div class="font-black text-sm text-slate-900">{{ systemConfig.company_name || 'TOSTIYK (TK) - AUTOPARTES VENEZUELA' }}</div>
             <div class="text-[10px] text-blue-600 font-bold">RIF: {{ systemConfig.rif || 'J-00000000-0' }}</div>
             <div class="text-[10px] text-slate-500">{{ systemConfig.address || 'Valencia, Estado Carabobo, Venezuela' }}</div>
             <div class="text-[10px] text-slate-500">Telf: {{ systemConfig.phone || '+58 412-0000000' }}</div>

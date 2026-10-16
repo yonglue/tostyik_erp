@@ -1,3 +1,4 @@
+<!-- src/components/LoginView.vue -->
 <template>
   <!-- 安全登录遮罩层。
        自身直接使用 useAuth / useI18n：这两个 composable 是模块级单例，
@@ -22,22 +23,35 @@
         <p class="text-xs text-slate-400">{{ t.loginSubtitle || 'ERP 权限控制 - 请输入管理员凭证' }}</p>
       </div>
 
-      <div class="space-y-4">
+      <!-- 🌟 使用 <form> 包裹输入项，彻底消除浏览器的密码框警告并完美支持回车提交 -->
+      <form @submit.prevent="handleLogin" class="space-y-4">
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.usernameLabel || '管理员账号' }}</label>
-          <input v-model="loginForm.username" type="text" placeholder="" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 font-mono" />
+          <input 
+            v-model="loginForm.username" 
+            type="text" 
+            autocomplete="username"
+            placeholder="" 
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 font-mono" 
+          />
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.passwordLabel || '管理员密码' }}</label>
-          <input v-model="loginForm.password" @keyup.enter="handleLogin" type="password" placeholder="" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 font-mono" />
+          <input 
+            v-model="loginForm.password" 
+            type="password" 
+            autocomplete="current-password"
+            placeholder="" 
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 font-mono" 
+          />
         </div>
         <p v-if="loginError" class="text-xs text-rose-600 font-semibold text-center">{{ loginError }}</p>
         <p v-if="resetMessage" class="text-xs text-emerald-600 font-semibold text-center">{{ resetMessage }}</p>
-      </div>
 
-      <button @click="handleLogin" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/25 transition-all cursor-pointer">
-        {{ t.loginBtn || '安全登录系统' }}
-      </button>
+        <button type="submit" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/25 transition-all cursor-pointer">
+          {{ t.loginBtn || '安全登录系统' }}
+        </button>
+      </form>
 
       <div class="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
         <button @click="openResetModal" class="text-blue-600 hover:underline font-medium cursor-pointer">

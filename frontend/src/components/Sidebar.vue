@@ -43,8 +43,7 @@
         >
           <component :is="item.icon" :size="18" class="shrink-0" />
           <span class="truncate leading-tight text-left">
-            <!-- 🌟 将系统设置菜单项名称固定显示为系统设置 -->
-            {{ item.key === 'backup' ? '系统设置' : (t[item.labelKey] || item.defaultLabel) }}
+            {{ item.key === 'settings' ? '系统设置' : (t[item.labelKey] || item.defaultLabel) }}
           </span>
         </button>
 
@@ -129,7 +128,7 @@ const groupedMenuItems = computed(() => {
       items: [
         { key: 'staff', labelKey: 'menuStaff', icon: ShieldCheck, requiredPerm: 'users:manage' },
         { key: 'audit_logs', labelKey: 'menuAuditLogs', icon: ShieldAlert, requiredPerm: 'users:manage' },
-        { key: 'backup', labelKey: 'menuBackup', icon: Settings, requiredPerm: 'settings:manage' }, // 🌟 关联系统设置细粒度权限
+        { key: 'settings', labelKey: 'menuSettings', icon: Settings, requiredPerm: 'settings:manage' }, // 🌟 统一 Key 为 settings
       ]
     }
   ]
@@ -149,9 +148,7 @@ const groupedMenuItems = computed(() => {
 
   return groups.map(group => {
     const filteredItems = group.items.filter(item => {
-      // 超级管理员默认放行所有菜单
       if (role === 'super_admin' || role === 'admin' || userPerms.includes('*')) return true
-      // 如果该菜单项有明确要求的权限，检查用户权限数组
       if (item.requiredPerm) {
         return userPerms.includes(item.requiredPerm)
       }

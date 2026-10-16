@@ -9,7 +9,7 @@ import json
 from app.database import get_session
 from app.models import StaffUser
 from app.deps import require_admin, Actor
-from app.security import get_password_hash
+from app.security import hash_password  # 👈 这里由 get_password_hash 改为 hash_password
 
 router = APIRouter(prefix="/api/staff", tags=["Staff Management"])
 
@@ -54,7 +54,7 @@ def create_staff(
     if existing:
         raise HTTPException(status_code=400, detail="该用户名已存在")
 
-    hashed_pw = get_password_hash(payload.password)
+    hashed_pw = hash_password(payload.password)  # 👈 使用正确的函数名
     new_staff = StaffUser(
         username=payload.username,
         password_hash=hashed_pw,

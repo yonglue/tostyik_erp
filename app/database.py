@@ -6,7 +6,7 @@ SQLite 文件，现已统一为下面的单一引擎。
 
 from typing import Iterator
 
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, text
 
 from app.config import DATABASE_URL
 
@@ -32,3 +32,16 @@ def init_db() -> None:
     from app import models  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
+
+    # 🌟 兼容性热修复：安全检查并自动为旧版 staffuser 表补齐 permissions_json 字段
+    with engine.connect() as conn:
+        try:
+            result = conn.exec_driver_sql("PRAGMA table_info(staffuser);").fetchall()
+            if result:
+                columns = [row[1] for row in result]
+                if "permissions_json" not in columns:
+                    conn.exec_driver_sql("ALTER TABLE staffuser ADD COLUMN permissions_json TEXT DEFAULT '[]';")
+                    conn.commit()
+                    print("✅ 成功为旧版 staffuser 表自动补齐 permissions_json 字段！")
+        except Exception as e:
+            print(f"⚠️ 自动迁移字段提示: {e}")

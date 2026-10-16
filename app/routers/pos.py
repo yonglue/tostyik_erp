@@ -7,7 +7,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select, update
 
 from app.database import get_session
-from app.deps import Actor, get_current_actor
+from app.deps import Actor, get_current_actor, RequirePermission
 from app.models import AutoPart, Client, InventoryTransaction, Order, OrderItem
 from app.schemas import POSOrderCreatePayload
 from app.services.numbering import make_order_no
@@ -26,7 +26,7 @@ def _is_debt_payment(payment_method: str) -> bool:
 @router.post("/api/pos/orders")
 def create_pos_order(
     payload: POSOrderCreatePayload,
-    actor: Actor = Depends(get_current_actor),
+    actor: Actor = Depends(RequirePermission("pos:access")),  # 🛡️ 严格校验进入收银与下单权限
     session: Session = Depends(get_session),
 ):
     total_usd = sum(item.price * item.quantity for item in payload.items)
@@ -111,7 +111,10 @@ def create_pos_order(
 
 
 @router.get("/api/pos/orders")
-def get_pos_orders(session: Session = Depends(get_session)):
+def get_pos_orders(
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("pos:access"))  # 🛡️ 校验查看收银历史权限
+):
     orders = session.exec(select(Order).order_by(Order.id.desc())).all()
     result = []
     for o in orders:
@@ -140,7 +143,7 @@ def get_pos_orders(session: Session = Depends(get_session)):
 @router.post("/api/pos/orders/{order_id}/refund")
 def refund_pos_order(
     order_id: int,
-    actor: Actor = Depends(get_current_actor),
+    actor: Actor = Depends(RequirePermission("transactions:history")),  # 🛡️ 退货回滚需要流水与单据操作权限
     session: Session = Depends(get_session),
 ):
     order = session.get(Order, order_id)

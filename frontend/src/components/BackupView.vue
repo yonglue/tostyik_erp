@@ -174,7 +174,7 @@
 import { ref, onMounted, reactive } from 'vue'
 import { FileSpreadsheet } from 'lucide-vue-next'
 import { useI18n } from '../composables/useI18n'
-import { apiUrl } from '../utils/api'
+import { apiFetch } from '../utils/api'
 
 defineEmits(['export-parts', 'export-clients', 'download-db'])
 const { t } = useI18n()
@@ -205,28 +205,9 @@ const showToast = (msg, icon = '🎉') => {
   }, 3000)
 }
 
-// 获取带 Token 的请求头
-const getAuthHeaders = () => {
-  const headers = { 'Content-Type': 'application/json' }
-  try {
-    const userStr = localStorage.getItem('tostiyk_current_user')
-    if (userStr) {
-      const user = JSON.parse(userStr)
-      if (user.token) {
-        headers['Authorization'] = `Bearer ${user.token}`
-      }
-    }
-  } catch (e) {
-    console.error(e)
-  }
-  return headers
-}
-
 const fetchSettings = async () => {
   try {
-    const res = await fetch(apiUrl('/api/settings'), {
-      headers: getAuthHeaders()
-    })
+    const res = await apiFetch('/api/settings') // 🌟 使用 apiFetch 自动携带 Token
     if (res.ok) {
       settings.value = await res.json()
     }
@@ -237,9 +218,8 @@ const fetchSettings = async () => {
 
 const saveSettings = async () => {
   try {
-    const res = await fetch(apiUrl('/api/settings'), {
+    const res = await apiFetch('/api/settings', {
       method: 'POST',
-      headers: getAuthHeaders(),
       body: JSON.stringify(settings.value)
     })
     if (res.ok) {
@@ -257,9 +237,8 @@ const saveSettings = async () => {
 const runCleanup = async () => {
   showCleanupModal.value = false
   try {
-    const res = await fetch(apiUrl('/api/settings/cleanup'), {
-      method: 'POST',
-      headers: getAuthHeaders()
+    const res = await apiFetch('/api/settings/cleanup', {
+      method: 'POST'
     })
     if (res.ok) {
       const data = await res.json()
@@ -292,21 +271,10 @@ const uploadCsv = async () => {
   const formData = new FormData()
   formData.append('file', selectedFile.value)
 
-  const headers = {}
   try {
-    const userStr = localStorage.getItem('tostiyk_current_user')
-    if (userStr) {
-      const user = JSON.parse(userStr)
-      if (user.token) {
-        headers['Authorization'] = `Bearer ${user.token}`
-      }
-    }
-  } catch (e) {}
-
-  try {
-    const res = await fetch(apiUrl('/api/import/parts'), {
+    // 🌟 apiFetch 会自动处理 Authorization 并在传 FormData 时不强设 Content-Type
+    const res = await apiFetch('/api/import/parts', {
       method: 'POST',
-      headers,
       body: formData
     })
     if (res.ok) {

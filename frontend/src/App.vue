@@ -21,18 +21,14 @@
         
         <!-- 顶部导航栏 -->
         <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-xs">
+          <!-- 移动端菜单触发按钮 -->
           <div class="flex items-center space-x-4">
             <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-xl">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
-            <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span class="text-xs font-bold text-slate-700 tracking-wide uppercase">{{ t.sysStatus }}</span>
-              <span class="text-xs font-mono text-slate-400">v4.3 Enterprise</span>
-            </div>
           </div>
 
-          <div class="flex items-center space-x-4">
+          <div class="flex items-center space-x-3">
             <!-- BCV 官方汇率展示与刷新 -->
             <div class="hidden sm:flex items-center space-x-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-mono">
               <span class="text-slate-500">BCV =</span>
@@ -54,33 +50,40 @@
               <option value="en">🇺🇸 EN</option>
             </select>
 
-            <!-- 用户与登出 -->
-            <div class="flex items-center gap-3 pl-2 border-l border-slate-200">
-              <div class="text-right hidden sm:block">
-                <span class="text-[10px] text-slate-400 block uppercase font-bold">{{ currentUserObj.role }}</span>
-                <span class="text-xs font-bold text-slate-800">{{ currentUserObj.username }}</span>
+            <!-- 用户与登出胶囊 -->
+            <div class="flex items-center gap-3 pl-3 border-l border-slate-200">
+              <div class="flex items-center gap-2.5 bg-slate-50 hover:bg-slate-100/85 transition-colors border border-slate-200/70 pl-2 pr-3.5 py-1 rounded-2xl shadow-2xs">
+                <div class="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs shadow-md shadow-blue-500/20 uppercase shrink-0">
+                  {{ currentUserObj.username ? currentUserObj.username.charAt(0) : 'U' }}
+                  <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></span>
+                </div>
+                <div class="text-left">
+                  <span class="text-[9px] text-slate-400 block uppercase font-extrabold tracking-wider leading-none">{{ currentUserObj.role }}</span>
+                  <span class="text-xs font-bold text-slate-800 tracking-tight leading-tight mt-0.5 block">{{ currentUserObj.username }}</span>
+                </div>
               </div>
-              <button @click="handleLogout" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+
+              <button @click="handleLogout" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-2xs">
                 {{ t.logoutBtn }}
               </button>
             </div>
           </div>
         </header>
 
-        <!-- 主内容区域 -->
+        <!-- 主内容区域（智能绝对放行超级管理员） -->
         <main class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
           <DashboardView 
             v-if="activeTab === 'dashboard'" 
             :stats="stats" 
             :bcvRate="bcvRate"
-            @navigate="(tab) => activeTab = tab" 
+            @navigate="(tab) => checkAndSwitchTab(tab)" 
           />
-          <FinancialView v-else-if="activeTab === 'financial'" />
-          <StaffManagementView v-else-if="activeTab === 'staff'" />
-          <AuditLogsView v-else-if="activeTab === 'audit_logs'" />
-          <CashRegisterView v-else-if="activeTab === 'cash_register'" />
+          <FinancialView v-else-if="activeTab === 'financial' && hasPermission('financial:view')" />
+          <StaffManagementView v-else-if="activeTab === 'staff' && hasPermission('users:manage')" />
+          <AuditLogsView v-else-if="activeTab === 'audit_logs' && hasPermission('users:manage')" />
+          <CashRegisterView v-else-if="activeTab === 'cash_register' && hasPermission('shift:report')" />
           <PartsView 
-            v-else-if="activeTab === 'parts'"
+            v-else-if="activeTab === 'parts' && hasPermission('parts:view')"
             :partsList="partsList"
             v-model:searchQuery="searchQuery"
             v-model:selectedBrand="selectedBrand"
@@ -89,9 +92,10 @@
             @open-add-modal="dialogVisible = true"
             @open-gallery="openGallery"
             @delete-part="openDeletePartModal"
+            @refresh-data="fetchParts"
           />
           <ClientsView 
-            v-else-if="activeTab === 'clients'"
+            v-else-if="activeTab === 'clients' && hasPermission('clients:view')"
             :clientsList="clientsList"
             v-model:clientSearchQuery="clientSearchQuery"
             @export-clients="exportClientsExcel"
@@ -99,17 +103,17 @@
             @delete-client="openDeleteClientModal"
           />
           <PurchaseOrdersView 
-            v-else-if="activeTab === 'procurement'"
+            v-else-if="activeTab === 'procurement' && hasPermission('procurement:view')"
           />
           <TransactionsView 
-            v-else-if="activeTab === 'transactions'"
+            v-else-if="activeTab === 'transactions' && hasPermission('transactions:history')"
             :transactionsList="transactionsList"
             @export-transactions="exportTransactionsExcel"
             @open-tx-modal="txDialogVisible = true"
             @delete-tx="openDeleteTxModal"
           />
           <QuotationDeskView 
-            v-else-if="activeTab === 'desk'"
+            v-else-if="activeTab === 'desk' && hasPermission('pos:access')"
             :partsList="partsList"
             :clientsList="clientsList"
             :cartItems="cartItems"
@@ -118,65 +122,114 @@
             :currentUser="currentUserObj"
             @add-to-cart="addToCart"
             @generate-quote="generateAndArchiveQuote"
-            @exit-pos="activeTab = 'dashboard'"
+            @exit-pos="activeTab = getDefaultAllowedTab()"
             @clear-cart="cartItems = []"
           />
           <BackupView 
-            v-else-if="activeTab === 'backup'"
+            v-else-if="activeTab === 'settings' && hasPermission('settings:manage')"
             @export-parts="exportPartsExcel"
             @import-parts="handleImportParts"
             @export-clients="exportClientsExcel"
             @download-db="downloadDatabaseBackup"
           />
+          
+          <!-- 🛡️ 智能平滑引导兜底 (若非超管触发) -->
+          <div v-else class="bg-white p-12 rounded-3xl text-center space-y-4 border border-slate-200 max-w-lg mx-auto mt-12 shadow-sm">
+            <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl mx-auto flex items-center justify-center text-3xl font-bold shadow-inner">
+              ✨
+            </div>
+            <div class="space-y-1">
+              <h3 class="font-bold text-lg text-slate-900">欢迎登录，{{ currentUserObj.username }}</h3>
+              <p class="text-xs text-slate-500">
+                当前账号（<strong class="uppercase text-blue-600">{{ currentUserObj.role }}</strong>）未授权访问此页面，系统已为您匹配专属工作台。
+              </p>
+            </div>
+            <button @click="activeTab = getDefaultAllowedTab()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer">
+              进入我的可用工作台
+            </button>
+          </div>
         </main>
       </div>
 
     </div>
 
-    <!-- 新增商品弹窗 -->
-    <div v-if="dialogVisible" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
-        <div class="px-6 py-5 border-b border-slate-100">
-          <h3 class="font-bold text-base text-slate-800">{{ t.dialogAddPartTitle }}</h3>
+    <!-- 🌟 新增商品弹窗（与编辑窗口大小保持一致 max-w-2xl，支持点击空白退出、ESC与回车保存） -->
+    <div 
+      v-if="dialogVisible" 
+      @click.self="dialogVisible = false" 
+      class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 transition-all"
+    >
+      <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 p-6 space-y-5">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">➕</span>
+            <h3 class="font-bold text-slate-800 text-base">{{ t.dialogAddPartTitle || '录入新汽配档案与多图相册' }}</h3>
+          </div>
+          <button @click="dialogVisible = false" class="text-slate-400 hover:text-slate-700 text-lg font-bold cursor-pointer">✕</button>
         </div>
-        <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+
+        <form @submit.prevent="handleAddPart" class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">OEM 编号</label>
+              <input v-model="newPart.oem" type="text" placeholder="例如: 17801-74060" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono font-bold outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">配件名称</label>
+              <input v-model="newPart.name" type="text" placeholder="例如: 空气滤清器" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium outline-none focus:border-blue-500" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">配件分类</label>
+              <input v-model="newPart.category" type="text" placeholder="滤清器 / 悬挂系统" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">适配品牌</label>
+              <input v-model="newPart.brand" type="text" placeholder="Toyota / Mack / GENERAL" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">库存数量</label>
+              <input v-model.number="newPart.stock" type="number" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">零售价格 (USD)</label>
+              <input v-model.number="newPart.price" type="number" step="0.5" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">货架库位 (Bin Location)</label>
+              <input v-model="newPart.bin_location" type="text" placeholder="Estante A-1" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono outline-none focus:border-blue-500" />
+            </div>
+          </div>
+
           <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.colOem }}</label>
-            <input v-model="newPart.oem" type="text" placeholder="例如: 17801-74060" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
+            <label class="block text-xs font-semibold text-slate-500 mb-1">🔗 交叉适配编号与备注 (Cross-References / Notes)</label>
+            <textarea 
+              v-model="newPart.cross_references" 
+              rows="3" 
+              placeholder="例如: WIX: 51348 / Donaldson: P550020..." 
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs outline-none focus:border-blue-500 font-mono leading-relaxed resize-none"
+            ></textarea>
           </div>
+
           <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.colName }}</label>
-            <input v-model="newPart.name" type="text" placeholder="例如: 空气滤清器" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
+            <label class="block text-xs font-semibold text-slate-500 mb-1">配件实物照片 (最多可选 5 张)</label>
+            <input type="file" @change="handleFileChange" accept="image/*" multiple class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-200 rounded-xl p-1.5" />
           </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.colBrand }}</label>
-              <input v-model="newPart.brand" type="text" placeholder="Toyota / Mack" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.colCategory }}</label>
-              <input v-model="newPart.category" type="text" placeholder="滤清器 / 悬挂系统" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
-            </div>
+
+          <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <button type="button" @click="dialogVisible = false" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+              取消 (ESC)
+            </button>
+            <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer">
+              确定保存 (Enter)
+            </button>
           </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.colStock }}</label>
-              <input v-model.number="newPart.stock" type="number" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.colPriceUsd }}</label>
-              <input v-model.number="newPart.price" type="number" step="0.5" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.uploadImageLabel }}</label>
-            <input type="file" @change="handleFileChange" accept="image/*" multiple class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
-          </div>
-        </div>
-        <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-          <button @click="dialogVisible = false" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-200/60 transition-colors">{{ t.btnCancel }}</button>
-          <button @click="handleAddPart" class="px-5 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-md">{{ t.btnSave }}</button>
-        </div>
+        </form>
       </div>
     </div>
 
@@ -361,14 +414,38 @@ const {
   handleLogin, handleLogout, openResetModal, submitResetPassword
 } = useAuth()
 
+const hasPermission = (permKey) => {
+  if (!currentUserObj.value) return false
+  const role = currentUserObj.value.role || 'staff'
+  const perms = currentUserObj.value.permissions || []
+  if (role === 'super_admin' || role === 'admin' || perms.includes('*')) return true
+  return perms.includes(permKey)
+}
+
+const getDefaultAllowedTab = () => {
+  const role = currentUserObj.value?.role || 'staff'
+  if (role === 'super_admin' || role === 'admin') return 'dashboard'
+
+  if (hasPermission('parts:view')) return 'parts'
+  if (hasPermission('pos:access')) return 'desk'
+  if (hasPermission('clients:view')) return 'clients'
+  if (hasPermission('transactions:history')) return 'transactions'
+  if (hasPermission('financial:view')) return 'financial'
+  if (hasPermission('users:manage')) return 'staff'
+
+  return 'dashboard'
+}
+
+const checkAndSwitchTab = (tab) => {
+  activeTab.value = tab
+}
+
 const mobileMenuOpen = ref(false)
-const activeTab = ref('dashboard')
+const activeTab = ref(getDefaultAllowedTab())
 
 const searchQuery = ref('')
 const clientSearchQuery = ref('')
-const deskSearch = ref('')
 const selectedBrand = ref('ALL')
-const selectedDeskBrand = ref('ALL')
 
 const dialogVisible = ref(false)
 const clientDialogVisible = ref(false)
@@ -442,11 +519,9 @@ const handleMenuClick = (key) => {
 }
 
 const exportTransactionsExcel = () => window.open(apiUrl('/api/export/transactions'), '_blank')
-const exportQuotationsExcel = () => window.open(apiUrl('/api/export/quotations'), '_blank')
 const exportPartsExcel = () => window.open(apiUrl('/api/export/parts'), '_blank')
 const exportClientsExcel = () => window.open(apiUrl('/api/export/clients'), '_blank')
 const downloadDatabaseBackup = () => window.open(apiUrl('/api/backup/download'), '_blank')
-const downloadExistingPdf = () => window.open(apiUrl('/api/quotation/pdf/download'), '_blank')
 
 const handleImportParts = async (e) => {
   const file = e.target.files[0]
@@ -459,7 +534,6 @@ const handleImportParts = async (e) => {
 
 const generateAndArchiveQuote = async () => {
   if (cartItems.value.length === 0) return
-  
   try {
     const res = await apiFetch('/api/quotations/generate', {
       method: 'POST',
@@ -473,8 +547,6 @@ const generateAndArchiveQuote = async () => {
     })
 
     if (res.ok) {
-      const data = await res.json()
-      
       cartItems.value = []
       paymentReference.value = ''
       fetchQuotations(); fetchParts(); fetchTransactions(); fetchDashboardStats(); fetchClients()
@@ -496,18 +568,34 @@ const confirmDeleteQuotation = async () => {
   }
 }
 
-const openDeleteClientModal = (c) => { targetClient.value = c; deleteClientModalVisible.value = true }
+// 🌟 新增：打开删除客户确认弹窗
+const openDeleteClientModal = (c) => {
+  targetClient.value = c
+  deleteClientModalVisible.value = true
+}
+
 const confirmDeleteClient = async () => {
   if (!targetClient.value) return
-  const res = await apiFetch(`/api/clients/${targetClient.value.id}`, { method: 'DELETE' })
-  if (res.ok) {
+  try {
+    const res = await apiFetch(`/api/clients/${targetClient.value.id}`, { method: 'DELETE' })
+    if (res.ok) {
+      deleteClientModalVisible.value = false
+      targetClient.value = null
+      fetchClients()
+      showSuccessModal('🗑️ 客户档案已成功删除！')
+    } else {
+      const err = await res.json()
+      deleteClientModalVisible.value = false
+      showSuccessModal(`❌ 删除失败: ${err.detail || '未知错误'}`)
+    }
+  } catch (e) {
+    console.error(e)
     deleteClientModalVisible.value = false
-    targetClient.value = null
-    fetchClients()
+    showSuccessModal('❌ 服务器连接异常！')
   }
 }
 
-const newPart = ref({ oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00 })
+const newPart = ref({ oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, bin_location: 'Estante A-1', cross_references: '' })
 const selectedFiles = ref([])
 const handleFileChange = (e) => { selectedFiles.value = Array.from(e.target.files).slice(0, 5) }
 
@@ -521,6 +609,7 @@ const handleAddPart = async () => {
   formData.append('category', newPart.value.category || '未分类')
   formData.append('stock', newPart.value.stock ?? 0)
   formData.append('price', newPart.value.price ?? 0.0)
+  formData.append('bin_location', newPart.value.bin_location || 'Estante A-1')
   formData.append('cross_references', newPart.value.cross_references || '')
   
   selectedFiles.value.forEach(f => formData.append('files', f))
@@ -533,10 +622,9 @@ const handleAddPart = async () => {
     
     if (res.ok) {
       dialogVisible.value = false
-      newPart.value = { oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00 }
+      newPart.value = { oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, bin_location: 'Estante A-1', cross_references: '' }
       selectedFiles.value = []
       fetchParts(); fetchDashboardStats();
-      
       showSuccessModal('新汽配商品已成功录入数据库！')
     } else {
       const err = await res.json()
@@ -564,9 +652,10 @@ const handleAddClient = async () => {
   }
 }
 
+// 🌟 全局快捷键监听（支持 ESC 关闭、Enter 快捷保存）
 const handleGlobalKeydown = (e) => {
-  if (activeTab.value === 'desk') {
-    return
+  if (e.key === 'Escape') {
+    if (dialogVisible.value) { dialogVisible.value = false; return; }
   }
 
   if (e.key !== 'Enter') return
@@ -603,7 +692,7 @@ const handleGlobalKeydown = (e) => {
   }
   if (deleteTxModalVisible.value) {
     e.preventDefault()
-    confirmDateTx()
+    confirmDeleteTx()
     return
   }
 }

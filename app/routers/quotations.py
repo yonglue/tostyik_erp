@@ -19,7 +19,7 @@ from sqlmodel import Session, select, update
 
 from app.config import PUBLIC_BASE_URL, UPLOAD_DIR
 from app.database import get_session
-from app.deps import Actor, get_current_actor
+from app.deps import Actor, get_current_actor, RequirePermission
 from app.models import AutoPart, Client, InventoryTransaction, QuotationRecord
 from app.schemas import CreateQuotationRequest
 from app.services.audit import log_action
@@ -32,12 +32,19 @@ router = APIRouter(tags=["报价单"])
 
 
 @router.get("/api/quotations", response_model=List[QuotationRecord])
-def get_quotations(session: Session = Depends(get_session)):
+def get_quotations(
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("pos:access"))
+):
     return session.exec(select(QuotationRecord).order_by(QuotationRecord.id.desc())).all()
 
 
 @router.delete("/api/quotations/{quotation_id}")
-def delete_quotation(quotation_id: int, session: Session = Depends(get_session)):
+def delete_quotation(
+    quotation_id: int,
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("pos:access"))
+):
     record = session.get(QuotationRecord, quotation_id)
     if not record:
         raise HTTPException(status_code=404, detail="报价单记录不存在")
@@ -49,7 +56,7 @@ def delete_quotation(quotation_id: int, session: Session = Depends(get_session))
 @router.post("/api/quotations/generate")
 def generate_and_save_quotation(
     payload: CreateQuotationRequest,
-    actor: Actor = Depends(get_current_actor),
+    actor: Actor = Depends(RequirePermission("pos:access")),  # 🛡️ 校验 POS 开单与报价单生成权限
     session: Session = Depends(get_session),
 ):
     bcv_rate = get_official_rate()
@@ -194,7 +201,11 @@ def generate_and_save_quotation(
 
 
 @router.get("/api/quotation/pdf/download")
-def download_existing_pdf(quotation_no: str = None, session: Session = Depends(get_session)):
+def download_existing_pdf(
+    quotation_no: str = None, 
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("quotations:export"))
+):
     """支持按单号下载对应语言的 PDF，每次都根据最新系统设置实时重新生成以确保抬头同步。"""
     if quotation_no:
         record = session.exec(select(QuotationRecord).where(QuotationRecord.quotation_no == quotation_no)).first()
@@ -228,5 +239,3 @@ def download_existing_pdf(quotation_no: str = None, session: Session = Depends(g
         return FileResponse(latest_pdf, media_type="application/pdf", filename="Tostiyk_Quotation.pdf")
 
     raise HTTPException(status_code=404, detail="PDF 文件不存在")
-
-    

@@ -75,38 +75,11 @@
 
     </div>
 
-    <!-- 快捷操作与最近动态区 -->
-    <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs">
-      <h3 class="font-bold text-slate-900 text-base mb-4">{{ t.dashNavTitle }}</h3>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <button @click="$emit('navigate', 'desk')" class="p-4 rounded-2xl bg-slate-50 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left border border-slate-100 group cursor-pointer">
-          <Calculator class="text-blue-600 mb-2 group-hover:scale-110 transition-transform" :size="22" />
-          <div class="font-bold text-sm text-slate-800">{{ t.dashNavDeskTitle }}</div>
-          <div class="text-[11px] text-slate-400 mt-0.5">{{ t.dashNavDeskSub }}</div>
-        </button>
-        <button @click="$emit('navigate', 'parts')" class="p-4 rounded-2xl bg-slate-50 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left border border-slate-100 group cursor-pointer">
-          <Package class="text-blue-600 mb-2 group-hover:scale-110 transition-transform" :size="22" />
-          <div class="font-bold text-sm text-slate-800">{{ t.dashNavPartsTitle }}</div>
-          <div class="text-[11px] text-slate-400 mt-0.5">{{ t.dashNavPartsSub }}</div>
-        </button>
-        <button @click="$emit('navigate', 'clients')" class="p-4 rounded-2xl bg-slate-50 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left border border-slate-100 group cursor-pointer">
-          <Users class="text-blue-600 mb-2 group-hover:scale-110 transition-transform" :size="22" />
-          <div class="font-bold text-sm text-slate-800">{{ t.dashNavClientsTitle }}</div>
-          <div class="text-[11px] text-slate-400 mt-0.5">{{ t.dashNavClientsSub }}</div>
-        </button>
-        <button @click="$emit('navigate', 'quotations')" class="p-4 rounded-2xl bg-slate-50 hover:bg-blue-50 hover:text-blue-600 transition-colors text-left border border-slate-100 group cursor-pointer">
-          <FileText class="text-blue-600 mb-2 group-hover:scale-110 transition-transform" :size="22" />
-          <div class="font-bold text-sm text-slate-800">{{ t.dashNavQuoteTitle }}</div>
-          <div class="text-[11px] text-slate-400 mt-0.5">{{ t.dashNavQuoteSub }}</div>
-        </button>
-      </div>
-    </div>
-
   </div>
 </template>
 
 <script setup>
-import { Package, TrendingUp, Layers, AlertTriangle, Calculator, Users, FileText } from 'lucide-vue-next'
+import { Package, TrendingUp, Layers, AlertTriangle } from 'lucide-vue-next'
 import { useI18n } from '../composables/useI18n'
 
 const { t } = useI18n()

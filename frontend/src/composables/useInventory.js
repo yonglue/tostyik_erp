@@ -20,26 +20,47 @@ const stats = ref({
 /** 安全取 JSON：失败时保持原值，避免一个接口挂掉导致整个页面空白 */
 async function safeJson(url) {
   try {
-    return await (await apiFetch(url)).json()
+    const res = await apiFetch(url)
+    if (!res.ok) return null
+    return await res.json()
   } catch (e) {
     return null
   }
 }
 
+// 🌟 辅助函数：从 localStorage 检查当前用户是否具备指定权限
+const checkUserPermission = (permKey) => {
+  try {
+    const stored = localStorage.getItem('tostiyk_current_user')
+    if (!stored) return false
+    const user = JSON.parse(stored)
+    const role = user.role || 'staff'
+    const perms = user.permissions || []
+    if (role === 'super_admin' || role === 'admin' || perms.includes('*')) return true
+    return perms.includes(permKey)
+  } catch (e) {
+    return false
+  }
+}
+
 export function useInventory() {
   const fetchParts = async () => {
+    if (!checkUserPermission('parts:view')) return
     const data = await safeJson('/api/parts')
     if (data) partsList.value = data
   }
   const fetchClients = async () => {
+    if (!checkUserPermission('clients:view')) return
     const data = await safeJson('/api/clients')
     if (data) clientsList.value = data
   }
   const fetchTransactions = async () => {
+    if (!checkUserPermission('transactions:history')) return
     const data = await safeJson('/api/transactions')
     if (data) transactionsList.value = data
   }
   const fetchQuotations = async () => {
+    if (!checkUserPermission('pos:access')) return  // 🛡️ 没有 POS / 开单权限时，禁止静默拉取报价单，避免 401 报错
     const data = await safeJson('/api/quotations')
     if (data) quotationsList.value = data
   }
@@ -52,11 +73,15 @@ export function useInventory() {
     if (data) bcvRate.value = data.rate
   }
 
-  /** 一次刷新全部列表（开单/删改后调用） */
-  const refreshAll = () => Promise.all([
-    fetchParts(), fetchClients(), fetchTransactions(),
-    fetchQuotations(), fetchDashboardStats()
-  ])
+  /** 一次刷新全部列表（开单/删改后调用），内部自动做权限过滤 */
+  const refreshAll = () => {
+    const tasks = [fetchDashboardStats(), fetchBcvRate()]
+    if (checkUserPermission('parts:view')) tasks.push(fetchParts())
+    if (checkUserPermission('clients:view')) tasks.push(fetchClients())
+    if (checkUserPermission('transactions:history')) tasks.push(fetchTransactions())
+    if (checkUserPermission('pos:access')) tasks.push(fetchQuotations())
+    return Promise.all(tasks)
+  }
 
   const brandsList = computed(() => [
     'ALL',

@@ -203,16 +203,29 @@ const fetchPurchaseOrders = async () => {
   }
 }
 
-// 获取智能补货列表数据
+// 获取智能补货列表数据（已修正接口请求路径，避免 404）
 const fetchProcurementData = async () => {
   try {
-    const res = await apiFetch('/api/procurement') // 根据你实际的后端补货接口调整
+    const res = await apiFetch('/api/parts') // 如果有独立的补货接口可换成对应的路由，这里默认从 parts 获取商品并进行库存检查
     if (res.ok) {
       const data = await res.json()
-      procurementList.value = Array.isArray(data) ? data : (data.items || [])
+      const parts = Array.isArray(data) ? data : (data.items || [])
+      
+      // 自动计算库存低于安全线（例如 <= 5）的商品作为智能补货建议
+      procurementList.value = parts
+        .filter(p => (p.stock ?? p.current_stock ?? 0) <= 5)
+        .map(p => ({
+          code: p.code || p.oem || 'SKU-' + p.id,
+          oem: p.oem || 'N/A',
+          name: p.name || '未知配件',
+          brand: p.brand || 'TOSTIKYK',
+          category: p.category || '通用类目',
+          current_stock: p.stock ?? p.current_stock ?? 0,
+          suggested_qty: 10, // 默认建议补货量
+          estimated_cost: (p.price || p.cost || 10.0) * 10
+        }))
     }
   } catch (e) {
-    // 降级：如果暂时没有独立后端采购接口，可以通过 partsList 过滤计算
     console.error("获取补货建议失败", e)
   }
 }

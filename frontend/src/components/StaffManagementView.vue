@@ -3,8 +3,11 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from '../composables/useI18n'
 import { apiFetch } from '../utils/api' // 引入咱们封装好的安全请求工具
+import ConfirmDialog from './ConfirmDialog.vue' // 引入项目原生的优雅确认弹窗组件
+import { useNotifications } from '../composables/useNotifications' // 引入系统统一通知弹窗
 
 const { t } = useI18n()
+const { showSuccessModal } = useNotifications()
 const staffList = ref([])
 
 // 🌟 定义细粒度权限分组及具体权限项
@@ -70,6 +73,10 @@ const newStaff = ref({
 const errorMessage = ref('')
 const successMessage = ref('')
 
+// 自定义删除确认弹窗状态
+const deleteStaffModalVisible = ref(false)
+const targetStaffForDelete = ref(null)
+
 const fetchStaff = async () => {
   try {
     const res = await apiFetch('/api/staff')
@@ -81,16 +88,18 @@ const fetchStaff = async () => {
   }
 }
 
-// 模块全选/取消辅助函数
+// 模块全选/取消辅助函数（使用结构赋值创建新数组，强制触发 Vue 响应式更新）
 const toggleGroup = (groupPermissions, selectAll) => {
+  let currentPerms = [...newStaff.value.permissions]
   groupPermissions.forEach(p => {
-    const exists = newStaff.value.permissions.includes(p.key)
+    const exists = currentPerms.includes(p.key)
     if (selectAll && !exists) {
-      newStaff.value.permissions.push(p.key)
+      currentPerms.push(p.key)
     } else if (!selectAll && exists) {
-      newStaff.value.permissions = newStaff.value.permissions.filter(k => k !== p.key)
+      currentPerms = currentPerms.filter(k => k !== p.key)
     }
   })
+  newStaff.value.permissions = currentPerms
 }
 
 const handleCreateStaff = async () => {
@@ -108,7 +117,10 @@ const handleCreateStaff = async () => {
     })
     
     if (res.ok) {
-      successMessage.value = `[${newStaff.value.username}] ${t.value.staffSuccessMsg || '员工创建成功！'}`
+      const msg = `[${newStaff.value.username}] ${t.value.staffSuccessMsg || '员工创建成功！'}`
+      successMessage.value = msg
+      // 🌟 创建成功时弹出高颜值系统通知模态框
+      showSuccessModal(`🎉 ${msg}`)
       newStaff.value = { 
         username: '', 
         password: '', 
@@ -125,18 +137,29 @@ const handleCreateStaff = async () => {
   }
 }
 
-const deleteStaff = async (id) => {
-  if (!confirm(t.value.staffDeleteConfirm || '确定要删除该员工账号吗？')) return
+// 触发打开自定义删除弹窗
+const openDeleteStaffModal = (staff) => {
+  targetStaffForDelete.value = staff
+  deleteStaffModalVisible.value = true
+}
+
+// 确认删除员工账号
+const confirmDeleteStaff = async () => {
+  if (!targetStaffForDelete.value) return
   try {
-    const res = await apiFetch(`/api/staff/${id}`, { method: 'DELETE' })
+    const res = await apiFetch(`/api/staff/${targetStaffForDelete.value.id}`, { method: 'DELETE' })
     if (res.ok) {
+      deleteStaffModalVisible.value = false
+      showSuccessModal('🗑️ 员工账号已成功删除！')
+      targetStaffForDelete.value = null
       fetchStaff()
     } else {
       const err = await res.json()
-      alert(err.detail || '操作失败')
+      showSuccessModal(`❌ 操作失败: ${err.detail || '未知错误'}`)
     }
   } catch (e) {
     console.error(e)
+    showSuccessModal('❌ 服务器连接异常！')
   }
 }
 
@@ -155,18 +178,30 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 创建员工表单 -->
-    <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-100 space-y-5">
+    <!-- 创建员工表单（使用 <form> 包裹，符合 DOM 规范并消除浏览器警告） -->
+    <form @submit.prevent="handleCreateStaff" class="bg-white p-6 rounded-2xl shadow-xs border border-slate-100 space-y-5">
       <h3 class="font-bold text-sm text-slate-700 uppercase tracking-wider">➕ {{ t.staffAddTitle || '新增员工账号与权限勾选' }}</h3>
       
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.staffUsernameLabel || '登录用户名' }}</label>
-          <input v-model="newStaff.username" type="text" placeholder="carlos / maria" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 font-mono" />
+          <input 
+            v-model="newStaff.username" 
+            type="text" 
+            autocomplete="username" 
+            placeholder="carlos / maria" 
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 font-mono" 
+          />
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.staffPasswordLabel || '登录密码' }}</label>
-          <input v-model="newStaff.password" type="password" placeholder="••••••••" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 font-mono" />
+          <input 
+            v-model="newStaff.password" 
+            type="password" 
+            autocomplete="new-password" 
+            placeholder="••••••••" 
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 font-mono" 
+          />
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.staffRoleLabel || '基础角色' }}</label>
@@ -193,11 +228,20 @@ onMounted(() => {
               </div>
             </div>
             <div class="space-y-2">
+              <!-- 🌟 采用显式 :checked 与 @change 事件绑定，彻底解决复选框无法勾选/取消的问题 -->
               <label v-for="p in group.permissions" :key="p.key" class="flex items-center gap-2.5 text-xs text-slate-700 cursor-pointer select-none hover:text-slate-900">
                 <input 
                   type="checkbox" 
-                  :value="p.key" 
-                  v-model="newStaff.permissions"
+                  :checked="newStaff.permissions.includes(p.key)"
+                  @change="(e) => {
+                    let perms = [...newStaff.permissions]
+                    if (e.target.checked) {
+                      if (!perms.includes(p.key)) perms.push(p.key)
+                    } else {
+                      perms = perms.filter(k => k !== p.key)
+                    }
+                    newStaff.permissions = perms
+                  }"
                   class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" 
                 />
                 <span class="font-medium">{{ p.label }}</span>
@@ -212,11 +256,11 @@ onMounted(() => {
           <p v-if="errorMessage" class="text-xs font-semibold text-rose-600">❌ {{ errorMessage }}</p>
           <p v-if="successMessage" class="text-xs font-semibold text-emerald-600">✅ {{ successMessage }}</p>
         </div>
-        <button @click="handleCreateStaff" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer">
+        <button type="submit" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20 transition-all cursor-pointer">
           {{ t.staffCreateBtn || '保存并创建员工账号' }}
         </button>
       </div>
-    </div>
+    </form>
 
     <!-- 员工列表展示 -->
     <div class="bg-white rounded-2xl shadow-xs border border-slate-100 overflow-hidden">
@@ -251,7 +295,7 @@ onMounted(() => {
               </td>
               <td class="px-6 py-4 font-mono text-slate-500">{{ s.created_at }}</td>
               <td class="px-6 py-4 text-right">
-                <button @click="deleteStaff(s.id)" class="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg font-semibold transition-colors cursor-pointer">
+                <button @click="openDeleteStaffModal(s)" class="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg font-semibold transition-colors cursor-pointer">
                   {{ t.staffDeleteBtn || '删除' }}
                 </button>
               </td>
@@ -263,5 +307,17 @@ onMounted(() => {
         </table>
       </div>
     </div>
+
+    <!-- 🌟 自定义员工删除确认弹窗组件 -->
+    <ConfirmDialog
+      :visible="deleteStaffModalVisible"
+      overlay-class="bg-slate-900/40"
+      title="确认删除员工账号"
+      :message="targetStaffForDelete ? `确定要永久删除员工 [${targetStaffForDelete.username}] 的账号吗？` : '确定要删除该员工账号吗？'"
+      cancel-text="取消"
+      confirm-text="确认删除"
+      @cancel="deleteStaffModalVisible = false"
+      @confirm="confirmDeleteStaff"
+    />
   </div>
 </template>

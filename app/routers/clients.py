@@ -122,3 +122,29 @@ def get_client_unpaid_orders(client_name: str, session: Session = Depends(get_se
     ).all()
 
     return {"transactions": transactions, "payments": payments}
+
+@router.delete("/api/clients/{client_id}")
+def delete_client(
+    client_id: int,
+    actor: Actor = Depends(get_current_actor),
+    session: Session = Depends(get_session),
+):
+    client = session.get(Client, client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="客户档案不存在")
+    
+    client_name = client.name
+    session.delete(client)
+    session.commit()
+
+    log_action(
+        session=session,
+        username=actor.username,
+        role=actor.role,
+        action="DELETE_CLIENT",
+        details=f"删除了客户档案: {client_name} (ID: {client_id})",
+    )
+
+    return {"status": "success", "message": f"客户 {client_name} 已成功删除"}
+
+

@@ -78,14 +78,13 @@
                 <span>🖨️</span> {{ t.posReprintTicket || '补打小票' }}
               </button>
               
-              <!-- 🌟 升级：携带当前订单编号请求对应语言的 PDF 下载 -->
-              <a
-                :href="apiUrl(`/api/quotation/pdf/download?quotation_no=${order.orderId || order.order_no}`)"
-                target="_blank"
+              <!-- 🌟 升级：调用安全带 Token 的 Blob 下载函数，解决未登录拦截报错 -->
+              <button
+                @click="downloadPdf(order.orderId || order.order_no)"
                 class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
               >
                 <span>📥</span> PDF
-              </a>
+              </button>
 
               <button
                 v-if="order.status !== 'REFUNDED'"
@@ -115,7 +114,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useI18n } from '../../composables/useI18n'
-import { apiUrl } from '../../utils/api'
+import { apiFetch } from '../../utils/api'
 
 const { t } = useI18n()
 
@@ -139,11 +138,30 @@ const filteredOrders = computed(() => {
     
     const matchesQuery = !query || orderNo.includes(query) || clientName.includes(query)
     
-    // 日期匹配（支持订单时间字符串中包含所选日期，例如 2026-10-15）
     const orderTimeStr = (order.time || order.created_at || '')
     const matchesDate = !selectedDate.value || orderTimeStr.includes(selectedDate.value)
     
     return matchesQuery && matchesDate
   })
 })
+
+// 🌟 核心修复：通过带 Token 的 apiFetch 请求 PDF 二进制流并打开预览
+const downloadPdf = async (orderNo) => {
+  try {
+    const res = await apiFetch(`/api/quotation/pdf/download?quotation_no=${orderNo}`)
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.detail || '下载 PDF 失败')
+    }
+    const blob = await res.blob()
+    const blobUrl = window.URL.createObjectURL(blob)
+    window.open(blobUrl, '_blank')
+    setTimeout(() => {
+      window.URL.revokeObjectURL(blobUrl)
+    }, 10000)
+  } catch (error) {
+    console.error('PDF 下载异常:', error)
+    alert(`❌ 无法生成订单 PDF: ${error.message}`)
+  }
+}
 </script>

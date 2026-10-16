@@ -1,7 +1,6 @@
 // src/composables/useAuth.js
 //
 // 登录 / 登出 / 重置管理员密码，以及登录态在 localStorage 中的持久化。
-// 从 App.vue 抽出：Header、Sidebar 等组件也能复用同一份状态来源。
 
 import { ref } from 'vue'
 import { apiFetch, setToken, clearToken } from '../utils/api'
@@ -11,23 +10,19 @@ const LOGGED_IN_KEY = 'tostiyk_logged_in'
 const USERNAME_KEY = 'tostiyk_username'
 const CURRENT_USER_KEY = 'tostiyk_current_user'
 
-function readStoredRole() {
+function readStoredUser() {
   try {
     const stored = localStorage.getItem(CURRENT_USER_KEY)
-    if (stored) return JSON.parse(stored).role
-  } catch (e) {
-    // 本地数据损坏时忽略，回落到默认角色
-  }
-  return 'super_admin'
+    if (stored) return JSON.parse(stored)
+  } catch (e) {}
+  return { username: 'admin', role: 'super_admin', permissions: ['*'] }
 }
 
-// ── 模块级单例状态：多处调用 useAuth() 共享同一份登录态 ──
+const initialUser = readStoredUser()
+
 const isLoggedIn = ref(localStorage.getItem(LOGGED_IN_KEY) === 'true')
 const currentAdminUser = ref(localStorage.getItem(USERNAME_KEY) || 'admin')
-const currentUserObj = ref({
-  username: localStorage.getItem(USERNAME_KEY) || 'admin',
-  role: readStoredRole()
-})
+const currentUserObj = ref(initialUser)
 
 const loginForm = ref({ username: '', password: '' })
 const loginError = ref('')
@@ -55,21 +50,19 @@ export function useAuth() {
         isLoggedIn.value = true
         currentAdminUser.value = data.username
 
-        // 同步更新响应式用户对象，让收银台和顶部栏瞬间刷新
-        currentUserObj.value = {
+        // 🌟 核心：完整保存后端返回的 role 与 permissions 数组
+        const userData = {
           username: data.username,
-          role: data.role || 'super_admin'
+          role: data.role || 'staff',
+          permissions: data.permissions || []
         }
 
-        // 保存访问令牌：之后所有 apiFetch 会自动带 Authorization 头
+        currentUserObj.value = userData
         setToken(data.access_token)
 
         localStorage.setItem(LOGGED_IN_KEY, 'true')
         localStorage.setItem(USERNAME_KEY, data.username)
-        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify({
-          username: data.username,
-          role: data.role || 'super_admin'
-        }))
+        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userData))
       } else {
         const errData = await res.json()
         loginError.value = errData.detail || '登录失败'
@@ -81,7 +74,7 @@ export function useAuth() {
 
   const handleLogout = () => {
     isLoggedIn.value = false
-    currentUserObj.value = { username: 'admin', role: 'super_admin' }
+    currentUserObj.value = { username: 'admin', role: 'super_admin', permissions: ['*'] }
     clearToken()
     localStorage.removeItem(LOGGED_IN_KEY)
     localStorage.removeItem(USERNAME_KEY)
