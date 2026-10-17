@@ -1,13 +1,14 @@
 """POS 收银：下单（扣库存 + 落订单）/ 历史订单 / 退货回滚 / 云端挂单。"""
 
-from datetime import datetime
+from datetime import datetime, time
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlmodel import Session, select, update
 
 from app.database import get_session
-from app.deps import Actor, get_current_actor, RequirePermission
+from app.deps import Actor, RequirePermission
 from app.models import AutoPart, Client, InventoryTransaction, Order, OrderItem, HeldOrder, CashRegisterSession
 from app.schemas import POSOrderCreatePayload
 from app.services.numbering import make_order_no
@@ -27,7 +28,7 @@ def _is_debt_payment(payment_method: str) -> bool:
 @router.post("/api/pos/orders")
 def create_pos_order(
     payload: POSOrderCreatePayload,
-    actor: Actor = Depends(RequirePermission("pos:access")),  # 🛡️ 严格校验进入收银与下单权限
+    actor: Actor = Depends(RequirePermission("pos:access")),
     session: Session = Depends(get_session),
 ):
     total_usd = sum(item.price * item.quantity for item in payload.items)
@@ -45,7 +46,6 @@ def create_pos_order(
         if not part:
             raise HTTPException(status_code=404, detail=f"商品 {item.oem} 不存在")
 
-        # ⚠️ SQLite 会静默忽略 with_for_update()，必须用原子条件更新来避免并发超卖。
         result = session.exec(
             update(AutoPart)
             .where(AutoPart.oem == item.oem, AutoPart.stock >= item.quantity)
@@ -107,10 +107,16 @@ def create_pos_order(
 
 @router.get("/api/pos/orders")
 def get_pos_orders(
+    date: Optional[str] = Query(None, description="可选筛选日期，格式 YYYY-MM-DD"),
     session: Session = Depends(get_session),
     actor: Actor = Depends(RequirePermission("pos:access"))
 ):
     orders = session.exec(select(Order).order_by(Order.id.desc())).all()
+    
+    # 🌟 加上这一行，把数据库里所有订单的单号和真实时间直接打印到你的终端控制台！
+    for o in orders:
+        print(f"🔍 【数据库真实订单】单号: {o.order_no}, 原始 created_at: {o.created_at}")
+
     result = []
     for o in orders:
         items_list = [{
@@ -119,6 +125,8 @@ def get_pos_orders(
             "quantity": i.quantity,
             "price": i.price_usd,
         } for i in o.items]
+
+        time_str = o.created_at.strftime("%Y-%m-%d %H:%M:%S") if o.created_at else ""
 
         result.append({
             "orderId": o.order_no,
@@ -129,7 +137,8 @@ def get_pos_orders(
             "paymentReference": o.payment_reference,
             "bcvRate": o.bcv_rate,
             "status": o.status,
-            "time": o.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "time": time_str,
+            "created_at": time_str,
             "items": items_list,
         })
     return result
@@ -230,8 +239,9 @@ def delete_held_order(
     session.commit()
     return {"status": "success", "message": "挂单已成功清除"}
 
+
 # ==========================================
-# 🌟 收银员交接班与盲盘点钞归档 API (复用成熟的 CashRegisterSession)
+# 🌟 收银员交接班与盲盘点钞归档 API
 # ==========================================
 
 @router.post("/api/pos/shift-handover")
@@ -246,7 +256,6 @@ def create_shift_handover(
         actual_cash = float(payload.get("actual_cash_usd", 0.0))
         system_cash = float(payload.get("system_cash_usd", 0.0))
         
-        # 直接存入项目自带的 CashRegisterSession 表，完全规避新建表缺列问题
         session_record = CashRegisterSession(
             closed_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             operator=actor.username if actor and hasattr(actor, "username") else "admin",
@@ -291,13 +300,3 @@ def get_shift_records(
 ):
     records = session.exec(select(CashRegisterSession).order_by(CashRegisterSession.id.desc())).all()
     return records
-
-
-
-
-
-
-
-
-
-

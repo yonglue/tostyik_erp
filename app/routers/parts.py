@@ -66,6 +66,59 @@ def create_part(
 
     return {"status": "success", "message": "Part created successfully"}
 
+@router.put("/api/parts/{part_id}")
+def update_part(
+    part_id: int,
+    oem: str = Form(...),
+    name: str = Form(...),
+    brand: str = Form(...),
+    category: str = Form(...),
+    stock: int = Form(...),
+    price: float = Form(...),
+    bin_location: str = Form(default="Estante A-1"),
+    cross_references: str = Form(default=""),
+    files: List[UploadFile] = File(default=[]),
+    actor: Actor = Depends(get_current_actor),
+    session: Session = Depends(get_session),
+):
+    part = session.get(AutoPart, part_id)
+    if not part:
+        raise HTTPException(status_code=404, detail="Part not found")
+
+    image_paths = []
+    # 如果用户上传了新图片，则处理新图片
+    if files:
+        for file in files:
+            file_path = os.path.join(UPLOAD_DIR, file.filename)
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            image_paths.append(f"/uploads/{file.filename}")
+        part.image_url = json.dumps(image_paths)
+
+    # 更新字段
+    part.oem = oem
+    part.name = name
+    part.brand = brand
+    part.category = category
+    part.stock = stock
+    part.price = price
+    part.bin_location = bin_location
+    part.cross_references = cross_references
+
+    session.add(part)
+    session.commit()
+
+    log_action(
+        session=session,
+        username=actor.username,
+        role=actor.role,
+        action="UPDATE_PART",
+        details=f"更新了配件商品档案: {name} (OEM: {oem}, 库存: {stock}, 价格: ${price})",
+    )
+
+    return {"status": "success", "message": "Part updated successfully"}
+
+
 
 @router.delete("/api/parts/{part_id}")
 def delete_part(

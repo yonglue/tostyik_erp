@@ -175,11 +175,10 @@
 
       </div>
 
-      <!-- 右侧：组合支付面板 (独立滚动 overflow-y-auto，绝不溢出穿框) -->
+      <!-- 右侧：组合支付面板 -->
       <div class="w-[430px] flex flex-col bg-white rounded-2xl border border-slate-200 p-4 shadow-sm justify-between shrink-0 overflow-y-auto max-h-full">
         
         <div class="space-y-3">
-          <!-- 标题与一键切换主显示币种按钮 -->
           <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <h3 class="font-bold text-sm text-slate-800">💳 多通道组合支付</h3>
             <button 
@@ -191,7 +190,6 @@
             </button>
           </div>
 
-          <!-- 收款通道输入面板 -->
           <div class="space-y-2 text-xs">
             <!-- 1. Cash USD -->
             <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
@@ -284,13 +282,11 @@
             </div>
           </div>
 
-          <!-- 支付参考号 -->
           <div>
             <input v-model="paymentReference" type="text" placeholder="选填，如 Pago Móvil 回执号 / 批次号..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-blue-500 font-mono" />
           </div>
         </div>
 
-        <!-- 🌟 双币种极清结算 & 一键切换主显 -->
         <div class="space-y-2.5 pt-3 border-t border-slate-200 mt-2">
           <div class="space-y-2">
             <div class="flex justify-between items-start text-xs font-bold text-slate-600">
@@ -335,7 +331,7 @@
 
     </div>
 
-    <!-- 底部快捷键功能导航栏 -->
+    <!-- 底部快捷键导航 -->
     <footer class="absolute bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 px-6 flex items-center justify-between z-30 shadow-md">
       <div class="grid grid-cols-6 gap-3 w-full">
         <div @click="focusSearch" class="bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-xl px-3 py-2 flex items-center justify-between text-xs cursor-pointer transition-colors">
@@ -374,7 +370,7 @@
       @return="processReturnOrder"
     />
 
-    <!-- 云端挂单恢复大厅弹窗 -->
+    <!-- 云端挂单恢复弹窗 -->
     <div v-if="recallModalVisible" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden border border-slate-100 flex flex-col max-h-[80vh]">
         <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -416,9 +412,9 @@
       </div>
     </div>
 
-    <!-- 交接班 Modal -->
+    <!-- 🌟 重构优化：收银交接班与全通道多币种盘点 Modal -->
     <div v-if="shiftReportModalVisible" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+      <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 flex flex-col max-h-[92vh]">
         <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
           <h3 class="font-bold text-base text-slate-800 flex items-center gap-2">
             <span>📊 收银交接班与营业汇总 (Shift Handover)</span>
@@ -427,59 +423,125 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-6 space-y-5 text-xs bg-slate-50/40">
+          
+          <!-- 1. 系统统计应收 (System Snapshot) -->
           <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-2.5 shadow-2xs font-mono">
             <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">
-              1. 系统统计应收 (System Snapshot)
+              1. 系统统计应收 (SYSTEM SNAPSHOT)
             </div>
-            <div class="flex justify-between items-center text-slate-700">
-              <span>💵 美金现金 (Cash USD):</span>
-              <span class="font-bold text-slate-900">$ {{ shiftStats.cashUsd.amount.toFixed(2) }} ({{ shiftStats.cashUsd.count }} 笔)</span>
-            </div>
-            <div class="flex justify-between items-center text-slate-700">
-              <span>🇻🇪 Bs. 现金 (Efectivo Bs.):</span>
-              <span class="font-bold text-emerald-600">$ {{ shiftStats.cashBs.amount.toFixed(2) }} ({{ shiftStats.cashBs.count }} 笔)</span>
-            </div>
-            <div class="flex justify-between items-center text-slate-700">
-              <span>💳 刷卡 POS:</span>
-              <span class="font-bold text-blue-600">$ {{ shiftStats.cardPos.amount.toFixed(2) }} ({{ shiftStats.cardPos.count }} 笔)</span>
-            </div>
-            <div class="flex justify-between items-center text-slate-700">
-              <span>⚡ Pago Móvil:</span>
-              <span class="font-bold text-indigo-600">$ {{ shiftStats.pagoMovil.amount.toFixed(2) }} ({{ shiftStats.pagoMovil.count }} 笔)</span>
-            </div>
-            <div class="flex justify-between items-center text-slate-700">
-              <span>📋 挂账 (Fiado):</span>
-              <span class="font-bold text-amber-600">$ {{ shiftStats.fiado.amount.toFixed(2) }} ({{ shiftStats.fiado.count }} 笔)</span>
+            <div class="grid grid-cols-2 gap-x-6 gap-y-2">
+              <div class="flex justify-between items-center text-slate-700">
+                <span>💵 美金现金 (Cash USD):</span>
+                <span class="font-bold text-slate-900">${{ shiftStats.cashUsd.amount.toFixed(2) }}</span>
+              </div>
+              <div class="flex justify-between items-center text-slate-700">
+                <span>🇻🇪 Bs. 现金 (Efectivo Bs.):</span>
+                <span class="font-bold text-emerald-600">Bs. {{ (shiftStats.cashBs.amount * bcvRate).toFixed(2) }}</span>
+              </div>
+              <div class="flex justify-between items-center text-slate-700">
+                <span>💳 刷卡 POS (Bs.):</span>
+                <span class="font-bold text-blue-600">Bs. {{ (shiftStats.cardPos.amount * bcvRate).toFixed(2) }}</span>
+              </div>
+              <div class="flex justify-between items-center text-slate-700">
+                <span>⚡ Pago Móvil (Bs.):</span>
+                <span class="font-bold text-indigo-600">Bs. {{ (shiftStats.pagoMovil.amount * bcvRate).toFixed(2) }}</span>
+              </div>
+              <div class="flex justify-between items-center text-slate-700 col-span-2">
+                <span>📋 本单挂账 (Fiado):</span>
+                <span class="font-bold text-amber-600">${{ shiftStats.fiado.amount.toFixed(2) }}</span>
+              </div>
             </div>
             <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-sm font-black">
               <span class="text-slate-900">系统总营业额 (USD):</span>
-              <span class="text-emerald-600">$ {{ shiftStats.totalUsd.toFixed(2) }}</span>
+              <span class="text-emerald-600">${{ shiftStats.totalUsd.toFixed(2) }}</span>
             </div>
           </div>
 
+          <!-- 2. 收银员手动输入实盘款项 (BLIND COUNT & ACTUAL VALUES) -->
           <div class="bg-blue-50/60 p-4 rounded-2xl border border-blue-200/80 space-y-3 font-mono">
-            <div class="text-[11px] font-bold text-blue-800 uppercase tracking-wider border-b border-blue-200/60 pb-2">
-              2. 抽屉现金盲盘点钞 (Blind Count)
+            <div class="text-[11px] font-bold text-blue-800 uppercase tracking-wider border-b border-blue-200/60 pb-2 flex justify-between items-center">
+              <span>2. 收银员实盘录入款项 (ACTUAL COUNT)</span>
+              <span class="text-[10px] text-blue-600 font-normal">请录入抽屉及账面实际金额</span>
             </div>
-            <div class="flex justify-between items-center">
-              <span class="font-semibold text-blue-900">实盘点清的美金现金 (USD):</span>
-              <input 
-                v-model.number="actualCashInput" 
-                type="number" step="0.5" placeholder="0.00" 
-                class="w-32 bg-white border border-blue-300 rounded-xl px-3 py-2 text-right font-mono text-sm outline-none focus:border-blue-500 font-bold text-slate-900"
-              />
+
+            <div class="grid grid-cols-2 gap-3">
+              <!-- 美金现金 -->
+              <div class="bg-white p-2.5 rounded-xl border border-blue-200/70 space-y-1">
+                <label class="block text-[11px] font-bold text-slate-700">💵 实收美金现金 (USD):</label>
+                <div class="flex items-center gap-1">
+                  <span class="text-slate-400 font-bold">$</span>
+                  <input 
+                    v-model.number="actualCounts.cashUsd" 
+                    type="number" step="0.5" placeholder="0.00" 
+                    class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-right font-mono text-sm outline-none focus:border-blue-500 font-bold text-slate-900"
+                  />
+                </div>
+                <div class="text-[10px] text-right font-bold" :class="cashUsdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                  盈亏: {{ cashUsdDiff >= 0 ? '+' : '' }}${{ cashUsdDiff.toFixed(2) }}
+                </div>
+              </div>
+
+              <!-- Bs. 现金 -->
+              <div class="bg-white p-2.5 rounded-xl border border-blue-200/70 space-y-1">
+                <label class="block text-[11px] font-bold text-slate-700">🇻🇪 实收 Bs. 现金 (Bs.):</label>
+                <div class="flex items-center gap-1">
+                  <span class="text-slate-400 font-bold">Bs.</span>
+                  <input 
+                    v-model.number="actualCounts.cashBs" 
+                    type="number" step="10" placeholder="0.00" 
+                    class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-right font-mono text-sm outline-none focus:border-blue-500 font-bold text-slate-900"
+                  />
+                </div>
+                <div class="text-[10px] text-right font-bold" :class="cashBsDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                  盈亏: {{ cashBsDiff >= 0 ? '+' : '' }}Bs. {{ cashBsDiff.toFixed(2) }}
+                </div>
+              </div>
+
+              <!-- 刷卡 POS -->
+              <div class="bg-white p-2.5 rounded-xl border border-blue-200/70 space-y-1">
+                <label class="block text-[11px] font-bold text-slate-700">💳 实收 POS 刷卡 (Bs.):</label>
+                <div class="flex items-center gap-1">
+                  <span class="text-slate-400 font-bold">Bs.</span>
+                  <input 
+                    v-model.number="actualCounts.cardPos" 
+                    type="number" step="10" placeholder="0.00" 
+                    class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-right font-mono text-sm outline-none focus:border-blue-500 font-bold text-slate-900"
+                  />
+                </div>
+                <div class="text-[10px] text-right font-bold" :class="cardPosDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                  盈亏: {{ cardPosDiff >= 0 ? '+' : '' }}Bs. {{ cardPosDiff.toFixed(2) }}
+                </div>
+              </div>
+
+              <!-- Pago Móvil -->
+              <div class="bg-white p-2.5 rounded-xl border border-blue-200/70 space-y-1">
+                <label class="block text-[11px] font-bold text-slate-700">⚡ 实收 Pago Móvil (Bs.):</label>
+                <div class="flex items-center gap-1">
+                  <span class="text-slate-400 font-bold">Bs.</span>
+                  <input 
+                    v-model.number="actualCounts.pagoMovil" 
+                    type="number" step="10" placeholder="0.00" 
+                    class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-right font-mono text-sm outline-none focus:border-blue-500 font-bold text-slate-900"
+                  />
+                </div>
+                <div class="text-[10px] text-right font-bold" :class="pagoMovilDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                  盈亏: {{ pagoMovilDiff >= 0 ? '+' : '' }}Bs. {{ pagoMovilDiff.toFixed(2) }}
+                </div>
+              </div>
             </div>
+
+            <!-- 综合盈亏汇总折合美元 -->
             <div class="pt-2 border-t border-blue-200/60 flex justify-between items-center text-sm">
-              <span class="font-bold text-slate-700">现金盈亏差额 (Diferencia):</span>
-              <span :class="cashDifference === 0 ? 'text-emerald-600' : (cashDifference > 0 ? 'text-blue-600' : 'text-rose-600')" class="font-black font-mono">
-                {{ cashDifference >= 0 ? '+' : '' }}$ {{ cashDifference.toFixed(2) }}
+              <span class="font-bold text-slate-700">折算总盈亏 (Diferencia Total):</span>
+              <span :class="totalUsdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'" class="font-black font-mono">
+                {{ totalUsdDiff >= 0 ? '+' : '' }}${{ totalUsdDiff.toFixed(2) }}
               </span>
             </div>
           </div>
 
-          <div v-if="cashDifference !== 0" class="space-y-1.5">
+          <div v-if="totalUsdDiff !== 0" class="space-y-1.5">
             <label class="block font-semibold text-slate-500 uppercase">盈亏原因备注</label>
-            <input v-model="handoverNotes" type="text" placeholder="例如：找零误差..." class="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500" />
+            <input v-model="handoverNotes" type="text" placeholder="例如：Bs. 零钱误差 / Pago Móvil 延迟到账..." class="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500" />
           </div>
         </div>
 
@@ -604,7 +666,7 @@ const selectedIndex = ref(0)
 const activeItemRef = ref(null)
 const exitConfirmVisible = ref(false)
 
-// 🌟 新增：一键切换主显示币种状态 ('USD' 或 'BS')
+// 主显示币种切换 ('USD' 或 'BS')
 const primaryCurrency = ref('USD')
 const toggleMainCurrency = () => {
   primaryCurrency.value = primaryCurrency.value === 'USD' ? 'BS' : 'USD'
@@ -720,21 +782,43 @@ const shiftStats = ref({
   totalCount: 0
 })
 
-const actualCashInput = ref(0)
+// 🌟 新增：收银员交接班多通道实盘录入状态
+const actualCounts = ref({
+  cashUsd: 0,
+  cashBs: 0,
+  cardPos: 0,
+  pagoMovil: 0
+})
 const handoverNotes = ref('')
-const systemCashUsd = computed(() => shiftStats.value.cashUsd.amount)
-const cashDifference = computed(() => Number((actualCashInput.value - systemCashUsd.value).toFixed(2)))
+
+// 各通道差异计算 (系统应收 vs 实收)
+const cashUsdDiff = computed(() => Number(((actualCounts.value.cashUsd || 0) - shiftStats.value.cashUsd.amount).toFixed(2)))
+const cashBsDiff = computed(() => Number(((actualCounts.value.cashBs || 0) - (shiftStats.value.cashBs.amount * (props.bcvRate || 1))).toFixed(2)))
+const cardPosDiff = computed(() => Number(((actualCounts.value.cardPos || 0) - (shiftStats.value.cardPos.amount * (props.bcvRate || 1))).toFixed(2)))
+const pagoMovilDiff = computed(() => Number(((actualCounts.value.pagoMovil || 0) - (shiftStats.value.pagoMovil.amount * (props.bcvRate || 1))).toFixed(2)))
+
+// 总折算美元盈亏
+const totalUsdDiff = computed(() => {
+  const rate = props.bcvRate || 1
+  const diffInUsd = cashUsdDiff.value + (cashBsDiff.value / rate) + (cardPosDiff.value / rate) + (pagoMovilDiff.value / rate)
+  return Number(diffInUsd.toFixed(2))
+})
 
 const submitShiftHandover = async () => {
   try {
     const payload = {
       system_cash_usd: shiftStats.value.cashUsd.amount,
-      system_cash_bs: shiftStats.value.cashBs.amount,
-      system_card_pos: shiftStats.value.cardPos.amount,
-      system_pagomovil_usd: shiftStats.value.pagoMovil.amount,
+      system_cash_bs: shiftStats.value.cashBs.amount * (props.bcvRate || 1),
+      system_card_pos: shiftStats.value.cardPos.amount * (props.bcvRate || 1),
+      system_pagomovil_usd: shiftStats.value.pagoMovil.amount * (props.bcvRate || 1),
       system_debt_usd: shiftStats.value.fiado.amount,
       system_total_usd: shiftStats.value.totalUsd,
-      actual_cash_usd: actualCashInput.value,
+      
+      actual_cash_usd: actualCounts.value.cashUsd || 0,
+      actual_cash_bs: actualCounts.value.cashBs || 0,
+      actual_card_pos: actualCounts.value.cardPos || 0,
+      actual_pago_movil: actualCounts.value.pagoMovil || 0,
+      
       notes: handoverNotes.value
     }
     const res = await apiFetch('/api/pos/shift-handover', { method: 'POST', body: JSON.stringify(payload) })
@@ -872,7 +956,14 @@ const fetchCompletedOrders = async () => {
       totalUsd: tUsd,
       totalCount: ordersData.length
     }
-    actualCashInput.value = cUsd
+
+    // 默认填入系统计算值
+    actualCounts.value = {
+      cashUsd: cUsd,
+      cashBs: Number((cBs * (props.bcvRate || 1)).toFixed(2)),
+      cardPos: Number((cardAmt * (props.bcvRate || 1)).toFixed(2)),
+      pagoMovil: Number((pUsd * (props.bcvRate || 1)).toFixed(2))
+    }
   } catch (e) { console.error(e) }
 }
 
