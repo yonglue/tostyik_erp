@@ -11,6 +11,7 @@
       <Sidebar 
         :activeTab="activeTab" 
         :mobileMenuOpen="mobileMenuOpen"
+        :currentDateTime="currentDateTime"
         @update:activeTab="activeTab = $event"
         @update:mobileMenuOpen="mobileMenuOpen = $event"
         @menu-click="handleMenuClick"
@@ -19,43 +20,39 @@
       <!-- 右侧主工作区 -->
       <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
         
-        <!-- 顶部导航栏 -->
-        <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-xs">
+        <!-- 顶部导航栏：右上角胶囊效果与左侧边栏菜单完全一致 -->
+        <header class="h-16 bg-white/75 backdrop-blur-xl border-b border-white/60 px-6 flex items-center justify-between shrink-0 shadow-xs transition-all">
           <!-- 移动端菜单触发按钮 -->
           <div class="flex items-center space-x-4">
-            <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-xl">
+            <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 text-slate-600 hover:bg-blue-50/90 rounded-2xl transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
           </div>
 
           <div class="flex items-center space-x-3">
-            <!-- BCV 官方汇率展示与刷新 -->
-            <div class="hidden sm:flex items-center space-x-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-mono">
-              <span class="text-slate-500">BCV =</span>
-              <span class="font-bold text-blue-600">{{ bcvRate }}</span>
-              <button @click="fetchBcvRate" title="刷新汇率" class="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer">
+            <!-- 1. BCV 官方汇率胶囊：效果与侧边栏完全一致 -->
+            <div class="hidden sm:flex items-center space-x-2 bg-white/70 hover:bg-blue-50/90 border border-slate-200/80 hover:border-blue-300 px-4 py-2 rounded-2xl text-xs font-mono shadow-2xs transition-all duration-200 backdrop-blur-md cursor-pointer hover:scale-[1.02]">
+              <span class="text-slate-500 font-bold">BCV =</span>
+              <span class="font-black text-blue-600">{{ bcvRate }}</span>
+              <button @click="fetchBcvRate" title="刷新汇率" class="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer ml-1">
                 🔄
               </button>
             </div>
 
-            <!-- 实时时间 -->
-            <div class="hidden lg:block text-xs font-mono font-semibold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
-              📅 {{ currentDateTime }}
-            </div>
-
-            <!-- 语言切换 -->
-            <select v-model="currentLang" class="bg-slate-50 border border-slate-200 text-xs rounded-xl px-2.5 py-1.5 outline-none font-semibold cursor-pointer">
+            <!-- 2. 语言切换胶囊：效果与侧边栏完全一致 -->
+            <select v-model="currentLang" class="bg-white/70 hover:bg-blue-500/10 border border-slate-200/80 hover:border-blue-300 text-xs rounded-2xl px-3.5 py-2 outline-none font-semibold text-slate-700 hover:text-blue-700 cursor-pointer shadow-2xs transition-all duration-200 backdrop-blur-md hover:scale-[1.02]">
               <option value="es">🇪🇸 ES</option>
               <option value="zh">🇨🇳 中文</option>
               <option value="en">🇺🇸 EN</option>
             </select>
 
-            <!-- 用户与登出胶囊 -->
-            <div class="flex items-center gap-3 pl-3 border-l border-slate-200">
-              <div class="flex items-center gap-2.5 bg-slate-50 hover:bg-slate-100/85 transition-colors border border-slate-200/70 pl-2 pr-3.5 py-1 rounded-2xl shadow-2xs">
-                <div class="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs shadow-md shadow-blue-500/20 uppercase shrink-0">
+            <!-- 用户与登出区域：效果与侧边栏完全一致 -->
+            <div class="flex items-center gap-3 pl-3 border-l border-slate-200/60">
+              <!-- 用户卡片胶囊 -->
+              <div class="flex items-center gap-2.5 bg-white/70 hover:bg-blue-50/90 border border-slate-200/80 hover:border-blue-300 pl-2 pr-4 py-1.5 rounded-2xl shadow-2xs transition-all duration-200 backdrop-blur-md cursor-pointer hover:scale-[1.02]">
+                <div class="relative flex items-center justify-center w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs shadow-md shadow-blue-500/20 uppercase shrink-0">
                   {{ currentUserObj.username ? currentUserObj.username.charAt(0) : 'U' }}
-                  <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></span>
+                  <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
                 </div>
                 <div class="text-left">
                   <span class="text-[9px] text-slate-400 block uppercase font-extrabold tracking-wider leading-none">{{ currentUserObj.role }}</span>
@@ -63,14 +60,15 @@
                 </div>
               </div>
 
-              <button @click="handleLogout" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-2xs">
+              <!-- 退出按钮胶囊 -->
+              <button @click="handleLogout" class="px-4 py-2 bg-white/70 hover:bg-rose-500/15 border border-slate-200/80 hover:border-rose-300 text-rose-600 rounded-2xl text-xs font-bold shadow-2xs transition-all duration-200 cursor-pointer backdrop-blur-md hover:scale-[1.02]">
                 {{ t.logoutBtn }}
               </button>
             </div>
           </div>
         </header>
 
-        <!-- 主内容区域（智能绝对放行超级管理员） -->
+        <!-- 主内容区域 -->
         <main class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
           <DashboardView 
             v-if="activeTab === 'dashboard'" 
@@ -133,7 +131,6 @@
             @download-db="downloadDatabaseBackup"
           />
           
-          <!-- 🛡️ 智能平滑引导兜底 (若非超管触发) -->
           <div v-else class="bg-white p-12 rounded-3xl text-center space-y-4 border border-slate-200 max-w-lg mx-auto mt-12 shadow-sm">
             <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl mx-auto flex items-center justify-center text-3xl font-bold shadow-inner">
               ✨
@@ -153,7 +150,7 @@
 
     </div>
 
-    <!-- 🌟 新增商品弹窗（与编辑窗口大小保持一致 max-w-2xl，支持点击空白退出、ESC与回车保存） -->
+    <!-- 弹窗组件保持原样 -->
     <div 
       v-if="dialogVisible" 
       @click.self="dialogVisible = false" 
@@ -233,7 +230,6 @@
       </div>
     </div>
 
-    <!-- 客户弹窗 -->
     <div v-if="clientDialogVisible" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
         <div class="px-6 py-5 border-b border-slate-100">
@@ -276,7 +272,6 @@
       </div>
     </div>
 
-    <!-- 🔒 重置密码弹窗 -->
     <div v-if="resetModalVisible" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-100 p-6 space-y-5">
         <div class="text-center space-y-1.5">
@@ -568,7 +563,6 @@ const confirmDeleteQuotation = async () => {
   }
 }
 
-// 🌟 新增：打开删除客户确认弹窗
 const openDeleteClientModal = (c) => {
   targetClient.value = c
   deleteClientModalVisible.value = true
@@ -652,7 +646,6 @@ const handleAddClient = async () => {
   }
 }
 
-// 🌟 全局快捷键监听（支持 ESC 关闭、Enter 快捷保存）
 const handleGlobalKeydown = (e) => {
   if (e.key === 'Escape') {
     if (dialogVisible.value) { dialogVisible.value = false; return; }

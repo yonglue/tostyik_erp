@@ -3,14 +3,14 @@
   <div 
     v-if="mobileMenuOpen" 
     @click="$emit('update:mobileMenuOpen', false)"
-    class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-20 md:hidden transition-opacity"
+    class="fixed inset-0 bg-slate-950/45 backdrop-blur-md z-20 md:hidden transition-opacity"
   ></div>
 
-  <aside :class="['fixed md:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 shrink-0',
+  <aside :class="['fixed md:static inset-y-0 left-0 z-30 w-64 bg-white/75 backdrop-blur-xl border-r border-white/60 flex flex-col transition-transform duration-300 shrink-0 shadow-xl',
     mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0']">
     
     <!-- Logo 区域 -->
-    <div class="h-16 px-6 border-b border-slate-100 flex items-center justify-between shrink-0">
+    <div class="h-16 px-6 border-b border-slate-200/60 flex items-center justify-between shrink-0 bg-white/40">
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25">
           <Cpu :size="20" />
@@ -25,21 +25,23 @@
       </button>
     </div>
 
-    <!-- 导航菜单列表 -->
-    <nav class="flex-1 px-4 py-4 space-y-4 overflow-y-auto">
+    <!-- 导航菜单列表（强化划过悬浮效果） -->
+    <nav class="flex-1 px-3.5 py-4 space-y-3.5 overflow-y-auto">
       <div v-for="(group, groupIndex) in groupedMenuItems" :key="groupIndex" class="space-y-1">
         <!-- 分组标题 -->
         <div v-if="group.title" class="px-3 pb-1 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
           {{ group.title }}
         </div>
         
-        <!-- 组内菜单项 -->
+        <!-- 组内菜单项：增强 Hover 悬浮反馈 -->
         <button
           v-for="item in group.items"
           :key="item.key"
           @click="handleMenuClick(item.key)"
-          :class="['w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 cursor-pointer', 
-            activeTab === item.key ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900']"
+          :class="['w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl font-medium text-sm transition-all duration-200 cursor-pointer', 
+            activeTab === item.key 
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25' 
+              : 'text-slate-600 bg-white/70 hover:bg-blue-50/90 hover:text-blue-700 border border-slate-200/80 hover:border-blue-300 shadow-2xs hover:scale-[1.02]']"
         >
           <component :is="item.icon" :size="18" class="shrink-0" />
           <span class="truncate leading-tight text-left">
@@ -48,18 +50,15 @@
         </button>
 
         <!-- 组间分隔线 -->
-        <div v-if="groupIndex < groupedMenuItems.length - 1" class="pt-3 mx-3 border-b border-slate-100"></div>
+        <div v-if="groupIndex < groupedMenuItems.length - 1" class="pt-2.5 mx-3 border-b border-slate-200/50"></div>
       </div>
     </nav>
 
-    <!-- 底部状态 -->
-    <div class="p-4 border-t border-slate-100 shrink-0">
-      <div class="bg-slate-50 rounded-xl p-3 flex items-center gap-3 border border-slate-100/80">
-        <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-        <div class="flex-1 min-w-0">
-          <p class="text-xs font-semibold text-slate-700 truncate">{{ t.sysStatus }}</p>
-          <p class="text-[10px] text-slate-400 font-mono">v4.3.0 Enterprise</p>
-        </div>
+    <!-- 底部实时时间胶囊 -->
+    <div class="p-3.5 border-t border-slate-200/60 shrink-0 bg-white/40">
+      <div v-if="currentDateTime" class="bg-white/80 backdrop-blur-md rounded-2xl px-3.5 py-2.5 flex items-center justify-center gap-2 border border-white shadow-2xs text-xs font-mono font-semibold text-slate-700">
+        <span>📅</span>
+        <span class="truncate">{{ currentDateTime }}</span>
       </div>
     </div>
   </aside>
@@ -86,7 +85,8 @@ import {
 
 const props = defineProps({
   activeTab: String,
-  mobileMenuOpen: Boolean
+  mobileMenuOpen: Boolean,
+  currentDateTime: String
 })
 const emit = defineEmits(['update:activeTab', 'update:mobileMenuOpen', 'menu-click'])
 
@@ -128,7 +128,7 @@ const groupedMenuItems = computed(() => {
       items: [
         { key: 'staff', labelKey: 'menuStaff', icon: ShieldCheck, requiredPerm: 'users:manage' },
         { key: 'audit_logs', labelKey: 'menuAuditLogs', icon: ShieldAlert, requiredPerm: 'users:manage' },
-        { key: 'settings', labelKey: 'menuSettings', icon: Settings, requiredPerm: 'settings:manage' }, // 🌟 统一 Key 为 settings
+        { key: 'settings', labelKey: 'menuSettings', icon: Settings, requiredPerm: 'settings:manage' },
       ]
     }
   ]
