@@ -7,8 +7,9 @@
     <!-- 🌟 ERP 主界面结构 -->
     <div v-else class="flex flex-col md:flex-row h-full w-full overflow-hidden bg-slate-50 text-slate-900">
       
-      <!-- 左侧固定导航栏 -->
+      <!-- 左侧固定导航栏（如果在 POS 界面，可按需隐藏或保留，通常进入 POS 后主导航通过 POS 右下角 Esc 返回后台，因此在 desk 时隐藏左侧栏或铺满全屏更完美） -->
       <Sidebar 
+        v-if="activeTab !== 'desk'"
         :activeTab="activeTab" 
         :mobileMenuOpen="mobileMenuOpen"
         :currentDateTime="currentDateTime"
@@ -20,8 +21,8 @@
       <!-- 右侧主工作区 -->
       <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
         
-        <!-- 顶部导航栏：右上角胶囊效果与左侧边栏菜单完全一致 -->
-        <header class="h-16 bg-white/75 backdrop-blur-xl border-b border-white/60 px-6 flex items-center justify-between shrink-0 shadow-xs transition-all">
+        <!-- 🌟 顶部通用导航栏：当处于 POS 收银台 (desk) 时彻底隐藏，避免与 POS 顶部栏重复穿透 -->
+        <header v-if="activeTab !== 'desk'" class="h-16 bg-white/75 backdrop-blur-xl border-b border-white/60 px-6 flex items-center justify-between shrink-0 shadow-xs transition-all">
           <!-- 移动端菜单触发按钮 -->
           <div class="flex items-center space-x-4">
             <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 text-slate-600 hover:bg-blue-50/90 rounded-2xl transition-colors">
@@ -30,7 +31,7 @@
           </div>
 
           <div class="flex items-center space-x-3">
-            <!-- 1. BCV 官方汇率胶囊：效果与侧边栏完全一致 -->
+            <!-- 1. BCV 官方汇率胶囊 -->
             <div class="hidden sm:flex items-center space-x-2 bg-white/70 hover:bg-blue-50/90 border border-slate-200/80 hover:border-blue-300 px-4 py-2 rounded-2xl text-xs font-mono shadow-2xs transition-all duration-200 backdrop-blur-md cursor-pointer hover:scale-[1.02]">
               <span class="text-slate-500 font-bold">BCV =</span>
               <span class="font-black text-blue-600">{{ bcvRate }}</span>
@@ -39,16 +40,15 @@
               </button>
             </div>
 
-            <!-- 2. 语言切换胶囊：效果与侧边栏完全一致 -->
+            <!-- 2. 语言切换胶囊 -->
             <select v-model="currentLang" class="bg-white/70 hover:bg-blue-500/10 border border-slate-200/80 hover:border-blue-300 text-xs rounded-2xl px-3.5 py-2 outline-none font-semibold text-slate-700 hover:text-blue-700 cursor-pointer shadow-2xs transition-all duration-200 backdrop-blur-md hover:scale-[1.02]">
               <option value="es">🇪🇸 ES</option>
               <option value="zh">🇨🇳 中文</option>
               <option value="en">🇺🇸 EN</option>
             </select>
 
-            <!-- 用户与登出区域：效果与侧边栏完全一致 -->
+            <!-- 用户与登出区域 -->
             <div class="flex items-center gap-3 pl-3 border-l border-slate-200/60">
-              <!-- 用户卡片胶囊 -->
               <div class="flex items-center gap-2.5 bg-white/70 hover:bg-blue-50/90 border border-slate-200/80 hover:border-blue-300 pl-2 pr-4 py-1.5 rounded-2xl shadow-2xs transition-all duration-200 backdrop-blur-md cursor-pointer hover:scale-[1.02]">
                 <div class="relative flex items-center justify-center w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs shadow-md shadow-blue-500/20 uppercase shrink-0">
                   {{ currentUserObj.username ? currentUserObj.username.charAt(0) : 'U' }}
@@ -60,7 +60,6 @@
                 </div>
               </div>
 
-              <!-- 退出按钮胶囊 -->
               <button @click="handleLogout" class="px-4 py-2 bg-white/70 hover:bg-rose-500/15 border border-slate-200/80 hover:border-rose-300 text-rose-600 rounded-2xl text-xs font-bold shadow-2xs transition-all duration-200 cursor-pointer backdrop-blur-md hover:scale-[1.02]">
                 {{ t.logoutBtn }}
               </button>
@@ -150,7 +149,7 @@
 
     </div>
 
-    <!-- 弹窗组件保持原样 -->
+    <!-- 弹窗组件 -->
     <div 
       v-if="dialogVisible" 
       @click.self="dialogVisible = false" 

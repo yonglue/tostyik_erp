@@ -4,90 +4,90 @@
     
     <!-- 右上角提示条 -->
     <transition name="fade">
-      <div v-if="toastMessage" :class="toastType === 'success' ? 'bg-emerald-600/90 border-emerald-400/30' : 'bg-rose-600/90 border-rose-400/30'" class="fixed top-3 right-6 z-50 text-white px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-md border flex items-center gap-2 text-xs font-bold animate-bounce">
+      <div v-if="toastMessage" :class="toastType === 'success' ? 'bg-emerald-600/90 border-emerald-400/30' : 'bg-rose-600/90 border-rose-400/30'" class="fixed top-2 right-4 z-50 text-white px-4 py-3 rounded-xl shadow-xl backdrop-blur-md border flex items-center gap-2 text-sm font-bold animate-bounce">
         <span>{{ toastType === 'success' ? '✅' : '❌' }}</span>
         <span>{{ toastMessage }}</span>
       </div>
     </transition>
 
-    <!-- 顶部状态栏：减小高度与间距 -->
-    <header class="h-14 bg-white/70 backdrop-blur-xl border-b border-white/40 px-5 flex items-center justify-between shrink-0 shadow-xs transition-all">
+    <!-- 顶部状态栏 -->
+    <header class="h-12 bg-white/75 backdrop-blur-xl border-b border-white/60 px-4 flex items-center justify-between shrink-0 shadow-2xs">
       <div class="flex items-center space-x-3">
-        <span class="bg-blue-600/90 text-white text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-sm">POS v2.9</span>
-        <span class="text-xs font-semibold text-slate-700">📅 {{ currentDateTime }}</span>
-        <span class="text-xs text-emerald-600 font-mono font-bold">{{ t.bcvLabel }}: {{ bcvRate }}</span>
+        <span class="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-2xs">POS v2.9</span>
+        <span class="text-sm font-bold text-slate-700">📅 {{ currentDateTime }}</span>
+        <span class="text-sm text-emerald-600 font-mono font-bold">{{ t.bcvLabel }}: {{ bcvRate }}</span>
         
-        <button v-if="heldOrders.length > 0" @click="openRecallModal" class="bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 border border-amber-300/40 px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
+        <button v-if="heldOrders.length > 0" @click="openRecallModal" class="bg-white/70 hover:bg-amber-500/10 text-amber-800 border border-slate-200 hover:border-amber-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
           <span>📦 挂单池 ({{ heldOrders.length }}) [Ctrl+R]</span>
         </button>
       </div>
       
       <div class="flex items-center space-x-2.5">
-        <button @click="openHistoryModal" class="bg-white/60 hover:bg-white/90 text-indigo-700 border border-indigo-200/60 hover:border-indigo-400 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
-          <span>📜 销售历史与退货</span>
+        <button @click="openHistoryModal" class="bg-white/70 hover:bg-white/90 text-indigo-700 border border-slate-200 hover:border-indigo-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
+          <span>📜 销售历史</span>
         </button>
-        <button @click="openShiftReportModal" class="bg-white/60 hover:bg-white/90 text-emerald-700 border border-emerald-200/60 hover:border-emerald-400 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
-          <span>📊 收银交接班 (Shift)</span>
+        <button @click="openShiftReportModal" class="bg-white/70 hover:bg-white/90 text-emerald-700 border border-slate-200 hover:border-emerald-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
+          <span>📊 交接班</span>
         </button>
-        <button @click="helpModalVisible = true" class="bg-white/60 hover:bg-white/90 text-blue-600 border border-blue-200/60 hover:border-blue-400 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
-          <span>⌨️ 快捷键指南</span>
+        <button @click="helpModalVisible = true" class="bg-white/70 hover:bg-white/90 text-blue-600 border border-slate-200 hover:border-blue-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
+          <span>⌨️ 快捷键</span>
         </button>
 
         <div class="flex items-center gap-2.5 pl-2.5 border-l border-slate-200/60">
-          <div class="flex items-center gap-2 bg-white/50 border border-white/60 pl-2 pr-3 py-1 rounded-xl shadow-2xs backdrop-blur-sm">
-            <div class="relative flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs shadow-md shadow-blue-500/20 uppercase shrink-0">
+          <div class="flex items-center gap-2 bg-white/70 hover:bg-blue-50/90 border border-slate-200 hover:border-blue-300 pl-2 pr-3.5 py-1.5 rounded-xl shadow-2xs backdrop-blur-md cursor-pointer transition-all hover:scale-[1.02]">
+            <div class="relative flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs uppercase shrink-0 shadow-md shadow-blue-500/20">
               {{ currentUser?.username ? currentUser.username.charAt(0) : 'A' }}
               <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
             </div>
             <div class="text-left">
               <span class="text-[9px] text-slate-400 block uppercase font-extrabold tracking-wider leading-none">{{ currentUser?.role || 'super_admin' }}</span>
-              <span class="text-xs font-bold text-slate-800 tracking-tight leading-tight mt-0.5 block">{{ currentUser?.username || 'admin' }}</span>
+              <span class="text-xs font-bold text-slate-800 leading-tight block mt-0.5">{{ currentUser?.username || 'admin' }}</span>
             </div>
           </div>
-          <button @click="confirmExitPos" class="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-200/60 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-[1.02]">
+          <button @click="confirmExitPos" class="px-3 py-1.5 bg-white/70 hover:bg-rose-500/15 border border-slate-200 hover:border-rose-300 text-rose-600 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-[1.02]">
             退出
           </button>
         </div>
       </div>
     </header>
 
-    <!-- 中间主工作区：收紧内边距与间隙 -->
-    <div class="flex-1 flex overflow-hidden p-3 gap-3 pb-15">
+    <!-- 中间主工作区 -->
+    <div class="flex-1 flex overflow-hidden p-2 gap-2 pb-12">
       
       <!-- 左侧：商品搜索与购物车 -->
-      <div class="flex-1 flex flex-col bg-white/70 backdrop-blur-xl rounded-2xl border border-white/60 overflow-hidden shadow-xl">
+      <div class="flex-1 flex flex-col bg-white/75 backdrop-blur-xl rounded-xl border border-white/60 overflow-hidden shadow-lg">
         
-        <div class="p-3 border-b border-slate-200/60 flex gap-2.5 bg-white/40 backdrop-blur-md">
+        <div class="p-2.5 border-b border-slate-200/60 flex gap-2 bg-white/40 backdrop-blur-md">
           <div class="flex-1 relative">
             <input 
               ref="searchInputRef"
               v-model="deskSearchQuery" 
               @keydown="handleSearchKeydown"
               type="text" 
-              placeholder="按 [/] 键聚焦，输入 OEM / 互换号 / 品名搜索 (按 Esc 确认退出)..." 
-              class="w-full bg-white/80 hover:bg-white focus:bg-white border border-slate-200/80 focus:border-blue-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none font-mono shadow-xs transition-all"
+              placeholder="按 [/] 键聚焦，输入 OEM / 互换号 / 品名搜索..." 
+              class="w-full bg-white/90 hover:bg-white focus:bg-white border border-slate-200/80 focus:border-blue-500 rounded-lg px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none font-mono shadow-2xs transition-all font-bold"
             />
           </div>
           <div class="w-68 flex items-center gap-1.5">
             <button 
               @click="openClientSearchModal" 
               type="button"
-              class="flex-1 bg-white/80 hover:bg-blue-50/70 border border-blue-400/60 hover:border-blue-500 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-all shadow-xs cursor-pointer truncate hover:scale-[1.01]"
+              class="flex-1 bg-white/90 hover:bg-blue-50/70 border border-blue-300/60 hover:border-blue-500 text-slate-800 rounded-lg px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-all shadow-2xs cursor-pointer truncate"
             >
-              <div class="flex items-center gap-1.5 truncate">
-                <span class="text-blue-600">👤</span>
-                <span class="truncate" :class="quoteClientName ? 'text-slate-900' : 'text-slate-400'">
-                  {{ quoteClientName || '🔍 选择客户 (Ctrl+F)...' }}
+              <div class="flex items-center gap-2 truncate">
+                <span class="text-blue-600 text-sm">👤</span>
+                <span class="truncate text-xs font-bold" :class="quoteClientName ? 'text-slate-900' : 'text-slate-400'">
+                  {{ quoteClientName || '🔍 选择客户...' }}
                 </span>
               </div>
-              <span class="text-[11px] text-slate-400 ml-1">选择</span>
+              <span class="text-xs text-slate-400 ml-1">选择</span>
             </button>
             <button 
               v-if="quoteClientName"
               @click="quoteClientName = ''"
               title="清除当前选中客户"
               type="button"
-              class="w-8 h-9.5 shrink-0 bg-slate-100/80 hover:bg-rose-500/20 text-slate-500 hover:text-rose-600 border border-slate-200 rounded-xl flex items-center justify-center text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-105"
+              class="w-8 h-9.5 shrink-0 bg-slate-100 hover:bg-rose-500/20 text-slate-500 hover:text-rose-600 border border-slate-200 rounded-lg flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
             >
               ✕
             </button>
@@ -95,7 +95,7 @@
         </div>
 
         <!-- 搜索结果快捷点选栏 -->
-        <div v-if="deskSearchQuery.trim()" class="max-h-52 overflow-y-auto border-b border-slate-200/60 bg-white/90 backdrop-blur-md p-2 space-y-1 z-20 shadow-xl">
+        <div v-if="deskSearchQuery.trim()" class="max-h-56 overflow-y-auto border-b border-slate-200/60 bg-white/95 backdrop-blur-md p-2 space-y-1.5 z-20 shadow-xl">
           <div 
             v-for="(p, index) in filteredParts" 
             :key="p.oem" 
@@ -103,69 +103,74 @@
             @click="selectAndAddToCart(p)"
             @mouseenter="selectedIndex = index"
             :class="[
-              selectedIndex === index ? 'bg-blue-500/15 border-blue-300 text-blue-950 shadow-xs' : 'hover:bg-slate-100/70 border-slate-100 text-slate-800',
+              selectedIndex === index ? 'bg-blue-500/15 border-blue-300 text-blue-950 shadow-2xs' : 'hover:bg-slate-100/70 border-slate-100 text-slate-800',
               p.stock <= 0 ? 'opacity-60 bg-slate-100/60' : ''
             ]"
-            class="flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all border hover:scale-[1.01]"
+            class="flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-all border text-sm"
           >
             <div>
-              <span class="font-mono font-bold text-blue-600 text-xs mr-3">{{ p.oem }}</span>
-              <span class="text-xs font-medium">{{ p.name }}</span>
-              <span class="text-[11px] text-slate-400 ml-2">({{ p.brand }})</span>
+              <span class="font-mono font-black text-blue-600 text-sm mr-3">{{ p.oem }}</span>
+              <span class="font-bold text-slate-800">{{ p.name }}</span>
+              <span class="text-xs text-slate-400 ml-2">({{ p.brand }})</span>
             </div>
             <div class="flex items-center gap-4 text-right">
               <div>
-                <span class="text-xs font-mono font-bold text-slate-900">${{ p.price.toFixed(2) }}</span>
-                <span class="text-[10px] text-slate-400 font-mono block">Bs. {{ (p.price * bcvRate).toFixed(2) }}</span>
+                <span class="text-sm font-mono font-black text-slate-900">${{ p.price.toFixed(2) }}</span>
+                <span class="text-xs text-slate-400 font-mono block">Bs. {{ (p.price * bcvRate).toFixed(2) }}</span>
               </div>
-              <span :class="p.stock > 0 ? 'text-emerald-600' : 'text-rose-600 font-bold'" class="text-xs font-mono font-bold">
-                库存: {{ p.stock }} {{ p.stock <= 0 ? '(缺货)' : '' }}
+              <span :class="p.stock > 0 ? 'text-emerald-600' : 'text-rose-600 font-bold'" class="text-xs font-mono font-black">
+                库存: {{ p.stock }}
               </span>
             </div>
           </div>
-          <div v-if="filteredParts.length === 0" class="text-center py-4 text-xs text-slate-400">
+          <div v-if="filteredParts.length === 0" class="text-center py-4 text-sm text-slate-400 font-bold">
             未找到相关配件商品
           </div>
         </div>
 
-        <!-- 购物车明细表格 -->
-        <div class="flex-1 overflow-y-auto p-3">
+        <!-- 购物车明细表格：带有精美的斑马纹、行底边框与悬停高亮 -->
+        <div class="flex-1 overflow-y-auto p-2.5">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="border-b border-slate-200/60 text-slate-400 text-[11px] font-semibold uppercase">
-                <th class="py-2.5 px-3">OEM 编号</th>
-                <th class="py-2.5 px-3">配件名称</th>
-                <th class="py-2.5 px-3 text-right">单价 ($ / Bs.)</th>
-                <th class="py-2.5 px-3 text-center">数量</th>
-                <th class="py-2.5 px-3 text-right">小计 ($ / Bs.)</th>
-                <th class="py-2.5 px-3 text-center">操作</th>
+              <tr class="border-b-2 border-slate-200 text-slate-600 text-xs font-extrabold uppercase bg-slate-100/50">
+                <th class="py-3 px-3">OEM 编号</th>
+                <th class="py-3 px-3">配件名称</th>
+                <th class="py-3 px-3 text-right">单价 ($ / Bs.)</th>
+                <th class="py-3 px-3 text-center">数量</th>
+                <th class="py-3 px-3 text-right">小计 ($ / Bs.)</th>
+                <th class="py-3 px-3 text-center">操作</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100/60 text-xs">
-              <tr v-for="(item, index) in cartItems" :key="item.oem" class="hover:bg-white/60 transition-all">
-                <td class="py-2.5 px-3 font-mono font-bold text-blue-600 text-xs">{{ item.oem }}</td>
-                <td class="py-2.5 px-3 text-slate-800 font-medium">{{ item.name }}</td>
-                <td class="py-2.5 px-3 text-right font-mono text-slate-600">
+            <tbody class="text-sm font-medium">
+              <tr 
+                v-for="(item, index) in cartItems" 
+                :key="item.oem" 
+                :class="index % 2 === 0 ? 'bg-white/80' : 'bg-slate-50/70'"
+                class="border-b border-slate-200/70 hover:bg-blue-50/50 transition-all shadow-2xs"
+              >
+                <td class="py-3 px-3 font-mono font-black text-blue-600 text-sm">{{ item.oem }}</td>
+                <td class="py-3 px-3 text-slate-900 font-bold">{{ item.name }}</td>
+                <td class="py-3 px-3 text-right font-mono text-slate-700 font-bold">
                   <div>${{ item.price.toFixed(2) }}</div>
-                  <div class="text-[10px] text-slate-400">Bs. {{ (item.price * bcvRate).toFixed(2) }}</div>
+                  <div class="text-xs text-slate-400 font-normal">Bs. {{ (item.price * bcvRate).toFixed(2) }}</div>
                 </td>
-                <td class="py-2.5 px-3 text-center">
-                  <div class="inline-flex items-center border border-slate-200/80 rounded-lg overflow-hidden bg-white/80 shadow-2xs">
-                    <button @click="item.quantity > 1 ? item.quantity-- : null" class="px-2 py-0.5 text-slate-500 hover:bg-slate-200/80 font-bold transition-colors">-</button>
-                    <input v-model.number="item.quantity" type="number" min="1" class="w-10 text-center bg-transparent text-slate-800 text-xs font-mono outline-none font-bold" />
-                    <button @click="item.quantity++" class="px-2 py-0.5 text-slate-500 hover:bg-slate-200/80 font-bold transition-colors">+</button>
+                <td class="py-3 px-3 text-center">
+                  <div class="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white shadow-2xs">
+                    <button @click="item.quantity > 1 ? item.quantity-- : null" class="px-2.5 py-1 text-slate-600 hover:bg-slate-200 font-bold text-sm">-</button>
+                    <input v-model.number="item.quantity" type="number" min="1" class="w-10 text-center bg-transparent text-slate-900 text-sm font-mono outline-none font-black" />
+                    <button @click="item.quantity++" class="px-2.5 py-1 text-slate-600 hover:bg-slate-200 font-bold text-sm">+</button>
                   </div>
                 </td>
-                <td class="py-2.5 px-3 text-right font-mono font-bold text-emerald-600">
+                <td class="py-3 px-3 text-right font-mono font-black text-emerald-600">
                   <div>${{ (item.price * item.quantity).toFixed(2) }}</div>
-                  <div class="text-[10px] text-emerald-700/70 font-normal">Bs. {{ (item.price * item.quantity * bcvRate).toFixed(2) }}</div>
+                  <div class="text-xs text-emerald-700/80 font-normal">Bs. {{ (item.price * item.quantity * bcvRate).toFixed(2) }}</div>
                 </td>
-                <td class="py-2.5 px-3 text-center">
-                  <button @click="cartItems.splice(index, 1)" class="text-rose-600 hover:text-rose-700 text-[11px] font-bold px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg transition-all hover:scale-105">删除</button>
+                <td class="py-3 px-3 text-center">
+                  <button @click="cartItems.splice(index, 1)" class="text-rose-600 text-xs font-bold px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg transition-all cursor-pointer shadow-2xs">删除</button>
                 </td>
               </tr>
               <tr v-if="cartItems.length === 0">
-                <td colspan="6" class="text-center py-16 text-slate-400 text-xs">
+                <td colspan="6" class="text-center py-20 text-slate-400 text-sm font-bold">
                   🛒 购物车为空，请扫码或搜索添加配件商品...
                 </td>
               </tr>
@@ -176,26 +181,26 @@
       </div>
 
       <!-- 右侧：组合支付面板 -->
-      <div class="w-[410px] flex flex-col bg-white/70 backdrop-blur-xl rounded-2xl border border-white/60 p-3.5 shadow-xl justify-between shrink-0 overflow-y-auto max-h-full">
+      <div class="w-[410px] flex flex-col bg-white/75 backdrop-blur-xl rounded-xl border border-white/60 p-3.5 shadow-lg justify-between shrink-0 overflow-y-auto max-h-full">
         
         <div class="space-y-2.5">
           <div class="flex items-center justify-between border-b border-slate-200/60 pb-2">
-            <h3 class="font-bold text-xs text-slate-800">💳 多通道组合支付</h3>
+            <h3 class="font-bold text-xs text-slate-800 uppercase tracking-wider">💳 多通道组合支付</h3>
             <button 
               @click="toggleMainCurrency" 
               type="button"
-              class="bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 border border-blue-200/60 hover:border-blue-400 px-2 py-0.5 rounded-lg text-[11px] font-bold font-mono transition-all cursor-pointer shadow-2xs flex items-center gap-1 hover:scale-[1.02]"
+              class="bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 border border-blue-200/60 px-2.5 py-1 rounded-lg text-xs font-bold font-mono transition-all cursor-pointer shadow-2xs flex items-center gap-1"
             >
               <span>🔄 主显: {{ primaryCurrency === 'USD' ? '美元 ($)' : 'Bs.' }}</span>
             </button>
           </div>
 
-          <div class="space-y-1.5 text-xs">
+          <div class="space-y-2 text-sm">
             <!-- 1. Cash USD -->
-            <div class="bg-white/60 hover:bg-white/90 p-2 rounded-xl border border-white/80 hover:border-blue-300 transition-all flex items-center justify-between shadow-2xs hover:scale-[1.01]">
+            <div class="bg-white/70 hover:bg-white p-2 rounded-xl border border-white/90 hover:border-blue-300 transition-all flex items-center justify-between shadow-2xs">
               <div>
-                <span class="font-bold text-slate-700 flex items-center gap-1">💵 美金现金 Cash USD <span class="text-[10px] text-blue-600 font-mono">[F4]</span></span>
-                <span class="text-[10px] text-emerald-600 font-mono font-bold">{{ primaryCurrency === 'USD' ? `≈ Bs. ${((Number(paymentSplit.cashUsd) || 0) * bcvRate).toFixed(2)}` : `≈ $${(Number(paymentSplit.cashUsd) || 0).toFixed(2)}` }}</span>
+                <span class="font-bold text-slate-800 flex items-center gap-1">💵 美金现金 Cash USD <span class="text-[10px] text-blue-600 font-mono">[F4]</span></span>
+                <span class="text-xs text-emerald-600 font-mono font-bold">{{ primaryCurrency === 'USD' ? `≈ Bs. ${((Number(paymentSplit.cashUsd) || 0) * bcvRate).toFixed(2)}` : `≈ $${(Number(paymentSplit.cashUsd) || 0).toFixed(2)}` }}</span>
               </div>
               <div class="flex items-center gap-1">
                 <span class="text-slate-400 font-bold">$</span>
@@ -204,16 +209,16 @@
                   v-model.number="paymentSplit.cashUsd" 
                   @keydown="handlePaymentKeydown($event, 'cashUsd')"
                   type="number" step="0.5" placeholder="0.00" 
-                  class="w-24 bg-white/90 hover:bg-white focus:bg-white border border-slate-300/80 rounded-lg px-2 py-1 text-right font-mono font-bold text-slate-900 outline-none focus:border-blue-500 text-xs transition-all" 
+                  class="w-26 bg-white/90 focus:bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono font-black text-slate-900 outline-none focus:border-blue-500 text-sm" 
                 />
               </div>
             </div>
 
             <!-- 2. Efectivo Bs. -->
-            <div class="bg-white/60 hover:bg-white/90 p-2 rounded-xl border border-white/80 hover:border-blue-300 transition-all flex items-center justify-between shadow-2xs hover:scale-[1.01]">
+            <div class="bg-white/70 hover:bg-white p-2 rounded-xl border border-white/90 hover:border-blue-300 transition-all flex items-center justify-between shadow-2xs">
               <div>
-                <span class="font-bold text-slate-700 flex items-center gap-1">🇻🇪 玻利瓦尔现金 <span class="text-[10px] text-blue-600 font-mono">[F5]</span></span>
-                <span class="text-[10px] text-emerald-600 font-mono font-bold">{{ primaryCurrency === 'USD' ? `≈ $${((Number(paymentSplit.cashBs) || 0) / (bcvRate || 1)).toFixed(2)}` : `Bs. ${(Number(paymentSplit.cashBs) || 0).toFixed(2)}` }}</span>
+                <span class="font-bold text-slate-800 flex items-center gap-1">🇻🇪 玻利瓦尔现金 <span class="text-[10px] text-blue-600 font-mono">[F5]</span></span>
+                <span class="text-xs text-emerald-600 font-mono font-bold">{{ primaryCurrency === 'USD' ? `≈ $${((Number(paymentSplit.cashBs) || 0) / (bcvRate || 1)).toFixed(2)}` : `Bs. ${(Number(paymentSplit.cashBs) || 0).toFixed(2)}` }}</span>
               </div>
               <div class="flex items-center gap-1">
                 <span class="text-slate-400 font-bold">Bs.</span>
@@ -222,16 +227,16 @@
                   v-model.number="paymentSplit.cashBs" 
                   @keydown="handlePaymentKeydown($event, 'cashBs')"
                   type="number" step="10" placeholder="0.00" 
-                  class="w-24 bg-white/90 hover:bg-white focus:bg-white border border-slate-300/80 rounded-lg px-2 py-1 text-right font-mono font-bold text-slate-900 outline-none focus:border-blue-500 text-xs transition-all" 
+                  class="w-26 bg-white/90 focus:bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono font-black text-slate-900 outline-none focus:border-blue-500 text-sm" 
                 />
               </div>
             </div>
 
             <!-- 3. Card POS -->
-            <div class="bg-white/60 hover:bg-white/90 p-2 rounded-xl border border-white/80 hover:border-blue-300 transition-all flex items-center justify-between shadow-2xs hover:scale-[1.01]">
+            <div class="bg-white/70 hover:bg-white p-2 rounded-xl border border-white/90 hover:border-blue-300 transition-all flex items-center justify-between shadow-2xs">
               <div>
-                <span class="font-bold text-slate-700 flex items-center gap-1">💳 刷卡 POS (Bs.) <span class="text-[10px] text-blue-600 font-mono">[F6]</span></span>
-                <span class="text-[10px] text-emerald-600 font-mono font-bold">{{ primaryCurrency === 'USD' ? `≈ $${((Number(paymentSplit.cardPos) || 0) / (bcvRate || 1)).toFixed(2)}` : `Bs. ${(Number(paymentSplit.cardPos) || 0).toFixed(2)}` }}</span>
+                <span class="font-bold text-slate-800 flex items-center gap-1">💳 刷卡 POS (Bs.) <span class="text-[10px] text-blue-600 font-mono">[F6]</span></span>
+                <span class="text-xs text-emerald-600 font-mono font-bold">{{ primaryCurrency === 'USD' ? `≈ $${((Number(paymentSplit.cardPos) || 0) / (bcvRate || 1)).toFixed(2)}` : `Bs. ${(Number(paymentSplit.cardPos) || 0).toFixed(2)}` }}</span>
               </div>
               <div class="flex items-center gap-1">
                 <span class="text-slate-400 font-bold">Bs.</span>
@@ -240,16 +245,16 @@
                   v-model.number="paymentSplit.cardPos" 
                   @keydown="handlePaymentKeydown($event, 'cardPos')"
                   type="number" step="10" placeholder="0.00" 
-                  class="w-24 bg-white/90 hover:bg-white focus:bg-white border border-slate-300/80 rounded-lg px-2 py-1 text-right font-mono font-bold text-slate-900 outline-none focus:border-blue-500 text-xs transition-all" 
+                  class="w-26 bg-white/90 focus:bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono font-black text-slate-900 outline-none focus:border-blue-500 text-sm" 
                 />
               </div>
             </div>
 
             <!-- 4. Pago Móvil -->
-            <div class="bg-white/60 hover:bg-white/90 p-2 rounded-xl border border-white/80 hover:border-blue-300 transition-all flex items-center justify-between shadow-2xs hover:scale-[1.01]">
+            <div class="bg-white/70 hover:bg-white p-2 rounded-xl border border-white/90 hover:border-blue-300 transition-all flex items-center justify-between shadow-2xs">
               <div>
-                <span class="font-bold text-slate-700 flex items-center gap-1">⚡ 手机支付 Pago Móvil <span class="text-[10px] text-blue-600 font-mono">[F7]</span></span>
-                <span class="text-[10px] text-emerald-600 font-mono font-bold">{{ primaryCurrency === 'USD' ? `≈ $${((Number(paymentSplit.pagoMovil) || 0) / (bcvRate || 1)).toFixed(2)}` : `Bs. ${(Number(paymentSplit.pagoMovil) || 0).toFixed(2)}` }}</span>
+                <span class="font-bold text-slate-800 flex items-center gap-1">⚡ 手机支付 Pago Móvil <span class="text-[10px] text-blue-600 font-mono">[F7]</span></span>
+                <span class="text-xs text-emerald-600 font-mono font-bold">{{ primaryCurrency === 'USD' ? `≈ $${((Number(paymentSplit.pagoMovil) || 0) / (bcvRate || 1)).toFixed(2)}` : `Bs. ${(Number(paymentSplit.pagoMovil) || 0).toFixed(2)}` }}</span>
               </div>
               <div class="flex items-center gap-1">
                 <span class="text-slate-400 font-bold">Bs.</span>
@@ -258,60 +263,55 @@
                   v-model.number="paymentSplit.pagoMovil" 
                   @keydown="handlePaymentKeydown($event, 'pagoMovil')"
                   type="number" step="10" placeholder="0.00" 
-                  class="w-24 bg-white/90 hover:bg-white focus:bg-white border border-slate-300/80 rounded-lg px-2 py-1 text-right font-mono font-bold text-slate-900 outline-none focus:border-blue-500 text-xs transition-all" 
-                />
-              </div>
-            </div>
-
-            <!-- 5. 挂账 (Fiado) -->
-            <div class="bg-amber-500/10 hover:bg-amber-500/20 p-2 rounded-xl border border-amber-200/80 hover:border-amber-400 transition-all flex items-center justify-between shadow-2xs hover:scale-[1.01]">
-              <div>
-                <span class="font-bold text-amber-900 flex items-center gap-1">📋 本单挂账 Fiado <span class="text-[10px] text-amber-700 font-mono">[Alt+P]</span></span>
-                <span class="text-[10px] text-amber-700 font-mono font-bold">Bs. {{ ((Number(paymentSplit.fiado) || 0) * bcvRate).toFixed(2) }}</span>
-              </div>
-              <div class="flex items-center gap-1">
-                <span class="text-amber-700 font-bold">$</span>
-                <input 
-                  ref="fiadoInputRef"
-                  v-model.number="paymentSplit.fiado" 
-                  @keydown="handlePaymentKeydown($event, 'fiado')"
-                  type="number" step="0.5" placeholder="0.00" 
-                  class="w-24 bg-white/90 hover:bg-white focus:bg-white border border-amber-300/80 rounded-lg px-2 py-1 text-right font-mono font-bold text-amber-950 outline-none focus:border-amber-500 text-xs transition-all" 
+                  class="w-26 bg-white/90 focus:bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono font-black text-slate-900 outline-none focus:border-blue-500 text-sm" 
                 />
               </div>
             </div>
           </div>
 
-          <div>
-            <input v-model="paymentReference" type="text" placeholder="选填，如 Pago Móvil 回执号 / 批次号..." class="w-full bg-white/60 hover:bg-white focus:bg-white border border-slate-200/80 rounded-xl px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-blue-500 font-mono transition-all" />
+          <!-- 回执号码：左侧为纯文本标签“回执号码”，右侧为输入框 -->
+          <div class="flex items-center gap-2 bg-white/70 hover:bg-white border border-slate-200 hover:border-blue-300 rounded-xl px-3 py-2 shadow-2xs transition-all">
+            <span class="w-1/3 text-xs font-black text-slate-700 shrink-0 truncate">回执号码:</span>
+            <input 
+              v-model="paymentReference" 
+              type="text" 
+              placeholder="选填，如 Pago Móvil 回执号..." 
+              class="w-2/3 bg-transparent text-xs font-bold text-slate-900 outline-none font-mono placeholder-slate-400" 
+            />
           </div>
         </div>
 
-        <div class="space-y-2 pt-2.5 border-t border-slate-200/60 mt-1">
-          <div class="space-y-1.5">
-            <div class="flex justify-between items-start text-xs font-bold text-slate-600">
-              <span>总应付金额:</span>
+        <!-- 底部应付、已付、找零区域 -->
+        <div class="space-y-3 pt-3 border-t border-slate-200/60 mt-1">
+          <div class="space-y-2">
+            <!-- 总应付金额 -->
+            <div class="flex justify-between items-start text-base font-bold text-slate-700">
+              <span class="font-extrabold text-slate-800">总应付金额:</span>
               <div class="text-right">
-                <div class="font-mono text-slate-900 text-base font-black">{{ primaryCurrency === 'USD' ? `$${totalUsd.toFixed(2)}` : `Bs. ${(totalUsd * bcvRate).toFixed(2)}` }}</div>
-                <div class="font-mono text-[10px] text-slate-400 font-normal">{{ primaryCurrency === 'USD' ? `Bs. ${(totalUsd * bcvRate).toFixed(2)}` : `$${totalUsd.toFixed(2)}` }}</div>
+                <div class="font-mono text-slate-900 text-lg font-black">{{ primaryCurrency === 'USD' ? `$${totalUsd.toFixed(2)}` : `Bs. ${(totalUsd * bcvRate).toFixed(2)}` }}</div>
+                <div class="font-mono text-xs text-slate-400 font-semibold">{{ primaryCurrency === 'USD' ? `Bs. ${(totalUsd * bcvRate).toFixed(2)}` : `$${totalUsd.toFixed(2)}` }}</div>
               </div>
             </div>
-            <div class="flex justify-between items-start text-xs font-bold text-slate-600">
-              <span>已付金额 (Paid):</span>
+
+            <!-- 已付金额 -->
+            <div class="flex justify-between items-start text-base font-bold text-slate-700">
+              <span class="font-extrabold text-slate-800">已付金额 (Paid):</span>
               <div class="text-right">
-                <div class="font-mono text-emerald-600 text-base font-black">{{ primaryCurrency === 'USD' ? `$${totalPaidUsd.toFixed(2)}` : `Bs. ${(totalPaidUsd * bcvRate).toFixed(2)}` }}</div>
-                <div class="font-mono text-[10px] text-emerald-700/70 font-normal">{{ primaryCurrency === 'USD' ? `Bs. ${(totalPaidUsd * bcvRate).toFixed(2)}` : `$${totalPaidUsd.toFixed(2)}` }}</div>
+                <div class="font-mono text-emerald-600 text-lg font-black">{{ primaryCurrency === 'USD' ? `$${totalPaidUsd.toFixed(2)}` : `Bs. ${(totalPaidUsd * bcvRate).toFixed(2)}` }}</div>
+                <div class="font-mono text-xs text-emerald-700/80 font-semibold">{{ primaryCurrency === 'USD' ? `Bs. ${(totalPaidUsd * bcvRate).toFixed(2)}` : `$${totalPaidUsd.toFixed(2)}` }}</div>
               </div>
             </div>
-            <div class="pt-1 border-t border-slate-100 flex justify-between items-start">
-              <span class="text-xs font-bold pt-0.5" :class="balanceRemaining > 0 ? 'text-rose-600' : 'text-emerald-600'">
-                {{ balanceRemaining > 0 ? '🔴 待付余额:' : '🟢 找零:' }}
+
+            <!-- 待付余额 / 找零 -->
+            <div class="pt-2 border-t border-slate-200/60 flex justify-between items-start">
+              <span class="text-base font-black pt-0.5" :class="balanceRemaining > 0 ? 'text-rose-600' : 'text-emerald-600'">
+                {{ balanceRemaining > 0 ? '🔴 待付余额:' : '🟢 找零 (Cambio):' }}
               </span>
               <div class="text-right">
-                <div class="text-lg font-black font-mono" :class="balanceRemaining > 0 ? 'text-rose-600' : 'text-emerald-600'">
+                <div class="text-2xl font-black font-mono leading-tight" :class="balanceRemaining > 0 ? 'text-rose-600' : 'text-emerald-600'">
                   {{ primaryCurrency === 'USD' ? `$${Math.abs(balanceRemaining).toFixed(2)}` : `Bs. ${(Math.abs(balanceRemaining) * bcvRate).toFixed(2)}` }}
                 </div>
-                <div class="font-mono text-[10px] font-bold" :class="balanceRemaining > 0 ? 'text-rose-500' : 'text-emerald-500'">
+                <div class="font-mono text-xs font-bold" :class="balanceRemaining > 0 ? 'text-rose-500' : 'text-emerald-500'">
                   {{ primaryCurrency === 'USD' ? `Bs. ${(Math.abs(balanceRemaining) * bcvRate).toFixed(2)}` : `$${Math.abs(balanceRemaining).toFixed(2)}` }}
                 </div>
               </div>
@@ -321,7 +321,7 @@
           <button 
             @click="openPreviewModal"
             :disabled="!isFullyPaid || cartItems.length === 0"
-            class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl font-black text-sm shadow-lg shadow-emerald-600/30 transition-all cursor-pointer flex items-center justify-center gap-1.5 hover:scale-[1.01]"
+            class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl font-black text-sm shadow-md shadow-emerald-600/30 transition-all cursor-pointer flex items-center justify-center gap-1.5"
           >
             <span>🚀 确认收款并出单 ({{ cartItems.length === 0 ? '购物车为空' : (balanceRemaining < 0 ? `找零 $${Math.abs(balanceRemaining).toFixed(2)}` : '已付清') }})</span>
           </button>
@@ -331,32 +331,32 @@
 
     </div>
 
-    <!-- 底部快捷键导航栏：收紧高度与边距 -->
-    <footer class="absolute bottom-0 left-0 right-0 h-13 bg-white/70 backdrop-blur-xl border-t border-white/60 px-4 flex items-center justify-between z-30 shadow-lg">
-      <div class="grid grid-cols-6 gap-2.5 w-full">
-        <div @click="focusSearch" class="bg-white/60 hover:bg-blue-500/10 border border-slate-200/60 hover:border-blue-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs hover:scale-[1.02]">
-          <span class="text-slate-700 font-medium">聚焦搜索 [/]</span>
+    <!-- 底部快捷键导航栏 -->
+    <footer class="absolute bottom-0 left-0 right-0 h-11 bg-white/75 backdrop-blur-xl border-t border-white/60 px-3 flex items-center justify-between z-30 shadow-md">
+      <div class="grid grid-cols-6 gap-2 w-full">
+        <div @click="focusSearch" class="bg-white/70 hover:bg-blue-500/10 border border-slate-200 hover:border-blue-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
+          <span class="text-slate-800 font-bold">聚焦搜索 [/]</span>
           <span class="bg-blue-500/15 text-blue-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">F4~F7支付</span>
         </div>
-        <div @click="openClientSearchModal" class="bg-white/60 hover:bg-blue-500/10 border border-slate-200/60 hover:border-blue-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs hover:scale-[1.02]">
-          <span class="text-slate-700 font-medium">选客户</span>
+        <div @click="openClientSearchModal" class="bg-white/70 hover:bg-blue-500/10 border border-slate-200 hover:border-blue-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
+          <span class="text-slate-800 font-bold">选客户</span>
           <span class="bg-blue-500/15 text-blue-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Ctrl+F</span>
         </div>
-        <div @click="holdCurrentOrder" class="bg-white/60 hover:bg-amber-500/10 border border-slate-200/60 hover:border-amber-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs hover:scale-[1.02]">
-          <span class="text-slate-700 font-medium">云端挂单</span>
+        <div @click="holdCurrentOrder" class="bg-white/70 hover:bg-amber-500/10 border border-slate-200 hover:border-amber-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
+          <span class="text-slate-800 font-bold">云端挂单</span>
           <span class="bg-amber-500/15 text-amber-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Ctrl+H</span>
         </div>
-        <div @click="$emit('clear-cart')" class="bg-white/60 hover:bg-rose-500/10 border border-slate-200/60 hover:border-rose-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs hover:scale-[1.02]">
-          <span class="text-slate-700 font-medium">清空购物车</span>
+        <div @click="$emit('clear-cart')" class="bg-white/70 hover:bg-rose-500/10 border border-slate-200 hover:border-rose-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
+          <span class="text-slate-800 font-bold">清空购物车</span>
           <span class="bg-rose-500/15 text-rose-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Ctrl+B</span>
         </div>
-        <div @click="deleteLastItem" class="bg-white/60 hover:bg-rose-500/10 border border-slate-200/60 hover:border-rose-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs hover:scale-[1.02]">
-          <span class="text-slate-700 font-medium">删末项</span>
+        <div @click="deleteLastItem" class="bg-white/70 hover:bg-rose-500/10 border border-slate-200 hover:border-rose-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
+          <span class="text-slate-800 font-bold">删末项</span>
           <span class="bg-rose-500/15 text-rose-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Delete</span>
         </div>
-        <div @click="confirmExitPos" class="bg-white/60 hover:bg-slate-200/60 border border-slate-200/60 hover:border-slate-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs hover:scale-[1.02]">
-          <span class="text-slate-700 font-medium">返回后台</span>
-          <span class="bg-slate-200 text-slate-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Esc</span>
+        <div @click="confirmExitPos" class="bg-white/70 hover:bg-slate-200/80 border border-slate-200 hover:border-slate-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
+          <span class="text-slate-800 font-bold">返回后台</span>
+          <span class="bg-slate-200 text-slate-800 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Esc</span>
         </div>
       </div>
     </footer>
@@ -444,10 +444,6 @@
               <div class="flex justify-between items-center text-slate-700">
                 <span>⚡ Pago Móvil (Bs.):</span>
                 <span class="font-bold text-indigo-600">Bs. {{ (shiftStats.pagoMovil.amount * bcvRate).toFixed(2) }}</span>
-              </div>
-              <div class="flex justify-between items-center text-slate-700 col-span-2">
-                <span>📋 本单挂账 (Fiado):</span>
-                <span class="font-bold text-amber-600">${{ shiftStats.fiado.amount.toFixed(2) }}</span>
               </div>
             </div>
             <div class="pt-1.5 border-t border-slate-200/60 flex justify-between items-center text-xs font-black">
@@ -574,7 +570,6 @@
             <div v-if="paymentSplit.cashBs > 0"> - Efectivo Bs.: Bs. {{ paymentSplit.cashBs.toFixed(2) }} (${{ (paymentSplit.cashBs / bcvRate).toFixed(2) }})</div>
             <div v-if="paymentSplit.cardPos > 0"> - Card POS: Bs. {{ paymentSplit.cardPos.toFixed(2) }} (${{ (paymentSplit.cardPos / bcvRate).toFixed(2) }})</div>
             <div v-if="paymentSplit.pagoMovil > 0"> - Pago Móvil: Bs. {{ paymentSplit.pagoMovil.toFixed(2) }} (${{ (paymentSplit.pagoMovil / bcvRate).toFixed(2) }})</div>
-            <div v-if="paymentSplit.fiado > 0"> - Fiado (挂账): ${{ paymentSplit.fiado.toFixed(2) }} (Bs. {{ (paymentSplit.fiado * bcvRate).toFixed(2) }})</div>
             <div v-if="balanceRemaining < 0"> - cambio (找零): ${{ Math.abs(balanceRemaining).toFixed(2) }} (Bs. {{ (Math.abs(balanceRemaining) * bcvRate).toFixed(2) }})</div>
             <div v-if="paymentReference"><span class="font-bold">Ref:</span> {{ paymentReference }}</div>
           </div>
@@ -669,14 +664,12 @@ const cashUsdInputRef = ref(null)
 const cashBsInputRef = ref(null)
 const cardPosInputRef = ref(null)
 const pagoMovilInputRef = ref(null)
-const fiadoInputRef = ref(null)
 
 const paymentSplit = ref({
   cashUsd: 0,
   cashBs: 0,
   cardPos: 0,
-  pagoMovil: 0,
-  fiado: 0
+  pagoMovil: 0
 })
 
 const totalUsd = computed(() => {
@@ -688,10 +681,9 @@ const totalPaidUsd = computed(() => {
   const cBs = Number(paymentSplit.value.cashBs) || 0
   const cCard = Number(paymentSplit.value.cardPos) || 0
   const cPago = Number(paymentSplit.value.pagoMovil) || 0
-  const cFiado = Number(paymentSplit.value.fiado) || 0
 
   const rate = props.bcvRate || 1
-  const paidInUsd = cUsd + (cBs / rate) + (cCard / rate) + (cPago / rate) + cFiado
+  const paidInUsd = cUsd + (cBs / rate) + (cCard / rate) + (cPago / rate)
   return Number(paidInUsd.toFixed(2))
 })
 
@@ -733,11 +725,10 @@ watch(totalUsd, (newVal) => {
       cashUsd: newVal,
       cashBs: 0,
       cardPos: 0,
-      pagoMovil: 0,
-      fiado: 0
+      pagoMovil: 0
     }
   } else {
-    paymentSplit.value = { cashUsd: 0, cashBs: 0, cardPos: 0, pagoMovil: 0, fiado: 0 }
+    paymentSplit.value = { cashUsd: 0, cashBs: 0, cardPos: 0, pagoMovil: 0 }
   }
 }, { immediate: true })
 
@@ -770,7 +761,6 @@ const shiftStats = ref({
   cashBs: { amount: 0, count: 0 },
   cardPos: { amount: 0, count: 0 },
   pagoMovil: { amount: 0, count: 0 },
-  fiado: { amount: 0, count: 0 },
   totalUsd: 0,
   totalCount: 0
 })
@@ -801,7 +791,7 @@ const submitShiftHandover = async () => {
       system_cash_bs: shiftStats.value.cashBs.amount * (props.bcvRate || 1),
       system_card_pos: shiftStats.value.cardPos.amount * (props.bcvRate || 1),
       system_pagomovil_usd: shiftStats.value.pagoMovil.amount * (props.bcvRate || 1),
-      system_debt_usd: shiftStats.value.fiado.amount,
+      system_debt_usd: 0,
       system_total_usd: shiftStats.value.totalUsd,
       
       actual_cash_usd: actualCounts.value.cashUsd || 0,
@@ -867,6 +857,7 @@ const selectAndAddToCart = (part) => {
   }
   emit('add-to-cart', part)
   deskSearchQuery.value = ''
+  selectedIndex.value = 0
   focusSearch()
 }
 
@@ -928,21 +919,19 @@ const fetchCompletedOrders = async () => {
     if (!res.ok) return
     const ordersData = await res.json()
     completedOrders.value = ordersData
-    let cUsd = 0, cBs = 0, cardAmt = 0, pUsd = 0, fUsd = 0, tUsd = 0
+    let cUsd = 0, cBs = 0, cardAmt = 0, pUsd = 0, tUsd = 0
     ordersData.forEach(o => {
       tUsd += o.totalUsd
       if (o.paymentMethod === 'Cash_USD') cUsd += o.totalUsd
       else if (o.paymentMethod === 'Cash_Bs') cBs += o.totalUsd
       else if (o.paymentMethod === 'Card_POS') cardAmt += o.totalUsd
       else if (o.paymentMethod === 'Pago_Movil') pUsd += o.totalUsd
-      else if (o.paymentMethod === 'Fiado_Debt') fUsd += o.totalUsd
     })
     shiftStats.value = {
       cashUsd: { amount: cUsd, count: ordersData.length },
       cashBs: { amount: cBs, count: 0 },
       cardPos: { amount: cardAmt, count: 0 },
       pagoMovil: { amount: pUsd, count: 0 },
-      fiado: { amount: fUsd, count: 0 },
       totalUsd: tUsd,
       totalCount: ordersData.length
     }
@@ -973,7 +962,7 @@ const confirmAndPrint = async () => {
   try {
     const payload = {
       client_name: quoteClientName.value || "Cliente General",
-      payment_method: paymentSplit.value.fiado > 0 ? 'Fiado_Debt' : 'Cash_USD',
+      payment_method: 'Cash_USD',
       payment_reference: paymentReference.value,
       bcv_rate: props.bcvRate,
       items: props.cartItems.map(i => ({ oem: i.oem, name: i.name, brand: i.brand || "GENERAL", quantity: i.quantity, price: i.price }))
@@ -1029,7 +1018,6 @@ const handleGlobalKeydown = (e) => {
   if (e.key === 'F5') { e.preventDefault(); if (cashBsInputRef.value) cashBsInputRef.value.focus(); return }
   if (e.key === 'F6') { e.preventDefault(); if (cardPosInputRef.value) cardPosInputRef.value.focus(); return }
   if (e.key === 'F7') { e.preventDefault(); if (pagoMovilInputRef.value) pagoMovilInputRef.value.focus(); return }
-  if (e.altKey && e.key.toLowerCase() === 'p') { e.preventDefault(); if (fiadoInputRef.value) fiadoInputRef.value.focus(); return }
 
   if (e.key === '/' && document.activeElement !== searchInputRef.value) { e.preventDefault(); focusSearch(); return }
   if (e.ctrlKey && e.key.toLowerCase() === 'f') { e.preventDefault(); openClientSearchModal(); return }
@@ -1040,7 +1028,21 @@ const handleGlobalKeydown = (e) => {
 
 const handleSearchKeydown = (e) => {
   const results = filteredParts.value
-  if (results.length > 0 && e.key === 'Enter') {
+  if (results.length === 0) return
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    selectedIndex.value = (selectedIndex.value + 1) % results.length
+    if (activeItemRef.value && typeof activeItemRef.value.scrollIntoView === 'function') {
+      activeItemRef.value.scrollIntoView({ block: 'nearest' })
+    }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    selectedIndex.value = (selectedIndex.value - 1 + results.length) % results.length
+    if (activeItemRef.value && typeof activeItemRef.value.scrollIntoView === 'function') {
+      activeItemRef.value.scrollIntoView({ block: 'nearest' })
+    }
+  } else if (e.key === 'Enter') {
     e.preventDefault()
     selectAndAddToCart(results[selectedIndex.value] || results[0])
   }
