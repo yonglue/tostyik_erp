@@ -33,15 +33,24 @@ def init_db() -> None:
 
     SQLModel.metadata.create_all(engine)
 
-    # 🌟 兼容性热修复：安全检查并自动为旧版 staffuser 表补齐 permissions_json 字段
+    # 🌟 强制自动补全 shift_records 表的所有拆分字段
     with engine.connect() as conn:
         try:
-            result = conn.exec_driver_sql("PRAGMA table_info(staffuser);").fetchall()
-            if result:
-                columns = [row[1] for row in result]
-                if "permissions_json" not in columns:
-                    conn.exec_driver_sql("ALTER TABLE staffuser ADD COLUMN permissions_json TEXT DEFAULT '[]';")
+            # 如果表根本不存在，create_all 已经建了。如果表存在但缺列，这里强制补齐。
+            conn.exec_driver_sql("PRAGMA table_info(shift_records);")
+            columns = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(shift_records);").fetchall()]
+            print(f"📊 当前 shift_records 表的字段有: {columns}")
+
+            columns_to_add = {
+                "system_zelle_usd": "FLOAT DEFAULT 0.0",
+                "system_pagomovil_usd": "FLOAT DEFAULT 0.0",
+                "system_debt_usd": "FLOAT DEFAULT 0.0",
+                "notes": "TEXT DEFAULT ''"
+            }
+            for col_name, col_type in columns_to_add.items():
+                if col_name not in columns:
+                    conn.exec_driver_sql(f"ALTER TABLE shift_records ADD COLUMN {col_name} {col_type};")
                     conn.commit()
-                    print("✅ 成功为旧版 staffuser 表自动补齐 permissions_json 字段！")
+                    print(f"✅ [自动迁移成功] 已为 shift_records 表补齐字段: {col_name}")
         except Exception as e:
-            print(f"⚠️ 自动迁移字段提示: {e}")
+            print(f"⚠️ shift_records 自动迁移异常: {e}")

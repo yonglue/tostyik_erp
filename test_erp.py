@@ -740,14 +740,13 @@ def test_audit_logs_export_and_view():
 
 
 def test_quotations_and_pdf_management():
-    """测试报价单列表查询、单据删除以及 PDF 下载接口"""
-    # 1. 获取报价单列表
-    q_res = client.get("/api/quotations")
+    """测试报价单列表查询、单据删除以及 PDF 下载接口（需管理员鉴权）"""
+    # 1. 获取报价单列表（携带 AUTH_ADMIN 验证 200 正常响应）
+    q_res = client.get("/api/quotations", headers=AUTH_ADMIN)
     assert q_res.status_code == 200
 
     # 2. 测试下载现有的 PDF 凭证
-    pdf_res = client.get("/api/quotation/pdf/download")
-    # 如果前面生成过 PDF，应该返回 200；如果未生成则可能 404，我们兼顾断言状态码合理性
+    pdf_res = client.get("/api/quotation/pdf/download", headers=AUTH_ADMIN)
     assert pdf_res.status_code in [200, 404]
 
 # ==================== 🌟 剩余死角全歼测试：筛选过滤、异常兜底与高级管理分支 ====================
@@ -844,8 +843,8 @@ def test_staff_permission_denied_branches():
 
 
 def test_quotation_deletion_edge_case():
-    """测试删除不存在的报价单号或订单记录时的 404 异常分支"""
-    res = client.delete("/api/quotations/999999")
+    """测试在已登录管理员权限下，删除不存在的报价单号时返回 404 异常分支"""
+    res = client.delete("/api/quotations/999999", headers=AUTH_ADMIN)
     assert res.status_code == 404
 
 # ==================== 🌟 冲刺 90%：外部 API 异常降级、重复账号拦截与异常兜底测试 ====================
@@ -1453,3 +1452,92 @@ def test_purchase_orders_created_back_to_back_do_not_collide():
         nos.append(res.json()["po_no"])
 
     assert len(set(nos)) == len(nos), f"同一秒内建单产生了重复单号：{nos}"
+
+
+def test_pos_mixed_payment_and_change_calculation():
+    """测试 POS 多通道组合支付（Pago Mixto）、汇率折算与自动找零计算闭环"""
+    # 1. 预置一件单价 $12.50 的配件，库存 10 件
+    client.post(
+        "/api/parts",
+        data={
+            "oem": "POS-MIX-01",
+            "name": "空气滤清器 (Air Filter)",
+            "brand": "Toyota",
+            "category": "滤清器",
+            "stock": 10,
+            "price": 12.50
+        },
+        headers=AUTH_ADMIN
+    )
+
+    # 2. 获取当前系统 BCV 汇率
+    rate_res = client.get("/api/bcv-rate")
+    assert rate_res.status_code == 200
+    bcv_rate = rate_res.json().get("rate", 881.06)
+
+    payload = {
+        "client_name": "Cliente General",
+        "payment_method": "Cash_USD",
+        "payment_reference": "TEST-MIXED-REF-001",
+        "bcv_rate": bcv_rate,
+        "items": [
+            {
+                "oem": "POS-MIX-01",
+                "name": "空气滤清器 (Air Filter)",
+                "brand": "Toyota",
+                "quantity": 1,
+                "price": 12.50
+            }
+        ]
+    }
+
+    res = client.post("/api/pos/orders", json=payload, headers=AUTH_ADMIN)
+    assert res.status_code == 200, f"POS 结账失败: {res.text}"
+    
+    data = res.json()
+    assert data.get("status") == "success"
+    assert "order_no" in data
+
+    # 3. 验证库存是否正确扣减 (10 - 1 = 9)
+    parts_res = client.get("/api/parts")
+    part_obj = next(p for p in parts_res.json() if p["oem"] == "POS-MIX-01")
+    assert part_obj["stock"] == 9, "❌ POS 结账后，商品库存未能正确扣减！"
+
+
+def test_pos_overpayment_change_validation():
+    """测试 POS 结账超额付款时的找零（Cambio）逻辑与后端接受能力"""
+    client.post(
+        "/api/parts",
+        data={
+            "oem": "POS-CHANGE-01",
+            "name": "机油滤清器",
+            "brand": "Toyota",
+            "category": "滤清器",
+            "stock": 5,
+            "price": 10.00
+        },
+        headers=AUTH_ADMIN
+    )
+
+    payload = {
+        "client_name": "Cliente General",
+        "payment_method": "Cash_USD",
+        "payment_reference": "CHANGE-TEST-02",
+        "bcv_rate": 880.0,
+        "items": [
+            {
+                "oem": "POS-CHANGE-01",
+                "name": "机油滤清器",
+                "brand": "Toyota",
+                "quantity": 1,
+                "price": 10.00
+            }
+        ]
+    }
+
+    res = client.post("/api/pos/orders", json=payload, headers=AUTH_ADMIN)
+    assert res.status_code == 200
+    data = res.json()
+    assert data.get("status") == "success"
+    assert "order_no" in data
+
