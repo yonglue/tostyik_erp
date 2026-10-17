@@ -128,7 +128,7 @@
           </div>
         </div>
 
-        <!-- 购物车明细表格：带有精美的斑马纹、行底边框与悬停高亮 -->
+        <!-- 购物车明细表格 -->
         <div class="flex-1 overflow-y-auto p-2.5">
           <table class="w-full text-left border-collapse">
             <thead>
@@ -136,7 +136,7 @@
                 <th class="py-3 px-3">OEM 编号</th>
                 <th class="py-3 px-3">配件名称</th>
                 <th class="py-3 px-3 text-right">单价 ($ / Bs.)</th>
-                <th class="py-3 px-3 text-center">数量</th>
+                <th class="py-3 px-3 text-center">数量 (支持 3* 语法)</th>
                 <th class="py-3 px-3 text-right">小计 ($ / Bs.)</th>
                 <th class="py-3 px-3 text-center">操作</th>
               </tr>
@@ -145,8 +145,11 @@
               <tr 
                 v-for="(item, index) in cartItems" 
                 :key="item.oem" 
-                :class="index % 2 === 0 ? 'bg-white/80' : 'bg-slate-50/70'"
-                class="border-b border-slate-200/70 hover:bg-blue-50/50 transition-all shadow-2xs"
+                @click="selectedCartIndex = index"
+                :class="[
+                  selectedCartIndex === index ? 'bg-blue-500/15 border-blue-400 ring-1 ring-blue-400' : (index % 2 === 0 ? 'bg-white/80' : 'bg-slate-50/70'),
+                  'border-b border-slate-200/70 hover:bg-blue-50/50 transition-all shadow-2xs cursor-pointer'
+                ]"
               >
                 <td class="py-3 px-3 font-mono font-black text-blue-600 text-sm">{{ item.oem }}</td>
                 <td class="py-3 px-3 text-slate-900 font-bold">{{ item.name }}</td>
@@ -154,24 +157,31 @@
                   <div>${{ item.price.toFixed(2) }}</div>
                   <div class="text-xs text-slate-400 font-normal">Bs. {{ (item.price * bcvRate).toFixed(2) }}</div>
                 </td>
-                <td class="py-3 px-3 text-center">
+                <td class="py-3 px-3 text-center" @click.stop>
                   <div class="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white shadow-2xs">
                     <button @click="item.quantity > 1 ? item.quantity-- : null" class="px-2.5 py-1 text-slate-600 hover:bg-slate-200 font-bold text-sm">-</button>
-                    <input v-model.number="item.quantity" type="number" min="1" class="w-10 text-center bg-transparent text-slate-900 text-sm font-mono outline-none font-black" />
-                    <button @click="item.quantity++" class="px-2.5 py-1 text-slate-600 hover:bg-slate-200 font-bold text-sm">+</button>
+                    <input 
+                      v-model="itemInputQuantities[index]" 
+                      @blur="applyMultiplierQuantity(index)"
+                      @keydown.enter="applyMultiplierQuantity(index)"
+                      type="text" 
+                      placeholder="1" 
+                      class="w-12 text-center bg-transparent text-slate-900 text-sm font-mono outline-none font-black" 
+                    />
+                    <button @click="item.quantity++; itemInputQuantities[index] = item.quantity" class="px-2.5 py-1 text-slate-600 hover:bg-slate-200 font-bold text-sm">+</button>
                   </div>
                 </td>
                 <td class="py-3 px-3 text-right font-mono font-black text-emerald-600">
                   <div>${{ (item.price * item.quantity).toFixed(2) }}</div>
                   <div class="text-xs text-emerald-700/80 font-normal">Bs. {{ (item.price * item.quantity * bcvRate).toFixed(2) }}</div>
                 </td>
-                <td class="py-3 px-3 text-center">
+                <td class="py-3 px-3 text-center" @click.stop>
                   <button @click="cartItems.splice(index, 1)" class="text-rose-600 text-xs font-bold px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg transition-all cursor-pointer shadow-2xs">删除</button>
                 </td>
               </tr>
               <tr v-if="cartItems.length === 0">
                 <td colspan="6" class="text-center py-20 text-slate-400 text-sm font-bold">
-                  🛒 购物车为空，请扫码或搜索添加配件商品...
+                  🛒 购物车为空，请按 [/] 键搜索添加配件商品...
                 </td>
               </tr>
             </tbody>
@@ -269,7 +279,7 @@
             </div>
           </div>
 
-          <!-- 回执号码：左侧为纯文本标签“回执号码”，右侧为输入框 -->
+          <!-- 回执号码 -->
           <div class="flex items-center gap-2 bg-white/70 hover:bg-white border border-slate-200 hover:border-blue-300 rounded-xl px-3 py-2 shadow-2xs transition-all">
             <span class="w-1/3 text-xs font-black text-slate-700 shrink-0 truncate">回执号码:</span>
             <input 
@@ -370,202 +380,214 @@
       @return="processReturnOrder"
     />
 
-    <!-- 云端挂单恢复弹窗 -->
-    <div v-if="recallModalVisible" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div class="bg-white/85 backdrop-blur-xl rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden border border-white/60 flex flex-col max-h-[80vh]">
-        <div class="p-4 border-b border-slate-200/60 flex items-center justify-between bg-white/40">
-          <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
+    <!-- 云端挂单恢复弹窗 (点击背景空白处自动关闭) -->
+    <div v-if="recallModalVisible" @click.self="recallModalVisible = false" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-50 p-6 cursor-pointer">
+      <div class="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-4xl w-full h-[88vh] max-h-[900px] overflow-hidden border border-white/80 flex flex-col cursor-default">
+        <div class="p-5 border-b border-slate-200/60 flex items-center justify-between bg-white/50 shrink-0">
+          <h3 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
             <span>📦 云端挂单恢复大厅 (共 {{ heldOrders.length }} 单)</span>
           </h3>
-          <button @click="recallModalVisible = false" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 cursor-pointer">✕</button>
+          <button @click="recallModalVisible = false" class="text-slate-400 hover:text-slate-700 text-base font-bold p-1 cursor-pointer">✕</button>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-4 space-y-2.5">
-          <div v-for="order in heldOrders" :key="order.id" class="p-3.5 rounded-2xl border border-slate-200/60 bg-white/60 hover:bg-blue-500/10 transition-all flex items-center justify-between shadow-2xs hover:scale-[1.01]">
-            <div class="space-y-1">
-              <div class="font-bold text-xs text-slate-800 flex items-center gap-2">
-                <span class="font-mono text-blue-600">{{ order.hold_no }}</span>
-                <span>👤 {{ order.client_name || '散客' }}</span>
+        <div class="flex-1 overflow-y-auto p-5 space-y-3 bg-white/20 flex flex-col">
+          <template v-if="heldOrders.length > 0">
+            <div v-for="order in heldOrders" :key="order.id" class="p-4 rounded-2xl border border-slate-200/80 bg-white/80 backdrop-blur-md hover:bg-white transition-all flex items-center justify-between shadow-2xs shrink-0">
+              <div class="space-y-1">
+                <div class="font-bold text-xs text-slate-800 flex items-center gap-2">
+                  <span class="font-mono text-blue-600 font-black text-sm">{{ order.hold_no }}</span>
+                  <span class="text-slate-700">👤 {{ order.client_name || '散客' }}</span>
+                </div>
+                <div class="text-[11px] text-slate-400 font-mono">挂单时间: {{ order.timestamp }}</div>
               </div>
-              <div class="text-[11px] text-slate-400 font-mono">挂单时间: {{ order.timestamp }}</div>
+              <div class="flex items-center gap-4">
+                <span class="text-base font-mono font-black text-slate-900">${{ order.total_amount.toFixed(2) }}</span>
+                <button @click="recallOrder(order)" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm">
+                  恢复取单
+                </button>
+                <button @click="deleteHeldOrder(order.id)" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition-all cursor-pointer">
+                  作废
+                </button>
+              </div>
             </div>
-            <div class="flex items-center gap-3">
-              <span class="text-sm font-mono font-black text-slate-900">${{ order.total_amount.toFixed(2) }}</span>
-              <button @click="recallOrder(order)" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm hover:scale-105">
-                恢复取单
-              </button>
-              <button @click="deleteHeldOrder(order.id)" class="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 rounded-xl text-xs font-bold transition-all hover:scale-105 cursor-pointer">
-                作废
-              </button>
-            </div>
-          </div>
-          <div v-if="heldOrders.length === 0" class="text-center py-10 text-slate-400 text-xs">
-            当前云端挂单池为空
+          </template>
+          <div v-else class="flex-1 flex flex-col items-center justify-center py-20 text-slate-400 text-xs font-bold">
+            <span class="text-4xl mb-2">📭</span>
+            <span>当前云端挂单池为空</span>
           </div>
         </div>
 
-        <div class="p-3 bg-white/40 border-t border-slate-200/60 text-right">
-          <button @click="recallModalVisible = false" class="px-4 py-1.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">
-            取消
+        <div class="p-5 bg-white/80 backdrop-blur-md border-t border-slate-200/60 flex items-center justify-between shrink-0">
+          <span class="text-xs text-slate-600 font-mono font-bold">
+            共找到 <strong class="text-slate-900">{{ heldOrders.length }}</strong> 笔挂单
+          </span>
+          <button @click="recallModalVisible = false" class="px-6 py-2 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+            关闭
           </button>
         </div>
       </div>
     </div>
 
-    <!-- 交接班 Modal -->
-    <div v-if="shiftReportModalVisible" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div class="bg-white/85 backdrop-blur-xl rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden border border-white/60 flex flex-col max-h-[92vh]">
-        <div class="p-4 border-b border-slate-200/60 flex items-center justify-between bg-white/40">
-          <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
+    <!-- 交接班 Modal (点击背景空白处自动关闭) -->
+    <div v-if="shiftReportModalVisible" @click.self="shiftReportModalVisible = false" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-50 p-6 cursor-pointer">
+      <div class="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-4xl w-full h-[88vh] max-h-[900px] overflow-hidden border border-white/80 flex flex-col cursor-default">
+        <div class="p-5 border-b border-slate-200/60 flex items-center justify-between bg-white/50 shrink-0">
+          <h3 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
             <span>📊 收银交接班与营业汇总 (Shift Handover)</span>
           </h3>
-          <button @click="shiftReportModalVisible = false" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 cursor-pointer">✕</button>
+          <button @click="shiftReportModalVisible = false" class="text-slate-400 hover:text-slate-700 text-base font-bold p-1 cursor-pointer">✕</button>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-5 space-y-4 text-xs bg-white/30">
-          
-          <div class="bg-white/70 backdrop-blur-md p-3.5 rounded-2xl border border-white/80 space-y-2 shadow-2xs font-mono">
-            <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200/60 pb-1.5">
+        <div class="flex-1 overflow-y-auto p-6 space-y-6 text-sm bg-white/30">
+          <!-- 1. 系统统计应收 (SNAPSHOT) -->
+          <div class="bg-white/80 backdrop-blur-md p-5 rounded-2xl border border-white/90 space-y-3 shadow-2xs font-mono">
+            <div class="text-xs font-black text-slate-400 uppercase tracking-wider border-b border-slate-200 pb-2">
               1. 系统统计应收 (SYSTEM SNAPSHOT)
             </div>
-            <div class="grid grid-cols-2 gap-x-6 gap-y-1.5">
-              <div class="flex justify-between items-center text-slate-700">
-                <span>💵 美金现金 (Cash USD):</span>
-                <span class="font-bold text-slate-900">${{ shiftStats.cashUsd.amount.toFixed(2) }}</span>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              <div class="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+                <span class="text-slate-500 block mb-1">💵 美金现金:</span>
+                <span class="font-black text-slate-900 text-sm">${{ shiftStats.cashUsd.amount.toFixed(2) }}</span>
               </div>
-              <div class="flex justify-between items-center text-slate-700">
-                <span>🇻🇪 Bs. 现金 (Efectivo Bs.):</span>
-                <span class="font-bold text-emerald-600">Bs. {{ (shiftStats.cashBs.amount * bcvRate).toFixed(2) }}</span>
+              <div class="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+                <span class="text-slate-500 block mb-1">🇻🇪 Bs. 现金:</span>
+                <span class="font-black text-emerald-600 text-sm">Bs. {{ (shiftStats.cashBs.amount * bcvRate).toFixed(2) }}</span>
               </div>
-              <div class="flex justify-between items-center text-slate-700">
-                <span>💳 刷卡 POS (Bs.):</span>
-                <span class="font-bold text-blue-600">Bs. {{ (shiftStats.cardPos.amount * bcvRate).toFixed(2) }}</span>
+              <div class="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+                <span class="text-slate-500 block mb-1">💳 刷卡 POS:</span>
+                <span class="font-black text-blue-600 text-sm">Bs. {{ (shiftStats.cardPos.amount * bcvRate).toFixed(2) }}</span>
               </div>
-              <div class="flex justify-between items-center text-slate-700">
-                <span>⚡ Pago Móvil (Bs.):</span>
-                <span class="font-bold text-indigo-600">Bs. {{ (shiftStats.pagoMovil.amount * bcvRate).toFixed(2) }}</span>
+              <div class="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+                <span class="text-slate-500 block mb-1">⚡ Pago Móvil:</span>
+                <span class="font-black text-indigo-600 text-sm">Bs. {{ (shiftStats.pagoMovil.amount * bcvRate).toFixed(2) }}</span>
               </div>
             </div>
-            <div class="pt-1.5 border-t border-slate-200/60 flex justify-between items-center text-xs font-black">
-              <span class="text-slate-900">系统总营业额 (USD):</span>
-              <span class="text-emerald-600 text-sm">${{ shiftStats.totalUsd.toFixed(2) }}</span>
+            <div class="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-black">
+              <span class="text-slate-900">系统总营业额 (Total USD):</span>
+              <span class="text-emerald-600 text-lg">${{ shiftStats.totalUsd.toFixed(2) }}</span>
             </div>
           </div>
 
-          <div class="bg-blue-500/10 backdrop-blur-md p-3.5 rounded-2xl border border-blue-200/80 space-y-2.5 font-mono">
-            <div class="text-[11px] font-bold text-blue-900 uppercase tracking-wider border-b border-blue-200/60 pb-1.5 flex justify-between items-center">
+          <!-- 2. 实盘录入 (ACTUAL COUNT) -->
+          <div class="bg-blue-50/50 backdrop-blur-md p-5 rounded-2xl border border-blue-200/80 space-y-4 font-mono shadow-2xs">
+            <div class="text-xs font-black text-blue-900 uppercase tracking-wider border-b border-blue-200 pb-2 flex justify-between items-center">
               <span>2. 收银员实盘录入款项 (ACTUAL COUNT)</span>
-              <span class="text-[10px] text-blue-700 font-normal">请录入抽屉及账面实际金额</span>
+              <span class="text-xs text-blue-700 font-normal">请仔细清点并录入抽屉及账面实际金额</span>
             </div>
 
-            <div class="grid grid-cols-2 gap-2.5">
-              <div class="bg-white/80 p-2 rounded-xl border border-blue-200/60 space-y-1 shadow-2xs">
-                <label class="block text-[10px] font-bold text-slate-700">💵 实收美金现金 (USD):</label>
-                <div class="flex items-center gap-1">
-                  <span class="text-slate-400 font-bold">$</span>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Cash USD 实盘 -->
+              <div class="bg-white p-4 rounded-2xl border border-blue-100 space-y-2 shadow-2xs">
+                <label class="block text-xs font-bold text-slate-800">💵 实收美金现金 (USD):</label>
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-400 font-bold text-base">$</span>
                   <input 
                     v-model.number="actualCounts.cashUsd" 
                     type="number" step="0.5" placeholder="0.00" 
-                    class="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-right font-mono text-xs outline-none focus:border-blue-500 font-bold text-slate-900"
+                    class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-right font-mono text-base outline-none focus:border-blue-500 font-black text-slate-900 shadow-2xs"
                   />
                 </div>
-                <div class="text-[10px] text-right font-bold" :class="cashUsdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                <div class="text-xs text-right font-bold pt-1" :class="cashUsdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
                   盈亏: {{ cashUsdDiff >= 0 ? '+' : '' }}${{ cashUsdDiff.toFixed(2) }}
                 </div>
               </div>
 
-              <div class="bg-white/80 p-2 rounded-xl border border-blue-200/60 space-y-1 shadow-2xs">
-                <label class="block text-[10px] font-bold text-slate-700">🇻🇪 实收 Bs. 现金 (Bs.):</label>
-                <div class="flex items-center gap-1">
-                  <span class="text-slate-400 font-bold">Bs.</span>
+              <!-- Bs 现金 实盘 -->
+              <div class="bg-white p-4 rounded-2xl border border-blue-100 space-y-2 shadow-2xs">
+                <label class="block text-xs font-bold text-slate-800">🇻🇪 实收 Bs. 现金 (Bs.):</label>
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-400 font-bold text-base">Bs.</span>
                   <input 
                     v-model.number="actualCounts.cashBs" 
                     type="number" step="10" placeholder="0.00" 
-                    class="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-right font-mono text-xs outline-none focus:border-blue-500 font-bold text-slate-900"
+                    class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-right font-mono text-base outline-none focus:border-blue-500 font-black text-slate-900 shadow-2xs"
                   />
                 </div>
-                <div class="text-[10px] text-right font-bold" :class="cashBsDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                <div class="text-xs text-right font-bold pt-1" :class="cashBsDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
                   盈亏: {{ cashBsDiff >= 0 ? '+' : '' }}Bs. {{ cashBsDiff.toFixed(2) }}
                 </div>
               </div>
 
-              <div class="bg-white/80 p-2 rounded-xl border border-blue-200/60 space-y-1 shadow-2xs">
-                <label class="block text-[10px] font-bold text-slate-700">💳 实收 POS 刷卡 (Bs.):</label>
-                <div class="flex items-center gap-1">
-                  <span class="text-slate-400 font-bold">Bs.</span>
+              <!-- POS 刷卡 实盘 -->
+              <div class="bg-white p-4 rounded-2xl border border-blue-100 space-y-2 shadow-2xs">
+                <label class="block text-xs font-bold text-slate-800">💳 实收 POS 刷卡 (Bs.):</label>
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-400 font-bold text-base">Bs.</span>
                   <input 
                     v-model.number="actualCounts.cardPos" 
                     type="number" step="10" placeholder="0.00" 
-                    class="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-right font-mono text-xs outline-none focus:border-blue-500 font-bold text-slate-900"
+                    class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-right font-mono text-base outline-none focus:border-blue-500 font-black text-slate-900 shadow-2xs"
                   />
                 </div>
-                <div class="text-[10px] text-right font-bold" :class="cardPosDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                <div class="text-xs text-right font-bold pt-1" :class="cardPosDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
                   盈亏: {{ cardPosDiff >= 0 ? '+' : '' }}Bs. {{ cardPosDiff.toFixed(2) }}
                 </div>
               </div>
 
-              <div class="bg-white/80 p-2 rounded-xl border border-blue-200/60 space-y-1 shadow-2xs">
-                <label class="block text-[10px] font-bold text-slate-700">⚡ 实收 Pago Móvil (Bs.):</label>
-                <div class="flex items-center gap-1">
-                  <span class="text-slate-400 font-bold">Bs.</span>
+              <!-- Pago Móvil 实盘 -->
+              <div class="bg-white p-4 rounded-2xl border border-blue-100 space-y-2 shadow-2xs">
+                <label class="block text-xs font-bold text-slate-800">⚡ 实收 Pago Móvil (Bs.):</label>
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-400 font-bold text-base">Bs.</span>
                   <input 
                     v-model.number="actualCounts.pagoMovil" 
                     type="number" step="10" placeholder="0.00" 
-                    class="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-right font-mono text-xs outline-none focus:border-blue-500 font-bold text-slate-900"
+                    class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-right font-mono text-base outline-none focus:border-blue-500 font-black text-slate-900 shadow-2xs"
                   />
                 </div>
-                <div class="text-[10px] text-right font-bold" :class="pagoMovilDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+                <div class="text-xs text-right font-bold pt-1" :class="pagoMovilDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
                   盈亏: {{ pagoMovilDiff >= 0 ? '+' : '' }}Bs. {{ pagoMovilDiff.toFixed(2) }}
                 </div>
               </div>
             </div>
 
-            <div class="pt-1.5 border-t border-blue-200/60 flex justify-between items-center text-xs">
-              <span class="font-bold text-slate-700">折算总盈亏 (Diferencia Total):</span>
-              <span :class="totalUsdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'" class="font-black font-mono text-sm">
+            <div class="pt-3 border-t border-blue-200 flex justify-between items-center text-sm">
+              <span class="font-extrabold text-slate-800">折算总盈亏 (Diferencia Total):</span>
+              <span :class="totalUsdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'" class="font-black font-mono text-lg">
                 {{ totalUsdDiff >= 0 ? '+' : '' }}${{ totalUsdDiff.toFixed(2) }}
               </span>
             </div>
           </div>
 
-          <div v-if="totalUsdDiff !== 0" class="space-y-1">
-            <label class="block font-semibold text-slate-500 uppercase text-[11px]">盈亏原因备注</label>
-            <input v-model="handoverNotes" type="text" placeholder="例如：Bs. 零钱误差 / Pago Móvil 延迟到账..." class="w-full bg-white/80 border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:border-blue-500 shadow-2xs" />
+          <!-- 盈亏原因备注 -->
+          <div v-if="totalUsdDiff !== 0" class="space-y-2">
+            <label class="block font-bold text-slate-600 uppercase text-xs">盈亏原因备注 (Obligatorio si hay diferencia)</label>
+            <input v-model="handoverNotes" type="text" placeholder="例如：Bs. 零钱误差 / Pago Móvil 延迟到账..." class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-xs outline-none focus:border-blue-500 font-bold text-slate-900 shadow-2xs" />
           </div>
         </div>
 
-        <div class="p-3.5 bg-white/60 backdrop-blur-md border-t border-slate-200/60 flex gap-2.5">
-          <button @click="shiftReportModalVisible = false" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">
+        <div class="p-5 bg-white/80 backdrop-blur-md border-t border-slate-200/60 flex items-center justify-between shrink-0">
+          <button @click="shiftReportModalVisible = false" class="px-6 py-2.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer">
             取消
           </button>
-          <button @click="submitShiftHandover" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all cursor-pointer flex items-center justify-center gap-1.5 hover:scale-[1.01]">
-            <span>🔒 确认交班并锁定锁班</span>
+          <button @click="submitShiftHandover" class="px-7 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-600/30 transition-all cursor-pointer">
+            🔒 确认交班并锁定归档
           </button>
         </div>
       </div>
     </div>
 
-    <!-- 小票预览 Modal -->
-    <div v-if="previewModalVisible" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div class="bg-white/85 backdrop-blur-xl rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-white/60 flex flex-col max-h-[90vh]">
-        <div class="p-4 border-b border-slate-200/60 flex items-center justify-between bg-white/40">
-          <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
-            <span>🧾 收银小票实时预览 (Pago Mixto)</span>
+    <!-- 小票预览 Modal (点击背景空白处自动关闭) -->
+    <div v-if="previewModalVisible" @click.self="previewModalVisible = false" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-50 p-6 cursor-pointer">
+      <div class="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-4xl w-full h-[88vh] max-h-[900px] overflow-hidden border border-white/80 flex flex-col cursor-default">
+        <div class="p-5 border-b border-slate-200/60 flex items-center justify-between bg-white/50 shrink-0">
+          <h3 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
+            <span>🧾 收银小票实时预览与出单 (Pago Mixto)</span>
           </h3>
-          <button @click="previewModalVisible = false" class="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 cursor-pointer">✕</button>
+          <button @click="previewModalVisible = false" class="text-slate-400 hover:text-slate-700 text-base font-bold p-1 cursor-pointer">✕</button>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-5 space-y-3 font-mono text-xs bg-white/30">
-          <div class="text-center pb-2.5 border-b border-dashed border-slate-300 space-y-1">
-            <div class="font-black text-xs text-slate-900">{{ systemConfig.company_name || 'TOSTIYK (TK) - VENEZUELA' }}</div>
-            <div class="text-[10px] text-blue-600 font-bold">RIF: {{ systemConfig.rif || 'J-00000000-0' }}</div>
-            <div class="text-[10px] text-slate-500">{{ systemConfig.address || 'Valencia, Carabobo' }}</div>
+        <div class="flex-1 overflow-y-auto p-6 space-y-4 font-mono text-xs bg-white/30 max-w-lg mx-auto w-full my-auto border border-slate-200/80 rounded-2xl shadow-sm my-6">
+          <div class="text-center pb-3 border-b border-dashed border-slate-300 space-y-1">
+            <div class="font-black text-sm text-slate-900">{{ systemConfig.company_name || 'TOSTIYK (TK) - VENEZUELA' }}</div>
+            <div class="text-[11px] text-blue-600 font-bold">RIF: {{ systemConfig.rif || 'J-00000000-0' }}</div>
+            <div class="text-[11px] text-slate-500">{{ systemConfig.address || 'Valencia, Carabobo' }}</div>
           </div>
 
-          <div class="space-y-1 text-slate-700 pb-2.5 border-b border-dashed border-slate-300">
+          <div class="space-y-1 text-slate-700 pb-3 border-b border-dashed border-slate-300 font-sans">
             <div><span class="font-bold">Client:</span> {{ quoteClientName || 'Cliente General' }}</div>
             <div><span class="font-bold">Operator:</span> {{ currentUser?.username || 'admin' }}</div>
-            <div class="font-bold text-blue-600">Payment Breakdown:</div>
+            <div class="font-bold text-blue-600 mt-1">Payment Breakdown:</div>
             <div v-if="paymentSplit.cashUsd > 0"> - Cash USD: ${{ paymentSplit.cashUsd.toFixed(2) }} (Bs. {{ (paymentSplit.cashUsd * bcvRate).toFixed(2) }})</div>
             <div v-if="paymentSplit.cashBs > 0"> - Efectivo Bs.: Bs. {{ paymentSplit.cashBs.toFixed(2) }} (${{ (paymentSplit.cashBs / bcvRate).toFixed(2) }})</div>
             <div v-if="paymentSplit.cardPos > 0"> - Card POS: Bs. {{ paymentSplit.cardPos.toFixed(2) }} (${{ (paymentSplit.cardPos / bcvRate).toFixed(2) }})</div>
@@ -574,48 +596,57 @@
             <div v-if="paymentReference"><span class="font-bold">Ref:</span> {{ paymentReference }}</div>
           </div>
 
-          <div class="space-y-1.5 pb-2.5 border-b border-dashed border-slate-300">
+          <div class="space-y-2 pb-3 border-b border-dashed border-slate-300">
             <div v-for="item in cartItems" :key="item.oem" class="flex justify-between items-start gap-2">
               <div>
                 <div class="font-bold text-slate-800">{{ item.name }}</div>
-                <div class="text-[10px] text-slate-500">{{ item.oem }} x {{ item.quantity }} @ ${{ item.price.toFixed(2) }}</div>
+                <div class="text-[11px] text-slate-500">{{ item.oem }} x {{ item.quantity }} @ ${{ item.price.toFixed(2) }}</div>
               </div>
               <div class="font-bold text-slate-900 text-right">
                 <div>${{ (item.price * item.quantity).toFixed(2) }}</div>
-                <div class="text-[10px] text-slate-500 font-normal">Bs. {{ (item.price * item.quantity * bcvRate).toFixed(2) }}</div>
+                <div class="text-[11px] text-slate-500 font-normal">Bs. {{ (item.price * item.quantity * bcvRate).toFixed(2) }}</div>
               </div>
             </div>
           </div>
 
           <div class="space-y-1 text-right pb-1">
-            <div class="text-base font-black text-slate-900">Total: ${{ totalUsd.toFixed(2) }} / Bs. {{ (totalUsd * bcvRate).toFixed(2) }}</div>
+            <div class="text-lg font-black text-slate-900">Total: ${{ totalUsd.toFixed(2) }} / Bs. {{ (totalUsd * bcvRate).toFixed(2) }}</div>
           </div>
         </div>
 
-        <div class="p-3.5 bg-white/60 backdrop-blur-md border-t border-slate-200/60 flex gap-2.5">
-          <button @click="previewModalVisible = false" class="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all">返回修改</button>
-          <button @click="confirmAndPrint" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all hover:scale-[1.01]">确认出单并打印</button>
+        <div class="p-5 bg-white/80 backdrop-blur-md border-t border-slate-200/60 flex gap-4 shrink-0">
+          <button @click="previewModalVisible = false" class="flex-1 py-3 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">返回修改</button>
+          <button @click="confirmAndPrint" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-black shadow-lg shadow-emerald-600/30 transition-all cursor-pointer">确认出单并打印</button>
         </div>
       </div>
     </div>
 
-    <!-- 快捷键指南弹窗 -->
+    <!-- 快捷键指南弹窗 (PosHelpModal) -->
     <PosHelpModal :visible="helpModalVisible" @close="helpModalVisible = false" />
 
-    <!-- 客户快速搜索 Modal -->
-    <div v-if="clientModalVisible" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div class="bg-white/85 backdrop-blur-xl rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-white/60 flex flex-col max-h-[80vh]">
-        <div class="p-4 border-b border-slate-200/60 flex items-center justify-between bg-white/40">
-          <h3 class="font-bold text-sm text-slate-800">快捷选择客户</h3>
-          <button @click="clientModalVisible = false" class="text-slate-400 font-bold">✕</button>
+    <!-- 客户快速搜索 Modal (点击背景空白处自动关闭) -->
+    <div v-if="clientModalVisible" @click.self="clientModalVisible = false" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-50 p-6 cursor-pointer">
+      <div class="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-4xl w-full h-[88vh] max-h-[900px] overflow-hidden border border-white/80 flex flex-col cursor-default">
+        <div class="p-5 border-b border-slate-200/60 flex items-center justify-between bg-white/50 shrink-0">
+          <h3 class="font-extrabold text-base text-slate-900">快捷选择客户</h3>
+          <button @click="clientModalVisible = false" class="text-slate-400 hover:text-slate-700 font-bold text-base">✕</button>
         </div>
-        <div class="p-3.5 border-b border-slate-200/60">
-          <input ref="clientModalInputRef" v-model="clientFilterQuery" @keydown="handleClientModalKeydown" type="text" placeholder="搜索客户..." class="w-full bg-white/80 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500 shadow-2xs" />
+        <div class="p-4 border-b border-slate-200/60 bg-white/40 shrink-0">
+          <input ref="clientModalInputRef" v-model="clientFilterQuery" @keydown="handleClientModalKeydown" type="text" placeholder="输入客户名称或电话搜索..." class="w-full bg-white/90 border border-slate-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-blue-500 shadow-2xs font-bold text-slate-900" />
         </div>
-        <div class="flex-1 overflow-y-auto p-2.5 space-y-1.5">
-          <div v-for="c in filteredModalClients" :key="c.id" @click="selectClient(c.name)" class="p-2.5 rounded-xl border border-slate-200/60 bg-white/50 cursor-pointer hover:bg-blue-500/10 hover:border-blue-300 transition-all flex items-center justify-between text-xs shadow-2xs hover:scale-[1.01]">
-            <div><div class="font-bold">🏢 {{ c.name }}</div><div class="text-[11px] text-slate-400 font-mono">RIF: {{ c.rif_or_cedula || '-' }}</div></div>
+        <div class="flex-1 overflow-y-auto p-5 space-y-2 bg-white/20">
+          <div v-for="c in filteredModalClients" :key="c.id" @click="selectClient(c.name)" class="p-3.5 rounded-2xl border border-slate-200/80 bg-white/80 backdrop-blur-md cursor-pointer hover:bg-blue-500/10 hover:border-blue-300 transition-all flex items-center justify-between text-xs shadow-2xs">
+            <div>
+              <div class="font-black text-slate-900 text-sm">🏢 {{ c.name }}</div>
+              <div class="text-xs text-slate-500 font-mono mt-0.5">RIF: {{ c.rif_or_cedula || '-' }} | 📞 {{ c.phone || '无电话' }}</div>
+            </div>
+            <span class="text-blue-600 font-bold bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">选择此客户 ↵</span>
           </div>
+        </div>
+        <div class="p-5 bg-white/80 backdrop-blur-md border-t border-slate-200/60 flex justify-end shrink-0">
+          <button @click="clientModalVisible = false" class="px-6 py-2.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">
+            取消
+          </button>
         </div>
       </div>
     </div>
@@ -651,10 +682,44 @@ const quoteClientName = ref('')
 const paymentReference = ref('')
 const searchInputRef = ref(null)
 const selectedIndex = ref(0)
+const selectedCartIndex = ref(0)
 const activeItemRef = ref(null)
 const exitConfirmVisible = ref(false)
 
-// 主显示币种切换 ('USD' 或 'BS')
+const itemInputQuantities = ref([])
+
+watch(() => props.cartItems, (newItems) => {
+  itemInputQuantities.value = newItems.map(i => String(i.quantity))
+}, { deep: true, immediate: true })
+
+const applyMultiplierQuantity = (index) => {
+  const raw = String(itemInputQuantities.value[index] || '').trim()
+  const item = props.cartItems[index]
+  if (!item) return
+
+  let targetQty = item.quantity
+  if (raw.includes('*')) {
+    const parts = raw.split('*')
+    const multiplier = parseInt(parts[0])
+    const addVal = parseInt(parts[1])
+    if (!isNaN(multiplier) && multiplier > 0) {
+      if (!isNaN(addVal) && addVal > 0) {
+        targetQty = multiplier * addVal
+      } else {
+        targetQty = multiplier
+      }
+    }
+  } else {
+    const parsed = parseInt(raw)
+    if (!isNaN(parsed) && parsed > 0) {
+      targetQty = parsed
+    }
+  }
+
+  item.quantity = Math.max(1, targetQty)
+  itemInputQuantities.value[index] = String(item.quantity)
+}
+
 const primaryCurrency = ref('USD')
 const toggleMainCurrency = () => {
   primaryCurrency.value = primaryCurrency.value === 'USD' ? 'BS' : 'USD'
@@ -731,6 +796,14 @@ watch(totalUsd, (newVal) => {
     paymentSplit.value = { cashUsd: 0, cashBs: 0, cardPos: 0, pagoMovil: 0 }
   }
 }, { immediate: true })
+
+watch(() => props.cartItems.length, (newLen) => {
+  if (newLen === 0) {
+    selectedCartIndex.value = 0
+  } else if (selectedCartIndex.value >= newLen) {
+    selectedCartIndex.value = newLen - 1
+  }
+})
 
 const systemConfig = ref({ company_name: 'TOSTIYK (TK) - VENEZUELA', rif: 'J-00000000-0', address: 'Valencia, Carabobo' })
 
@@ -837,6 +910,15 @@ const selectClient = (name) => {
   clientModalVisible.value = false
 }
 
+const handleClientModalKeydown = (e) => {
+  if (e.key === 'Enter') {
+    const matched = filteredModalClients.value
+    if (matched.length > 0) {
+      selectClient(matched[0].name)
+    }
+  }
+}
+
 const filteredModalClients = computed(() => {
   if (!props.clientsList) return []
   if (!clientFilterQuery.value.trim()) return props.clientsList
@@ -845,9 +927,9 @@ const filteredModalClients = computed(() => {
 })
 
 const filteredParts = computed(() => {
-  if (!deskSearchQuery.value.trim()) return []
-  const q = deskSearchQuery.value.toUpperCase()
-  return props.partsList.filter(p => p.oem.toUpperCase().includes(q) || p.name.toUpperCase().includes(q)).slice(0, 10)
+  const qStr = deskSearchQuery.value.trim().toUpperCase()
+  if (!qStr) return []
+  return props.partsList.filter(p => p.oem.toUpperCase().includes(qStr) || p.name.toUpperCase().includes(qStr)).slice(0, 10)
 })
 
 const selectAndAddToCart = (part) => {
@@ -855,7 +937,19 @@ const selectAndAddToCart = (part) => {
     showToast(`商品 ${part.oem} 库存不足`, 'error')
     return
   }
-  emit('add-to-cart', part)
+  const existing = props.cartItems.find(i => i.oem === part.oem)
+  if (existing) {
+    existing.quantity += 1
+  } else {
+    props.cartItems.push({
+      oem: part.oem,
+      name: part.name,
+      brand: part.brand || 'GENERAL',
+      price: part.price,
+      quantity: 1
+    })
+  }
+
   deskSearchQuery.value = ''
   selectedIndex.value = 0
   focusSearch()
@@ -979,6 +1073,50 @@ const confirmAndPrint = async () => {
   } catch (err) { showToast(err.message || '结账失败', 'error') }
 }
 
+const handleSearchKeydown = (e) => {
+  const results = filteredParts.value
+  const hasSearchQuery = deskSearchQuery.value.trim().length > 0
+
+  if (hasSearchQuery && results.length > 0) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      e.stopPropagation()
+      selectedIndex.value = (selectedIndex.value + 1) % results.length
+      if (activeItemRef.value && typeof activeItemRef.value.scrollIntoView === 'function') {
+        activeItemRef.value.scrollIntoView({ block: 'nearest' })
+      }
+      return
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      e.stopPropagation()
+      selectedIndex.value = (selectedIndex.value - 1 + results.length) % results.length
+      if (activeItemRef.value && typeof activeItemRef.value.scrollIntoView === 'function') {
+        activeItemRef.value.scrollIntoView({ block: 'nearest' })
+      }
+      return
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      selectAndAddToCart(results[selectedIndex.value] || results[0])
+      return
+    }
+  }
+
+  if (e.key === 'ArrowDown' && (!hasSearchQuery || results.length === 0) && props.cartItems.length > 0) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (searchInputRef.value) searchInputRef.value.blur()
+    selectedCartIndex.value = 0
+    return
+  }
+
+  if (e.key === 'Enter' && results.length > 0) {
+    e.preventDefault()
+    e.stopPropagation()
+    selectAndAddToCart(results[0])
+  }
+}
+
 const handleGlobalKeydown = (e) => {
   if (previewModalVisible.value) {
     if (e.key === 'Enter') { e.preventDefault(); confirmAndPrint(); return }
@@ -1014,6 +1152,54 @@ const handleGlobalKeydown = (e) => {
     return
   }
 
+  const activeEl = document.activeElement
+  const isInputActive = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')
+  const isSearchFocused = activeEl === searchInputRef.value
+  const hasSearchQuery = deskSearchQuery.value.trim().length > 0
+
+  if (isSearchFocused && hasSearchQuery && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    return
+  }
+
+  if (!isInputActive && props.cartItems.length > 0) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      selectedCartIndex.value = (selectedCartIndex.value + 1) % props.cartItems.length
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      selectedCartIndex.value = (selectedCartIndex.value - 1 + props.cartItems.length) % props.cartItems.length
+      return
+    }
+    if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+      e.preventDefault()
+      if (props.cartItems[selectedCartIndex.value]) {
+        props.cartItems[selectedCartIndex.value].quantity++
+        itemInputQuantities.value[selectedCartIndex.value] = String(props.cartItems[selectedCartIndex.value].quantity)
+      }
+      return
+    }
+    if (e.key === '-' || e.code === 'NumpadSubtract') {
+      e.preventDefault()
+      if (props.cartItems[selectedCartIndex.value] && props.cartItems[selectedCartIndex.value].quantity > 1) {
+        props.cartItems[selectedCartIndex.value].quantity--
+        itemInputQuantities.value[selectedCartIndex.value] = String(props.cartItems[selectedCartIndex.value].quantity)
+      }
+      return
+    }
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault()
+      if (props.cartItems[selectedCartIndex.value]) {
+        props.cartItems.splice(selectedCartIndex.value, 1)
+        if (selectedCartIndex.value >= props.cartItems.length) {
+          selectedCartIndex.value = Math.max(0, props.cartItems.length - 1)
+        }
+      }
+      return
+    }
+  }
+
   if (e.key === 'F4') { e.preventDefault(); if (cashUsdInputRef.value) cashUsdInputRef.value.focus(); return }
   if (e.key === 'F5') { e.preventDefault(); if (cashBsInputRef.value) cashBsInputRef.value.focus(); return }
   if (e.key === 'F6') { e.preventDefault(); if (cardPosInputRef.value) cardPosInputRef.value.focus(); return }
@@ -1024,28 +1210,6 @@ const handleGlobalKeydown = (e) => {
   if (e.ctrlKey && e.key.toLowerCase() === 'h') { e.preventDefault(); holdCurrentOrder(); return }
   if (e.ctrlKey && e.key.toLowerCase() === 'r') { e.preventDefault(); openRecallModal(); return }
   if (e.ctrlKey && e.key.toLowerCase() === 'b') { e.preventDefault(); emit('clear-cart'); return }
-}
-
-const handleSearchKeydown = (e) => {
-  const results = filteredParts.value
-  if (results.length === 0) return
-
-  if (e.key === 'ArrowDown') {
-    e.preventDefault()
-    selectedIndex.value = (selectedIndex.value + 1) % results.length
-    if (activeItemRef.value && typeof activeItemRef.value.scrollIntoView === 'function') {
-      activeItemRef.value.scrollIntoView({ block: 'nearest' })
-    }
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    selectedIndex.value = (selectedIndex.value - 1 + results.length) % results.length
-    if (activeItemRef.value && typeof activeItemRef.value.scrollIntoView === 'function') {
-      activeItemRef.value.scrollIntoView({ block: 'nearest' })
-    }
-  } else if (e.key === 'Enter') {
-    e.preventDefault()
-    selectAndAddToCart(results[selectedIndex.value] || results[0])
-  }
 }
 
 onMounted(() => {
