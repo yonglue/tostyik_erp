@@ -4,6 +4,8 @@ import json
 import os
 import re
 import shutil
+import io
+import pandas as pd
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -207,4 +209,130 @@ def get_procurement_suggestions(
             "unit_price": p.price,
             "estimated_cost": suggested_qty * p.price,
         })
+<<<<<<< HEAD
     return suggestions
+=======
+    return suggestions
+
+@router.post("/api/import/parts")
+async def import_parts(
+    file: UploadFile = File(...),
+    actor: Actor = Depends(get_current_actor),
+    session: Session = Depends(get_session),
+):
+    """智能批量导入接口：完美支持 Excel (.xlsx) 和 CSV 文件，自动兼容中英文表头"""
+    contents = await file.read()
+    
+    try:
+        filename = file.filename.lower()
+        print(f"📂 正在接收导入文件: {file.filename}, 大小: {len(contents)} 字节")
+        
+        if filename.endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(io.BytesIO(contents))
+        else:
+            for encoding in ['utf-8-sig', 'latin1', 'cp1252']:
+                try:
+                    df = pd.read_csv(io.BytesIO(contents), encoding=encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            else:
+                raise HTTPException(status_code=400, detail="❌ CSV 文件编码无法识别，请使用 UTF-8！")
+    except Exception as e:
+        print(f"❌ 文件读取异常: {e}")
+        raise HTTPException(status_code=400, detail=f"❌ 文件解析失败: {str(e)}")
+
+    # 统一将列名转为小写去空格，并兼容中文表头映射
+    df.columns = [str(c).strip().lower() for c in df.columns]
+    
+    col_mapping = {
+        '编号': 'oem', '代码': 'oem', 'sku': 'oem',
+        '名称': 'name', '品名': 'name', '商品名称': 'name',
+        '品牌': 'brand',
+        '分类': 'category', '商品分类': 'category',
+        '库存': 'stock', '数量': 'stock',
+        '价格': 'price', '单价': 'price', '零售价': 'price',
+        '货架': 'bin_location', '库位': 'bin_location', '货架位': 'bin_location'
+    }
+    df = df.rename(columns=col_mapping)
+
+    imported_count = 0
+    skipped_count = 0
+
+    for idx, row in df.iterrows():
+        try:
+            oem = str(row.get('oem', '')).strip()
+            name = str(row.get('name', '')).strip()
+            
+            if not oem or oem == 'nan' or not name or name == 'nan':
+                skipped_count += 1
+                continue
+
+            brand = str(row.get('brand', 'GENERAL')).strip()
+            if not brand or brand == 'nan': brand = 'GENERAL'
+
+            category = str(row.get('category', '未分类')).strip()
+            if not category or category == 'nan': category = '未分类'
+
+            bin_location = str(row.get('bin_location', 'Estante A-1')).strip()
+            if not bin_location or bin_location == 'nan': bin_location = 'Estante A-1'
+
+            try:
+                stock = int(float(row.get('stock', 0)))
+            except Exception:
+                stock = 0
+
+            try:
+                price = float(row.get('price', 0.0))
+            except Exception:
+                price = 0.0
+
+            # 检查数据库中是否已存在该 OEM
+            existing = session.exec(select(AutoPart).where(AutoPart.oem == oem)).first()
+            if existing:
+                existing.name = name
+                existing.brand = brand
+                existing.category = category
+                existing.stock = stock
+                existing.price = price
+                existing.bin_location = bin_location
+                session.add(existing)
+            else:
+                new_part = AutoPart(
+                    oem=oem,
+                    name=name,
+                    brand=brand,
+                    category=category,
+                    stock=stock,
+                    price=price,
+                    bin_location=bin_location,
+                    cross_references="",
+                    image_url=""
+                )
+                session.add(new_part)
+                
+            imported_count += 1
+        except Exception as e:
+            print(f"⚠️ 处理第 {idx+2} 行出错: {e}")
+            skipped_count += 1
+
+    session.commit()
+
+    # 🌟 写入系统审计日志
+    log_action(
+        session=session,
+        username=actor.username,
+        role=actor.role,
+        action="IMPORT_PARTS",
+        details=f"成功批量导入 {imported_count} 个商品，跳过 {skipped_count} 个无效行",
+    )
+
+    print(f"✨ 导入完成统计 -> 成功: {imported_count}, 跳过: {skipped_count}")
+
+    return {
+        "status": "success", 
+        "message": f"成功导入 {imported_count} 个商品，跳过 {skipped_count} 个无效行",
+        "imported_count": imported_count,
+        "updated_count": imported_count,
+        "count": imported_count
+    }

@@ -175,29 +175,53 @@
         </table>
       </div>
 
-      <!-- 分页栏 -->
-      <div v-if="totalPages > 1" class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
+      <!-- 分页与指定页码跳转栏 -->
+      <div v-if="totalPages > 1" class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4 text-xs">
         <span class="text-slate-500 font-medium">
           显示第 <strong class="text-slate-800">{{ (currentPage - 1) * pageSize + 1 }}</strong> 到 <strong class="text-slate-800">{{ Math.min(currentPage * pageSize, filteredParts.length) }}</strong> 条，共 <strong class="text-slate-800">{{ filteredParts.length }}</strong> 个商品
         </span>
-        <div class="flex items-center gap-1.5">
-          <button 
-            @click="currentPage--" 
-            :disabled="currentPage === 1"
-            class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            上一页
-          </button>
-          <span class="px-3 py-1 font-mono font-bold text-slate-700">
-            {{ currentPage }} / {{ totalPages }}
-          </span>
-          <button 
-            @click="currentPage++" 
-            :disabled="currentPage === totalPages"
-            class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            下一页
-          </button>
+        
+        <div class="flex items-center gap-3">
+          <!-- 🌟 指定页码直接跳转输入框 -->
+          <div class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2 py-1 shadow-2xs">
+            <span class="text-slate-400 text-[11px]">跳转到</span>
+            <input 
+              type="number" 
+              min="1" 
+              :max="totalPages" 
+              v-model.number="jumpPageInput" 
+              @keyup.enter="handleJumpPage"
+              class="w-12 text-center font-mono font-bold text-blue-600 bg-slate-50 rounded-lg py-1 outline-none border border-slate-200 focus:border-blue-500 text-xs" 
+            />
+            <span class="text-slate-400 text-[11px]">/ {{ totalPages }} 页</span>
+            <button 
+              @click="handleJumpPage" 
+              class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer text-[11px]"
+            >
+              跳转
+            </button>
+          </div>
+
+          <!-- 上一页 / 页码显示 / 下一页 -->
+          <div class="flex items-center gap-1.5">
+            <button 
+              @click="currentPage--" 
+              :disabled="currentPage === 1"
+              class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              上一页
+            </button>
+            <span class="px-3 py-1 font-mono font-bold text-slate-700">
+              {{ currentPage }} / {{ totalPages }}
+            </span>
+            <button 
+              @click="currentPage++" 
+              :disabled="currentPage === totalPages"
+              class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              下一页
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -332,6 +356,7 @@ const { showSuccessModal } = useNotifications()
 
 const pageSize = 8
 const currentPage = ref(1)
+const jumpPageInput = ref(1)
 const selectedIds = ref([])
 const batchDeleteModalVisible = ref(false)
 
@@ -409,9 +434,25 @@ const paginatedParts = computed(() => {
   return filteredParts.value.slice(start, start + pageSize)
 })
 
+// 🌟 处理指定页码跳转逻辑
+const handleJumpPage = () => {
+  let target = parseInt(jumpPageInput.value)
+  if (isNaN(target)) return
+  if (target < 1) target = 1
+  if (target > totalPages.value) target = totalPages.value
+  currentPage.value = target
+  jumpPageInput.value = target
+}
+
 watch([() => props.searchQuery, () => props.selectedBrand, selectedCategory], () => {
   currentPage.value = 1
+  jumpPageInput.value = 1
   selectedIds.value = []
+})
+
+// 同步当前页码到跳转输入框
+watch(currentPage, (val) => {
+  jumpPageInput.value = val
 })
 
 const isAllSelected = computed(() => {

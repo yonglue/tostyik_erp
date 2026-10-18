@@ -32,6 +32,7 @@ def init_db() -> None:
     from app import models  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
+    print("✅ 数据库表结构检查与初始化完成。")
 
     # 🌟 强制自动补全 shift_records 表的所有拆分字段
     with engine.connect() as conn:

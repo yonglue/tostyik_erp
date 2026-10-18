@@ -43,18 +43,6 @@ from app.security import hash_password, verify_password
 from app.startup_checks import config_warnings, report
 from app.routers import staff
 
-# 首次启动、库存表为空时写入的演示数据
-#_SEED_PARTS = [
-#    dict(oem="17801-22020", name="空气滤清器 (Air Filter)", brand="Toyota",
-#         category="滤清器", stock=15, price=12.50, bin_location="Estante A-1"),
-#    dict(oem="90915-YZZE1", name="机油滤清器 (Oil Filter)", brand="Toyota",
-#         category="滤清器", stock=3, price=8.00, bin_location="Estante A-2"),
-#    dict(oem="48630-69045", name="上控制臂悬挂胶套", brand="Mitsubishi",
-#         category="悬挂系统", stock=1, price=24.00, bin_location="Estante B-1"),
-#    dict(oem="Mack-2101", name="重卡柴油粗滤芯", brand="Mack",
-#         category="滤清器", stock=11, price=45.00, bin_location="Estante C-3"),
-#]
-
 
 def bootstrap() -> None:
     """建表 + 首次启动的账号与演示数据播种 + 安全自检。
@@ -100,11 +88,6 @@ def bootstrap() -> None:
                 "请在 .env 设置 TK_ADMIN_PASSWORD 后重启，或执行 "
                 ".venv/bin/python scripts/set_admin_password.py"
             )
-
-        #if not session.exec(select(AutoPart)).first():
-        #   for part in _SEED_PARTS:
-        #      session.add(AutoPart(**part))
-        # session.commit()
 
     report(warnings)
 

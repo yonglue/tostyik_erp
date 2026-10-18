@@ -20,8 +20,6 @@ ALL_PERMISSIONS = [
 
 # ══════════════════════════ 库存与商品 ══════════════════════════
 class AutoPart(SQLModel, table=True):
-    __tablename__ = "autopart"
-
     id: Optional[int] = Field(default=None, primary_key=True)
     oem: str = Field(index=True)
     name: str
@@ -29,11 +27,9 @@ class AutoPart(SQLModel, table=True):
     category: str = Field(default="未分类")
     stock: int = Field(default=0)
     price: float = Field(default=0.0)
-    bin_location: Optional[str] = Field(default="Estante A-1")
-    image_url: Optional[str] = Field(default="")
-    cross_references: Optional[str] = Field(default="")
-    compatible_models: Optional[str] = Field(default="")
-    # 【新增】商品级税率配置：0.16 表示 16% 标准 IVA，0.0 表示免税 (Exento)
+    bin_location: str = Field(default="Estante A-1")
+    image_url: str = Field(default="")
+    cross_references: str = Field(default="")
     tax_rate: float = Field(default=0.16)
 
 
