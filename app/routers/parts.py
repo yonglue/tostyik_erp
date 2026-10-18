@@ -209,9 +209,7 @@ def get_procurement_suggestions(
             "unit_price": p.price,
             "estimated_cost": suggested_qty * p.price,
         })
-<<<<<<< HEAD
-    return suggestions
-=======
+
     return suggestions
 
 @router.post("/api/import/parts")
