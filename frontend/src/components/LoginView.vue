@@ -1,8 +1,6 @@
 <!-- src/components/LoginView.vue -->
 <template>
-  <!-- 安全登录遮罩层。
-       自身直接使用 useAuth / useI18n：这两个 composable 是模块级单例，
-       与 App.vue 共享同一份登录态，因此无需层层传递 props。 -->
+  <!-- 安全登录遮罩层 -->
   <div class="fixed inset-0 bg-slate-900 flex items-center justify-center z-50 p-4">
     <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 p-8 space-y-6 relative">
 
@@ -23,11 +21,13 @@
         <p class="text-xs text-slate-400">{{ t.loginSubtitle || 'ERP 权限控制 - 请输入管理员凭证' }}</p>
       </div>
 
-      <!-- 🌟 使用 <form> 包裹输入项，彻底消除浏览器的密码框警告并完美支持回车提交 -->
+      <!-- 登录表单 -->
       <form @submit.prevent="handleLogin" class="space-y-4">
         <div>
           <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.usernameLabel || '管理员账号' }}</label>
+          <!-- 🌟 1. 为账号输入框绑定 ref 引用 -->
           <input 
+            ref="usernameInputRef"
             v-model="loginForm.username" 
             type="text" 
             autocomplete="username"
@@ -64,6 +64,7 @@
 </template>
 
 <script setup>
+import { ref, onMounted, nextTick } from 'vue'
 import { Cpu } from 'lucide-vue-next'
 import { useI18n } from '../composables/useI18n'
 import { useAuth } from '../composables/useAuth'
@@ -73,4 +74,15 @@ const {
   loginForm, loginError, resetMessage,
   handleLogin, openResetModal
 } = useAuth()
+
+// 🌟 2. 定义账号输入框的引用变量
+const usernameInputRef = ref(null)
+
+// 🌟 3. 组件挂载后自动聚焦到账号输入框
+onMounted(async () => {
+  await nextTick()
+  if (usernameInputRef.value) {
+    usernameInputRef.value.focus()
+  }
+})
 </script>

@@ -656,6 +656,26 @@ const handleAddClient = async () => {
 }
 
 const handleGlobalKeydown = (e) => {
+  // 🌟 1. 当大图预览弹窗（Gallery）打开时，优先拦截处理按键
+  if (galleryModalVisible.value) {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      galleryModalVisible.value = false // 按 Esc 键一键关闭大图弹窗
+      return
+    }
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      prevGalleryImage() // 按左方向键切换到上一张图片
+      return
+    }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      nextGalleryImage() // 按右方向键切换到下一张图片
+      return
+    }
+  }
+
+  // 🌟 2. 现有的 Esc 按键关闭录入弹窗逻辑
   if (e.key === 'Escape') {
     if (dialogVisible.value) { dialogVisible.value = false; return; }
   }

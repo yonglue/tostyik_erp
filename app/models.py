@@ -168,21 +168,6 @@ class OrderItem(SQLModel, table=True):
     order: Optional[Order] = Relationship(back_populates="items")
 
 
-class OrderItem(SQLModel, table=True):
-    __tablename__ = "order_items"
-    __table_args__ = {"extend_existing": True}
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    order_id: int = Field(foreign_key="orders.id")
-    oem: str = Field(max_length=100)
-    name: str = Field(max_length=150)
-    quantity: int
-    price_usd: float
-    subtotal_usd: float
-
-    order: Optional[Order] = Relationship(back_populates="items")
-
-
 # ══════════════════════════ 报价单 ══════════════════════════
 class QuotationRecord(SQLModel, table=True):
     __tablename__ = "quotationrecord"

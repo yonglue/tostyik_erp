@@ -1,48 +1,160 @@
+<!-- src/components/ImageGalleryModal.vue -->
 <template>
-  <!-- 商品图片灯箱：点击遮罩关闭，左右切换 -->
-  <div
-    v-if="visible"
-    @click="$emit('close')"
-    class="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4 cursor-pointer"
+  <div 
+    v-if="visible" 
+    @click.self="close" 
+    class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center z-50 p-4 select-none"
   >
-    <div class="relative bg-white rounded-2xl p-4 max-w-xl w-full shadow-2xl overflow-hidden text-center space-y-3" @click.stop>
-      <div class="relative h-[60vh] flex items-center justify-center bg-slate-100 rounded-xl overflow-hidden">
-        <img :src="images[index]" class="max-h-full max-w-full object-contain" />
-      </div>
-      <div class="flex items-center justify-between px-2">
-        <button @click="$emit('prev')" class="px-3 py-1.5 bg-slate-200 rounded-lg text-xs font-semibold cursor-pointer">
-          ◀ {{ labels.prev }}
+    <!-- 顶部控制工具栏 -->
+    <div class="absolute top-6 right-6 flex items-center gap-3 z-10">
+      <!-- 缩放控制按钮组 -->
+      <div class="flex items-center bg-slate-800/80 border border-slate-700/80 rounded-2xl px-3 py-1.5 backdrop-blur-md text-white text-xs gap-2 shadow-lg">
+        <button 
+          @click="zoomOut" 
+          title="缩小 (-)" 
+          class="hover:text-blue-400 transition-colors cursor-pointer px-1.5 py-0.5 font-bold text-sm"
+        >
+          ➖
         </button>
-        <span class="text-xs font-mono text-slate-600">{{ index + 1 }} / {{ images.length }}</span>
-        <button @click="$emit('next')" class="px-3 py-1.5 bg-slate-200 rounded-lg text-xs font-semibold cursor-pointer">
-          {{ labels.next }} ▶
+        <span class="font-mono text-slate-300 w-12 text-center font-bold">{{ Math.round(scale * 100) }}%</span>
+        <button 
+          @click="zoomIn" 
+          title="放大 (+)" 
+          class="hover:text-blue-400 transition-colors cursor-pointer px-1.5 py-0.5 font-bold text-sm"
+        >
+          ➕
+        </button>
+        <button 
+          @click="resetZoom" 
+          title="重置 100%" 
+          class="hover:text-amber-400 transition-colors cursor-pointer text-[10px] bg-slate-700/60 px-2 py-0.5 rounded-lg font-mono ml-1"
+        >
+          1:1
         </button>
       </div>
-      <button
-        @click="$emit('close')"
-        class="absolute top-3 right-3 bg-slate-900/60 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold cursor-pointer"
+
+      <!-- 关闭按钮 -->
+      <button 
+        @click="close" 
+        class="w-9 h-9 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:bg-slate-700 text-white flex items-center justify-center text-base font-bold transition-all cursor-pointer shadow-lg"
       >
         ✕
       </button>
     </div>
+
+    <!-- 主图显示区域（支持鼠标滚轮缩放与拖拽预留） -->
+    <div 
+      class="relative max-w-5xl max-h-[85vh] w-full h-full flex items-center justify-center overflow-hidden"
+      @wheel.prevent="handleWheel"
+    >
+      <img 
+        v-if="images && images.length > 0"
+        :src="images[index]" 
+        :style="{ transform: `scale(${scale})` }"
+        class="max-w-full max-h-[80vh] object-contain transition-transform duration-150 ease-out rounded-2xl shadow-2xl border border-slate-800/60"
+        alt="Preview Image"
+      />
+    </div>
+
+    <!-- 底部切图指示器与左右切换按钮 -->
+    <template v-if="images && images.length > 1">
+      <button 
+        @click="prev" 
+        class="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:bg-blue-600 text-white flex items-center justify-center text-xl font-bold transition-all cursor-pointer shadow-lg backdrop-blur-md"
+      >
+        ❮
+      </button>
+
+      <button 
+        @click="next" 
+        class="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:bg-blue-600 text-white flex items-center justify-center text-xl font-bold transition-all cursor-pointer shadow-lg backdrop-blur-md"
+      >
+        ❯
+      </button>
+
+      <div class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-800/80 border border-slate-700/80 px-4 py-1.5 rounded-full text-xs font-mono text-slate-300 backdrop-blur-md">
+        {{ index + 1 }} / {{ images.length }}
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useI18n } from '../composables/useI18n'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 
-defineProps({
-  visible: { type: Boolean, default: false },
-  images: { type: Array, default: () => [] },
-  index: { type: Number, default: 0 }
+const props = defineProps({
+  visible: Boolean,
+  images: Array,
+  index: Number
 })
 
-defineEmits(['close', 'prev', 'next'])
+const emit = defineEmits(['close', 'prev', 'next'])
 
-const { t } = useI18n()
-const labels = computed(() => ({
-  prev: t.value.galleryPrev || '上一张',
-  next: t.value.galleryNext || '下一张'
-}))
+// 缩放状态管理 (1.0 = 100%)
+const scale = ref(1.0)
+
+// 切换图片或打开弹窗时重置缩放比例
+watch([() => props.index, () => props.visible], () => {
+  resetZoom()
+})
+
+const zoomIn = () => {
+  if (scale.value < 4.0) {
+    scale.value = Math.min(4.0, +(scale.value + 0.25).toFixed(2))
+  }
+}
+
+const zoomOut = () => {
+  if (scale.value > 0.5) {
+    scale.value = Math.max(0.5, +(scale.value - 0.25).toFixed(2))
+  }
+}
+
+const resetZoom = () => {
+  scale.value = 1.0
+}
+
+// 鼠标滚轮缩放
+const handleWheel = (e) => {
+  if (e.deltaY < 0) {
+    zoomIn()
+  } else {
+    zoomOut()
+  }
+}
+
+const close = () => {
+  resetZoom()
+  emit('close')
+}
+
+const prev = () => {
+  resetZoom()
+  emit('prev')
+}
+
+const next = () => {
+  resetZoom()
+  emit('next')
+}
+
+// 支持键盘 + / - 快捷键缩放
+const handleKeydown = (e) => {
+  if (!props.visible) return
+  if (e.key === '+' || e.key === '=') {
+    zoomIn()
+  } else if (e.key === '-' || e.key === '_') {
+    zoomOut()
+  } else if (e.key === '0') {
+    resetZoom()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
 </script>
