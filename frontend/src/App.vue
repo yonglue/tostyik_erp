@@ -195,11 +195,13 @@
             </div>
           </div>
 
+          <!-- 🌟 优化：新增商品弹窗支持 16%、8% 和 0% 免税下拉 -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">商品税率属性 (IVA)</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">🌟 SENIAT 税率类型属性 (IVA)</label>
               <select v-model.number="newPart.tax_rate" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold outline-none focus:border-blue-500 cursor-pointer">
-                <option :value="0.16">16% 标准增值税 (IVA)</option>
+                <option :value="0.16">16% 标准增值税 (Alicuota General)</option>
+                <option :value="0.08">8% 减免增值税 (Alicuota Reducida)</option>
                 <option :value="0.0">0% 免税 (Exento)</option>
               </select>
             </div>

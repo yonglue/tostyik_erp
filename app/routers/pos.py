@@ -33,10 +33,10 @@ def create_pos_order(
     client_name = payload.client_name.strip() if payload.client_name else "Cliente General"
 
     total_base_amount = 0.0  # 不含税总额 (Base Imponible)
-    total_tax_amount = 0.0   # 总 IVA 增值税额
+    total_tax_amount = 0.0   # 总 IVA 增值税额 (兼容 16%, 8%, 0%)
     order_items_to_create = []
 
-    # 1. 遍历商品，校验库存并计算税率拆分
+    # 1. 遍历商品，校验库存并计算 SENIAT 财税拆分
     for item in payload.items:
         if item.quantity <= 0:
             raise HTTPException(status_code=400, detail=f"商品 {item.oem} 数量必须大于 0")
@@ -65,9 +65,11 @@ def create_pos_order(
             customer_or_supplier=client_name,
         ))
 
+        # 获取商品配置的税率（支持 0.16, 0.08, 0.0 等）
         item_tax_rate = getattr(part, "tax_rate", 0.16)
         line_total = item.price * item.quantity
 
+        # 🌟 严格按照 SENIAT 法规分离 Base Imponible 与 IVA
         if item_tax_rate > 0:
             base_sub = line_total / (1.0 + item_tax_rate)
             tax_sub = line_total - base_sub
@@ -103,7 +105,7 @@ def create_pos_order(
     total_bs = total_usd * payload.bcv_rate
     order_no = make_order_no()
 
-    # 3. 持久化订单主表（带 Base、IVA、IGTF）
+    # 3. 持久化订单主表（写入 Base、IVA、IGTF）
     new_order = Order(
         order_no=order_no,
         client_name=client_name,
@@ -288,15 +290,24 @@ def create_shift_handover(
         actual_cash = float(payload.get("actual_cash_usd", 0.0))
         system_cash = float(payload.get("system_cash_usd", 0.0))
 
+        # 🌟 关联当班期间财税统计入库（Base, IVA, IGTF）
         session_record = CashRegisterSession(
             closed_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             operator=actor.username if actor and hasattr(actor, "username") else "admin",
+            bcv_rate_snapshot=float(payload.get("bcv_rate", 0.0)),
+            total_base_amount_usd=float(payload.get("system_base_amount_usd", 0.0)),
+            total_iva_amount_usd=float(payload.get("system_tax_amount_usd", 0.0)),
+            total_igtf_amount_usd=float(payload.get("system_igtf_amount_usd", 0.0)),
             system_cash_usd=system_cash,
             system_zelle=float(payload.get("system_zelle_usd", 0.0)),
             system_pago_movil=float(payload.get("system_pagomovil_usd", 0.0)),
+            system_transfer_bs=float(payload.get("system_transfer_bs", 0.0)),
+            system_usdt=float(payload.get("system_usdt_usd", 0.0)),
             actual_cash_usd=actual_cash,
             actual_zelle=float(payload.get("system_zelle_usd", 0.0)),
             actual_pago_movil=float(payload.get("system_pagomovil_usd", 0.0)),
+            actual_transfer_bs=float(payload.get("system_transfer_bs", 0.0)),
+            actual_usdt=float(payload.get("system_usdt_usd", 0.0)),
             total_revenue_usd=float(payload.get("system_total_usd", 0.0)),
             notes=str(payload.get("notes", ""))
         )
@@ -310,7 +321,7 @@ def create_shift_handover(
                 actor.username if actor and hasattr(actor, "username") else "admin",
                 actor.role if actor and hasattr(actor, "role") else "staff",
                 "SHIFT_HANDOVER",
-                f"完成收银交接班归档, 实盘现金: ${actual_cash:.2f}"
+                f"完成收银交接班归档, 实盘现金: ${actual_cash:.2f}, 总计营业额: ${float(payload.get('system_total_usd', 0.0)):.2f}"
             )
         except Exception as log_err:
             print(f"⚠️ 审计日志写入跳过: {log_err}")

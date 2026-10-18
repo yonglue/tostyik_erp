@@ -87,7 +87,7 @@
               <th class="py-3.5 px-4">📍 货架库位</th>
               <th class="py-3.5 px-4">{{ t.colCategory || '分类' }}</th>
               <th class="py-3.5 px-4">{{ t.colBrand || '品牌' }}</th>
-              <th class="py-3.5 px-4">税率类型 (IVA)</th>
+              <th class="py-3.5 px-4">税率类型 (SENIAT)</th>
               <th class="py-3.5 px-4">{{ t.colStock || '库存' }}</th>
               <th class="py-3.5 px-4">{{ t.colPriceUsd || '售价 (USD)' }}</th>
               <th class="py-3.5 px-4 text-center">操作</th>
@@ -147,10 +147,10 @@
                 <span class="bg-slate-100 px-2.5 py-1 rounded-md text-xs font-medium">{{ item.brand }}</span>
               </td>
 
-              <!-- 🌟 新增：显示商品税率类型 -->
+              <!-- 🌟 SENIAT 税率类型标签 -->
               <td class="py-4 px-4">
-                <span :class="item.tax_rate > 0 ? 'bg-amber-50 text-amber-700 border-amber-200/60' : 'bg-slate-100 text-slate-600 border-slate-200'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border">
-                  {{ item.tax_rate > 0 ? '16% IVA' : '0% 免税' }}
+                <span :class="item.tax_rate === 0.16 ? 'bg-amber-50 text-amber-700 border-amber-200/60' : (item.tax_rate === 0.08 ? 'bg-indigo-50 text-indigo-700 border-indigo-200/60' : 'bg-slate-100 text-slate-600 border-slate-200')" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border">
+                  {{ item.tax_rate === 0.16 ? '16% 标准 IVA' : (item.tax_rate === 0.08 ? '8% 减免 IVA' : '0% 免税 Exento') }}
                 </span>
               </td>
 
@@ -253,9 +253,10 @@
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">商品税率属性 (IVA)</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">🌟 SENIAT 税率类型属性 (IVA)</label>
               <select v-model.number="editingPart.tax_rate" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold outline-none focus:border-blue-500 cursor-pointer">
-                <option :value="0.16">16% 标准增值税 (IVA)</option>
+                <option :value="0.16">16% 标准增值税 (Alicuota General)</option>
+                <option :value="0.08">8% 减免增值税 (Alicuota Reducida)</option>
                 <option :value="0.0">0% 免税 (Exento)</option>
               </select>
             </div>
@@ -420,10 +421,10 @@ const isAllSelected = computed(() => {
 
 const toggleSelectAll = (e) => {
   if (e.target.checked) {
-    const currentIds = paginatedParts.value.map(i => i.id)
+    const currentIds = paginatedParts.value.map(i => item.id)
     selectedIds.value = Array.from(new Set([...selectedIds.value, ...currentIds]))
   } else {
-    const currentIds = paginatedParts.value.map(i => i.id)
+    const currentIds = paginatedParts.value.map(i => item.id)
     selectedIds.value = selectedIds.value.filter(id => !currentIds.includes(id))
   }
 }
