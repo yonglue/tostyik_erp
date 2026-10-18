@@ -31,6 +31,7 @@ def create_part(
     category: str = Form(...),
     stock: int = Form(...),
     price: float = Form(...),
+    tax_rate: float = Form(...),  # 用户手动选择税率 (如 0.16 或 0.0)
     cross_references: str = Form(default=""),
     files: List[UploadFile] = File(default=[]),
     actor: Actor = Depends(get_current_actor),
@@ -50,6 +51,7 @@ def create_part(
         category=category,
         stock=stock,
         price=price,
+        tax_rate=tax_rate,
         cross_references=cross_references,
         image_url=json.dumps(image_paths) if image_paths else "",
     )
@@ -61,10 +63,11 @@ def create_part(
         username=actor.username,
         role=actor.role,
         action="CREATE_PART",
-        details=f"新增了配件商品: {name} (OEM: {oem}, 库存: {stock}, 价格: ${price})",
+        details=f"新增了配件商品: {name} (OEM: {oem}, 税率: {int(tax_rate*100)}%, 库存: {stock}, 价格: ${price})",
     )
 
     return {"status": "success", "message": "Part created successfully"}
+
 
 @router.put("/api/parts/{part_id}")
 def update_part(
@@ -75,6 +78,7 @@ def update_part(
     category: str = Form(...),
     stock: int = Form(...),
     price: float = Form(...),
+    tax_rate: float = Form(...),  # 用户手动选择税率
     bin_location: str = Form(default="Estante A-1"),
     cross_references: str = Form(default=""),
     files: List[UploadFile] = File(default=[]),
@@ -86,7 +90,6 @@ def update_part(
         raise HTTPException(status_code=404, detail="Part not found")
 
     image_paths = []
-    # 如果用户上传了新图片，则处理新图片
     if files:
         for file in files:
             file_path = os.path.join(UPLOAD_DIR, file.filename)
@@ -95,13 +98,13 @@ def update_part(
             image_paths.append(f"/uploads/{file.filename}")
         part.image_url = json.dumps(image_paths)
 
-    # 更新字段
     part.oem = oem
     part.name = name
     part.brand = brand
     part.category = category
     part.stock = stock
     part.price = price
+    part.tax_rate = tax_rate
     part.bin_location = bin_location
     part.cross_references = cross_references
 
@@ -113,11 +116,10 @@ def update_part(
         username=actor.username,
         role=actor.role,
         action="UPDATE_PART",
-        details=f"更新了配件商品档案: {name} (OEM: {oem}, 库存: {stock}, 价格: ${price})",
+        details=f"更新了配件商品档案: {name} (OEM: {oem}, 税率: {int(tax_rate*100)}%, 库存: {stock}, 价格: ${price})",
     )
 
     return {"status": "success", "message": "Part updated successfully"}
-
 
 
 @router.delete("/api/parts/{part_id}")

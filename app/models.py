@@ -33,6 +33,8 @@ class AutoPart(SQLModel, table=True):
     image_url: Optional[str] = Field(default="")
     cross_references: Optional[str] = Field(default="")
     compatible_models: Optional[str] = Field(default="")
+    # 【新增】商品级税率配置：0.16 表示 16% 标准 IVA，0.0 表示免税 (Exento)
+    tax_rate: float = Field(default=0.16)
 
 
 class InventoryTransaction(SQLModel, table=True):
@@ -124,7 +126,13 @@ class Order(SQLModel, table=True):
     order_no: str = Field(index=True, unique=True, max_length=50)
     client_name: str = Field(max_length=150)
     operator: str = Field(max_length=100)
-    total_usd: float
+    
+    # 【新增】税务拆分总额字段
+    base_amount_usd: float = Field(default=0.0)  # 不含税总额 (Base Imponible)
+    tax_amount_usd: float = Field(default=0.0)   # 总 IVA 增值税额 (16% 或混合)
+    igtf_amount_usd: float = Field(default=0.0)  # 3% 外汇/大额交易税 (如适用)
+    
+    total_usd: float  # 含税最终总额 (Base + Tax + IGTF)
     total_bs: float
     bcv_rate: float
     payment_method: str = Field(max_length=50)
@@ -138,6 +146,26 @@ class Order(SQLModel, table=True):
         back_populates="order",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+
+
+class OrderItem(SQLModel, table=True):
+    __tablename__ = "order_items"
+    __table_args__ = {"extend_existing": True}
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    order_id: int = Field(foreign_key="orders.id")
+    oem: str = Field(max_length=100)
+    name: str = Field(max_length=150)
+    quantity: int
+    price_usd: float
+    subtotal_usd: float  # 行总金额
+    
+    # 【新增】明细行税务快照（防止日后商品税率修改导致历史账目对不上）
+    tax_rate: float = Field(default=0.16)     # 该行应用的税率（例如 0.16 或 0.0）
+    base_subtotal_usd: float = Field(default=0.0)  # 该行不含税小计
+    tax_subtotal_usd: float = Field(default=0.0)   # 该行税金小计
+
+    order: Optional[Order] = Relationship(back_populates="items")
 
 
 class OrderItem(SQLModel, table=True):
@@ -178,6 +206,12 @@ class CashRegisterSession(SQLModel, table=True):
     closed_at: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M"))
     operator: str = Field(default="Elias")
     bcv_rate_snapshot: float = Field(default=0.0)
+    
+    # 【新增】日结税务总账拆分（老板与财务对账核心）
+    total_base_amount_usd: float = Field(default=0.0)  # 当班不含税销售总额 (Base Imponible)
+    total_iva_amount_usd: float = Field(default=0.0)   # 当班代收增值税总额 (IVA 16%)
+    total_igtf_amount_usd: float = Field(default=0.0)  # 当班代收外汇交易税总额 (IGTF 3%)
+
     system_cash_usd: float = Field(default=0.0)
     system_zelle: float = Field(default=0.0)
     system_pago_movil: float = Field(default=0.0)

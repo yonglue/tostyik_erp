@@ -70,7 +70,7 @@
     <!-- 🌟 合并后的主商品表格 -->
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse min-w-[900px]">
+        <table class="w-full text-left border-collapse min-w-[950px]">
           <thead>
             <tr class="bg-slate-50/75 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <th class="py-3.5 px-4 w-12 text-center">
@@ -87,6 +87,7 @@
               <th class="py-3.5 px-4">📍 货架库位</th>
               <th class="py-3.5 px-4">{{ t.colCategory || '分类' }}</th>
               <th class="py-3.5 px-4">{{ t.colBrand || '品牌' }}</th>
+              <th class="py-3.5 px-4">税率类型 (IVA)</th>
               <th class="py-3.5 px-4">{{ t.colStock || '库存' }}</th>
               <th class="py-3.5 px-4">{{ t.colPriceUsd || '售价 (USD)' }}</th>
               <th class="py-3.5 px-4 text-center">操作</th>
@@ -145,6 +146,14 @@
               <td class="py-4 px-4 text-slate-600">
                 <span class="bg-slate-100 px-2.5 py-1 rounded-md text-xs font-medium">{{ item.brand }}</span>
               </td>
+
+              <!-- 🌟 新增：显示商品税率类型 -->
+              <td class="py-4 px-4">
+                <span :class="item.tax_rate > 0 ? 'bg-amber-50 text-amber-700 border-amber-200/60' : 'bg-slate-100 text-slate-600 border-slate-200'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border">
+                  {{ item.tax_rate > 0 ? '16% IVA' : '0% 免税' }}
+                </span>
+              </td>
+
               <td class="py-4 px-4 font-bold" :class="item.stock <= 5 ? 'text-rose-600' : 'text-slate-800'">{{ item.stock }}</td>
               <td class="py-4 px-4 font-bold text-blue-600">$ {{ Number(item.price || 0).toFixed(2) }}</td>
 
@@ -160,7 +169,7 @@
               </td>
             </tr>
             <tr v-if="filteredParts.length === 0">
-              <td colspan="10" class="py-12 text-center text-slate-400 text-xs">没有找到符合条件的商品档案</td>
+              <td colspan="11" class="py-12 text-center text-slate-400 text-xs">没有找到符合条件的商品档案</td>
             </tr>
           </tbody>
         </table>
@@ -231,7 +240,7 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">库存数量</label>
               <input v-model.number="editingPart.stock" type="number" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
@@ -239,6 +248,16 @@
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">零售价格 (USD)</label>
               <input v-model.number="editingPart.price" type="number" step="0.5" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">商品税率属性 (IVA)</label>
+              <select v-model.number="editingPart.tax_rate" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold outline-none focus:border-blue-500 cursor-pointer">
+                <option :value="0.16">16% 标准增值税 (IVA)</option>
+                <option :value="0.0">0% 免税 (Exento)</option>
+              </select>
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">货架库位 (Bin Location)</label>
@@ -315,7 +334,6 @@ const currentPage = ref(1)
 const selectedIds = ref([])
 const batchDeleteModalVisible = ref(false)
 
-// 配件分类筛选状态
 const selectedCategory = ref('ALL')
 
 const categoriesList = computed(() => {
@@ -334,6 +352,7 @@ const editingPart = ref({
   category: '', 
   stock: 0, 
   price: 0, 
+  tax_rate: 0.16,
   bin_location: 'Estante A-1',
   cross_references: '' 
 })
@@ -350,7 +369,6 @@ const parseImages = (imageUrlStr) => {
   return []
 }
 
-// 综合筛选逻辑
 const filteredParts = computed(() => {
   const query = props.searchQuery ? props.searchQuery.trim().toLowerCase() : ''
   const cleanQuery = query.replace(/[^a-z0-9]/g, '')
@@ -431,8 +449,6 @@ const confirmBatchDelete = async () => {
     batchDeleteModalVisible.value = false
     selectedIds.value = []
     showSuccessModal('🗑️ 批量删除成功！')
-    
-    // 🌟 核心优化：彻底去掉 window.location.reload()，改为触发父级数据刷新函数，完美停留在当前页面
     emit('refresh-data')
   } catch (e) {
     batchDeleteModalVisible.value = false
@@ -443,6 +459,7 @@ const confirmBatchDelete = async () => {
 const openEditModal = (item) => {
   editingPart.value = { 
     ...item, 
+    tax_rate: item.tax_rate ?? 0.16,
     bin_location: item.bin_location || 'Estante A-1',
     cross_references: item.cross_references || ''
   }
@@ -463,6 +480,7 @@ const saveEditedPart = async () => {
     formData.append('category', editingPart.value.category || '未分类')
     formData.append('stock', editingPart.value.stock ?? 0)
     formData.append('price', editingPart.value.price ?? 0.0)
+    formData.append('tax_rate', editingPart.value.tax_rate ?? 0.16)
     formData.append('bin_location', editingPart.value.bin_location || 'Estante A-1')
     formData.append('cross_references', editingPart.value.cross_references || '')
 

@@ -78,6 +78,22 @@
               </div>
             </div>
 
+            <!-- 🌟 税务明细拆分展示 (Base Imponible + IVA + IGTF) -->
+            <div class="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 space-y-1 text-xs font-mono text-slate-600">
+              <div class="flex justify-between">
+                <span>不含税总额 (Base Imponible):</span>
+                <span class="font-bold">${{ (order.baseAmountUsd || order.base_amount_usd || 0).toFixed(2) }} (Bs. {{ (((order.baseAmountUsd || order.base_amount_usd || 0)) * (order.bcvRate || order.bcv_rate || 1)).toFixed(2) }})</span>
+              </div>
+              <div class="flex justify-between">
+                <span>增值税 (IVA 16%):</span>
+                <span class="font-bold">${{ (order.taxAmountUsd || order.tax_amount_usd || 0).toFixed(2) }} (Bs. {{ (((order.taxAmountUsd || order.tax_amount_usd || 0)) * (order.bcvRate || order.bcv_rate || 1)).toFixed(2) }})</span>
+              </div>
+              <div v-if="(order.igtfAmountUsd || order.igtf_amount_usd || 0) > 0" class="flex justify-between text-amber-700">
+                <span>大额交易税 (IGTF 3%):</span>
+                <span class="font-bold">${{ (order.igtfAmountUsd || order.igtf_amount_usd || 0).toFixed(2) }} (Bs. {{ (((order.igtfAmountUsd || order.igtf_amount_usd || 0)) * (order.bcvRate || order.bcv_rate || 1)).toFixed(2) }})</span>
+              </div>
+            </div>
+
             <div class="flex items-center justify-between pt-2 border-t border-slate-200/40">
               <span class="text-xs font-black text-slate-900">
                 {{ t.posTotal || '总计' }}: ${{ (order.totalUsd || order.total_usd || 0).toFixed(2) }} (Bs. {{ ((order.totalUsd || order.total_usd || 0) * (order.bcvRate || order.bcv_rate || 1)).toFixed(2) }})

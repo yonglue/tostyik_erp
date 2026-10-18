@@ -7,7 +7,6 @@
     <!-- 🌟 ERP 主界面结构 -->
     <div v-else class="flex flex-col md:flex-row h-full w-full overflow-hidden bg-slate-50 text-slate-900">
       
-      <!-- 左侧固定导航栏（如果在 POS 界面，可按需隐藏或保留，通常进入 POS 后主导航通过 POS 右下角 Esc 返回后台，因此在 desk 时隐藏左侧栏或铺满全屏更完美） -->
       <Sidebar 
         v-if="activeTab !== 'desk'"
         :activeTab="activeTab" 
@@ -21,9 +20,7 @@
       <!-- 右侧主工作区 -->
       <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
         
-        <!-- 🌟 顶部通用导航栏：当处于 POS 收银台 (desk) 时彻底隐藏，避免与 POS 顶部栏重复穿透 -->
         <header v-if="activeTab !== 'desk'" class="h-16 bg-white/75 backdrop-blur-xl border-b border-white/60 px-6 flex items-center justify-between shrink-0 shadow-xs transition-all">
-          <!-- 移动端菜单触发按钮 -->
           <div class="flex items-center space-x-4">
             <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 text-slate-600 hover:bg-blue-50/90 rounded-2xl transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -149,7 +146,7 @@
 
     </div>
 
-    <!-- 弹窗组件 -->
+    <!-- 弹窗组件：录入新汽配 -->
     <div 
       v-if="dialogVisible" 
       @click.self="dialogVisible = false" 
@@ -187,7 +184,7 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">库存数量</label>
               <input v-model.number="newPart.stock" type="number" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
@@ -195,6 +192,16 @@
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">零售价格 (USD)</label>
               <input v-model.number="newPart.price" type="number" step="0.5" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">商品税率属性 (IVA)</label>
+              <select v-model.number="newPart.tax_rate" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold outline-none focus:border-blue-500 cursor-pointer">
+                <option :value="0.16">16% 标准增值税 (IVA)</option>
+                <option :value="0.0">0% 免税 (Exento)</option>
+              </select>
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">货架库位 (Bin Location)</label>
@@ -588,7 +595,7 @@ const confirmDeleteClient = async () => {
   }
 }
 
-const newPart = ref({ oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, bin_location: 'Estante A-1', cross_references: '' })
+const newPart = ref({ oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, tax_rate: 0.16, bin_location: 'Estante A-1', cross_references: '' })
 const selectedFiles = ref([])
 const handleFileChange = (e) => { selectedFiles.value = Array.from(e.target.files).slice(0, 5) }
 
@@ -602,6 +609,7 @@ const handleAddPart = async () => {
   formData.append('category', newPart.value.category || '未分类')
   formData.append('stock', newPart.value.stock ?? 0)
   formData.append('price', newPart.value.price ?? 0.0)
+  formData.append('tax_rate', newPart.value.tax_rate ?? 0.16)
   formData.append('bin_location', newPart.value.bin_location || 'Estante A-1')
   formData.append('cross_references', newPart.value.cross_references || '')
   
@@ -615,7 +623,7 @@ const handleAddPart = async () => {
     
     if (res.ok) {
       dialogVisible.value = false
-      newPart.value = { oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, bin_location: 'Estante A-1', cross_references: '' }
+      newPart.value = { oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, tax_rate: 0.16, bin_location: 'Estante A-1', cross_references: '' }
       selectedFiles.value = []
       fetchParts(); fetchDashboardStats();
       showSuccessModal('新汽配商品已成功录入数据库！')

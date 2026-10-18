@@ -17,7 +17,6 @@ import json
 
 router = APIRouter(tags=["POS 收银"])
 
-# 判定为挂账（赊销）的支付方式关键字
 _DEBT_KEYWORDS = ("Fiado", "Debt", "挂账")
 
 
@@ -31,13 +30,13 @@ def create_pos_order(
     actor: Actor = Depends(RequirePermission("pos:access")),
     session: Session = Depends(get_session),
 ):
-    total_usd = sum(item.price * item.quantity for item in payload.items)
-    total_bs = total_usd * payload.bcv_rate
-    order_no = make_order_no()
-
     client_name = payload.client_name.strip() if payload.client_name else "Cliente General"
 
-    # 校验并扣减库存，同时写入进销存流水
+    total_base_amount = 0.0  # 不含税总额 (Base Imponible)
+    total_tax_amount = 0.0   # 总 IVA 增值税额
+    order_items_to_create = []
+
+    # 1. 遍历商品，校验库存并计算税率拆分
     for item in payload.items:
         if item.quantity <= 0:
             raise HTTPException(status_code=400, detail=f"商品 {item.oem} 数量必须大于 0")
@@ -46,6 +45,7 @@ def create_pos_order(
         if not part:
             raise HTTPException(status_code=404, detail=f"商品 {item.oem} 不存在")
 
+        # 扣减库存
         result = session.exec(
             update(AutoPart)
             .where(AutoPart.oem == item.oem, AutoPart.stock >= item.quantity)
@@ -65,11 +65,52 @@ def create_pos_order(
             customer_or_supplier=client_name,
         ))
 
-    # 持久化订单主表
+        item_tax_rate = getattr(part, "tax_rate", 0.16)
+        line_total = item.price * item.quantity
+
+        if item_tax_rate > 0:
+            base_sub = line_total / (1.0 + item_tax_rate)
+            tax_sub = line_total - base_sub
+        else:
+            base_sub = line_total
+            tax_sub = 0.0
+
+        total_base_amount += base_sub
+        total_tax_amount += tax_sub
+
+        order_items_to_create.append({
+            "oem": item.oem,
+            "name": item.name,
+            "quantity": item.quantity,
+            "price_usd": item.price,
+            "subtotal_usd": line_total,
+            "tax_rate": item_tax_rate,
+            "base_subtotal_usd": base_sub,
+            "tax_subtotal_usd": tax_sub,
+        })
+
+    goods_total_usd = total_base_amount + total_tax_amount
+
+    # 🌟 2. 计算 3% IGTF（外汇/美元现金支付部分）
+    foreign_currency_paid_usd = 0.0
+    if hasattr(payload, "payment_split") and payload.payment_split:
+        foreign_currency_paid_usd = float(payload.payment_split.get("cashUsd", 0.0))
+    elif payload.payment_method == "Cash_USD":
+        foreign_currency_paid_usd = goods_total_usd
+
+    igtf_amount = foreign_currency_paid_usd * 0.03  # 3% IGTF
+    total_usd = goods_total_usd + igtf_amount
+    total_bs = total_usd * payload.bcv_rate
+    order_no = make_order_no()
+
+    # 3. 持久化订单主表（带 Base、IVA、IGTF）
     new_order = Order(
         order_no=order_no,
         client_name=client_name,
         operator=actor.username,
+        base_amount_usd=total_base_amount,
+        tax_amount_usd=total_tax_amount,
+        igtf_amount_usd=igtf_amount,
         total_usd=total_usd,
         total_bs=total_bs,
         bcv_rate=payload.bcv_rate,
@@ -80,18 +121,20 @@ def create_pos_order(
     session.add(new_order)
     session.flush()
 
-    # 写入订单明细表
-    for item in payload.items:
+    # 4. 写入订单明细表
+    for oi in order_items_to_create:
         session.add(OrderItem(
             order_id=new_order.id,
-            oem=item.oem,
-            name=item.name,
-            quantity=item.quantity,
-            price_usd=item.price,
-            subtotal_usd=item.price * item.quantity,
+            oem=oi["oem"],
+            name=oi["name"],
+            quantity=oi["quantity"],
+            price_usd=oi["price_usd"],
+            subtotal_usd=oi["subtotal_usd"],
+            tax_rate=oi["tax_rate"],
+            base_subtotal_usd=oi["base_subtotal_usd"],
+            tax_subtotal_usd=oi["tax_subtotal_usd"],
         ))
 
-    # 挂账则同步累加客户欠款
     if _is_debt_payment(payload.payment_method):
         session.exec(
             update(Client)
@@ -100,7 +143,7 @@ def create_pos_order(
         )
 
     session.commit()
-    log_action(session, actor.username, actor.role, "POS_ORDER", f"POS完成收银开单, 单号: {order_no}, 总额: ${total_usd:.2f}")
+    log_action(session, actor.username, actor.role, "POS_ORDER", f"POS开单完成, 单号: {order_no}, Base: ${total_base_amount:.2f}, IVA: ${total_tax_amount:.2f}, IGTF: ${igtf_amount:.2f}, 总计: ${total_usd:.2f}")
 
     return {"status": "success", "order_no": order_no, "order_id": new_order.id}
 
@@ -112,10 +155,6 @@ def get_pos_orders(
     actor: Actor = Depends(RequirePermission("pos:access"))
 ):
     orders = session.exec(select(Order).order_by(Order.id.desc())).all()
-    
-    # 🌟 加上这一行，把数据库里所有订单的单号和真实时间直接打印到你的终端控制台！
-    for o in orders:
-        print(f"🔍 【数据库真实订单】单号: {o.order_no}, 原始 created_at: {o.created_at}")
 
     result = []
     for o in orders:
@@ -132,6 +171,9 @@ def get_pos_orders(
             "orderId": o.order_no,
             "dbId": o.id,
             "clientName": o.client_name,
+            "baseAmountUsd": o.base_amount_usd,
+            "taxAmountUsd": o.tax_amount_usd,
+            "igtfAmountUsd": o.igtf_amount_usd,
             "totalUsd": o.total_usd,
             "paymentMethod": o.payment_method,
             "paymentReference": o.payment_reference,
@@ -193,10 +235,6 @@ def refund_pos_order(
     return {"status": "success", "message": f"订单 {order.order_no} 已成功退货并回滚库存！"}
 
 
-# ==========================================
-# 🌟 云端挂单与取单 API 接口
-# ==========================================
-
 @router.get("/api/held-orders")
 def get_held_orders(
     session: Session = Depends(get_session),
@@ -240,10 +278,6 @@ def delete_held_order(
     return {"status": "success", "message": "挂单已成功清除"}
 
 
-# ==========================================
-# 🌟 收银员交接班与盲盘点钞归档 API
-# ==========================================
-
 @router.post("/api/pos/shift-handover")
 def create_shift_handover(
     payload: dict,
@@ -251,11 +285,9 @@ def create_shift_handover(
     actor: Actor = Depends(RequirePermission("pos:access"))
 ):
     try:
-        print("📥 收到交接班 Payload:", payload)
-        
         actual_cash = float(payload.get("actual_cash_usd", 0.0))
         system_cash = float(payload.get("system_cash_usd", 0.0))
-        
+
         session_record = CashRegisterSession(
             closed_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             operator=actor.username if actor and hasattr(actor, "username") else "admin",
@@ -271,22 +303,19 @@ def create_shift_handover(
         session.add(session_record)
         session.commit()
         session.refresh(session_record)
-        
+
         try:
             log_action(
-                session, 
-                actor.username if actor and hasattr(actor, "username") else "admin", 
-                actor.role if actor and hasattr(actor, "role") else "staff", 
-                "SHIFT_HANDOVER", 
+                session,
+                actor.username if actor and hasattr(actor, "username") else "admin",
+                actor.role if actor and hasattr(actor, "role") else "staff",
+                "SHIFT_HANDOVER",
                 f"完成收银交接班归档, 实盘现金: ${actual_cash:.2f}"
             )
         except Exception as log_err:
             print(f"⚠️ 审计日志写入跳过: {log_err}")
 
-        return {
-            "status": "success", 
-            "message": "交接班归档成功"
-        }
+        return {"status": "success", "message": "交接班归档成功"}
     except Exception as e:
         import traceback
         traceback.print_exc()
