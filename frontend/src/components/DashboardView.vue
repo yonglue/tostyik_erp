@@ -1,6 +1,6 @@
-<!-- src/views/DashboardView.vue -->
+<!-- src/components/DashboardView.vue -->
 <template>
-  <div class="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+  <div class="space-y-6 max-w-7xl mx-auto">
     
     <!-- 欢迎横幅与系统概览 -->
     <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-blue-500/15 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -75,6 +75,46 @@
 
     </div>
 
+    <!-- 🚀 快捷业务直达面板 (Quick Actions) -->
+    <div class="bg-white/75 backdrop-blur-xl rounded-3xl p-6 border border-white/60 shadow-lg space-y-4">
+      <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+        ⚡ 常用功能快捷直达 (Quick Navigation)
+      </h3>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <button 
+          @click="$emit('navigate', 'quotation')" 
+          class="bg-blue-50/60 hover:bg-blue-500 hover:text-white text-blue-700 border border-blue-200/80 p-4 rounded-2xl font-bold text-xs flex flex-col items-center gap-2 transition-all cursor-pointer shadow-2xs hover:scale-[1.02]"
+        >
+          <span class="text-2xl">🛒</span>
+          <span>进入开单收银台</span>
+        </button>
+
+        <button 
+          @click="$emit('navigate', 'financial')" 
+          class="bg-emerald-50/60 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200/80 p-4 rounded-2xl font-bold text-xs flex flex-col items-center gap-2 transition-all cursor-pointer shadow-2xs hover:scale-[1.02]"
+        >
+          <span class="text-2xl">📈</span>
+          <span>查看财务利润</span>
+        </button>
+
+        <button 
+          @click="$emit('navigate', 'inventory')" 
+          class="bg-amber-50/60 hover:bg-amber-500 hover:text-white text-amber-800 border border-amber-200/80 p-4 rounded-2xl font-bold text-xs flex flex-col items-center gap-2 transition-all cursor-pointer shadow-2xs hover:scale-[1.02]"
+        >
+          <span class="text-2xl">📦</span>
+          <span>配件库存与条码</span>
+        </button>
+
+        <button 
+          @click="$emit('navigate', 'clients')" 
+          class="bg-purple-50/60 hover:bg-purple-600 hover:text-white text-purple-700 border border-purple-200/80 p-4 rounded-2xl font-bold text-xs flex flex-col items-center gap-2 transition-all cursor-pointer shadow-2xs hover:scale-[1.02]"
+        >
+          <span class="text-2xl">👥</span>
+          <span>客户与挂账管理</span>
+        </button>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -88,17 +128,17 @@ defineProps({
   stats: {
     type: Object,
     default: () => ({
-      totalAssetUSD: 669.50,
-      totalAssetBs: 586248.01,
-      totalSalesUSD: 14250.00,
-      totalSalesBs: 12478500.00,
-      totalSKUs: 320,
-      lowStockCount: 4
+      totalAssetUSD: 0,
+      totalAssetBs: 0,
+      totalSalesUSD: 0,
+      totalSalesBs: 0,
+      totalSKUs: 0,
+      lowStockCount: 0
     })
   },
   bcvRate: {
     type: Number,
-    default: 876.7976
+    default: 36.50
   }
 })
 

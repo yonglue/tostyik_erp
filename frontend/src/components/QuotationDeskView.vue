@@ -199,10 +199,9 @@
 
       </div>
 
-      <!-- 右侧：组合支付面板（顺序：刷卡 POS ➔ Pago Móvil ➔ 玻利瓦尔现金 ➔ 美金现金） -->
+      <!-- 右侧：组合支付面板 -->
       <div class="w-[410px] flex flex-col bg-white/75 backdrop-blur-xl rounded-xl border border-white/60 shadow-lg shrink-0 overflow-hidden">
         
-        <!-- 内部滚动区域 -->
         <div class="flex-1 overflow-y-auto p-3.5 space-y-3">
           <div class="flex items-center justify-between border-b border-slate-200/60 pb-2">
             <h3 class="font-bold text-xs text-slate-800 uppercase tracking-wider">💳 多通道组合支付</h3>
@@ -227,7 +226,7 @@
                 <input 
                   ref="cardPosInputRef"
                   v-model.number="paymentSplit.cardPos" 
-                  @keydown="handlePaymentKeydown($event, 'cardPos')"
+                  @keydown="e => { if(e.key === ' ') { e.preventDefault(); handlePaymentKeydown(e, 'cardPos'); } else { handlePaymentKeydown(e, 'cardPos'); } }"
                   type="number" step="10" placeholder="0" 
                   class="w-28 bg-white/90 focus:bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono font-black text-slate-900 outline-none focus:border-blue-500 text-sm no-spinner" 
                 />
@@ -245,7 +244,7 @@
                 <input 
                   ref="pagoMovilInputRef"
                   v-model.number="paymentSplit.pagoMovil" 
-                  @keydown="handlePaymentKeydown($event, 'pagoMovil')"
+                  @keydown="e => { if(e.key === ' ') { e.preventDefault(); handlePaymentKeydown(e, 'pagoMovil'); } else { handlePaymentKeydown(e, 'pagoMovil'); } }"
                   type="number" step="10" placeholder="0" 
                   class="w-28 bg-white/90 focus:bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono font-black text-slate-900 outline-none focus:border-blue-500 text-sm no-spinner" 
                 />
@@ -263,7 +262,7 @@
                 <input 
                   ref="cashBsInputRef"
                   v-model.number="paymentSplit.cashBs" 
-                  @keydown="handlePaymentKeydown($event, 'cashBs')"
+                  @keydown="e => { if(e.key === ' ') { e.preventDefault(); handlePaymentKeydown(e, 'cashBs'); } else { handlePaymentKeydown(e, 'cashBs'); } }"
                   type="number" step="10" placeholder="0" 
                   class="w-28 bg-white/90 focus:bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono font-black text-slate-900 outline-none focus:border-blue-500 text-sm no-spinner" 
                 />
@@ -281,7 +280,7 @@
                 <input 
                   ref="cashUsdInputRef"
                   v-model.number="paymentSplit.cashUsd" 
-                  @keydown="handlePaymentKeydown($event, 'cashUsd')"
+                  @keydown="e => { if(e.key === ' ') { e.preventDefault(); handlePaymentKeydown(e, 'cashUsd'); } else { handlePaymentKeydown(e, 'cashUsd'); } }"
                   type="number" step="0.5" placeholder="0" 
                   class="w-28 bg-white/90 focus:bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono font-black text-slate-900 outline-none focus:border-blue-500 text-sm no-spinner" 
                 />
@@ -304,7 +303,6 @@
 
           <!-- 底部应付、已付、找零汇总区 -->
           <div class="space-y-2.5 pt-2 border-t border-slate-200/60">
-            <!-- 1. 不含税总额 (Base Imponible) -->
             <div class="flex justify-between items-start text-sm font-bold text-slate-600">
               <span class="font-bold pt-0.5">不含税总额 (Base Imponible):</span>
               <div class="text-right">
@@ -317,7 +315,6 @@
               </div>
             </div>
 
-            <!-- 2. 增值税 (IVA 16% 混合) -->
             <div class="flex justify-between items-start text-sm font-bold text-slate-600">
               <span class="font-bold pt-0.5">增值税 (IVA 16% 混合):</span>
               <div class="text-right">
@@ -330,7 +327,6 @@
               </div>
             </div>
 
-            <!-- 3. 外汇交易税 (IGTF 3%) -->
             <div v-if="igtfAmountUsd > 0" class="flex justify-between items-start text-sm font-bold text-amber-700 border-b border-slate-200/60 pb-1.5">
               <span class="font-bold pt-0.5">大额交易税 (IGTF 3%):</span>
               <div class="text-right">
@@ -343,7 +339,6 @@
               </div>
             </div>
 
-            <!-- 4. 总应付金额 -->
             <div class="flex justify-between items-start text-sm font-bold text-slate-700">
               <span class="font-extrabold text-slate-800 pt-0.5">总应付金额:</span>
               <div class="text-right">
@@ -356,7 +351,6 @@
               </div>
             </div>
 
-            <!-- 5. 已付金额 (Paid) -->
             <div class="flex justify-between items-start text-sm font-bold text-slate-700">
               <span class="font-extrabold text-slate-800 pt-0.5">已付金额 (Paid):</span>
               <div class="text-right">
@@ -369,7 +363,6 @@
               </div>
             </div>
 
-            <!-- 6. 待付余额 / 找零 -->
             <div class="pt-2 border-t border-slate-200/60 flex justify-between items-start">
               <span class="text-sm font-black pt-0.5" :class="balanceRemaining > 0 ? 'text-rose-600' : 'text-emerald-600'">
                 {{ balanceRemaining > 0 ? '🔴 待付余额:' : '🟢 找零 (Cambio):' }}
@@ -386,7 +379,6 @@
           </div>
         </div>
 
-        <!-- 底部固定吸底的出单按钮区 -->
         <div class="p-3 bg-white/90 backdrop-blur-md border-t border-slate-200/60 shrink-0">
           <button 
             @click="openPreviewModal"
@@ -796,12 +788,10 @@ const paymentSplit = ref({
   cashUsd: 0
 })
 
-// 商品含税商品原始总额
 const goodsTotalUsd = computed(() => {
   return props.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 })
 
-// 不含税总额 (Base Imponible)
 const totalBaseUsd = computed(() => {
   return props.cartItems.reduce((sum, item) => {
     const rate = item.tax_rate ?? 0.16
@@ -813,7 +803,6 @@ const totalBaseUsd = computed(() => {
   }, 0)
 })
 
-// 增值税额 (IVA)
 const totalTaxUsd = computed(() => {
   return props.cartItems.reduce((sum, item) => {
     const rate = item.tax_rate ?? 0.16
@@ -826,13 +815,11 @@ const totalTaxUsd = computed(() => {
   }, 0)
 })
 
-// 外汇/美元现金支付产生的 3% IGTF
 const igtfAmountUsd = computed(() => {
   const cUsd = Number(paymentSplit.value.cashUsd) || 0
   return Number((cUsd * 0.03).toFixed(2))
 })
 
-// 最终总应付金额 = 商品总额 + IGTF
 const totalUsd = computed(() => {
   return Number((goodsTotalUsd.value + igtfAmountUsd.value).toFixed(2))
 })
@@ -856,12 +843,10 @@ const isFullyPaid = computed(() => {
   return totalUsd.value > 0 && totalPaidUsd.value >= totalUsd.value
 })
 
-// 🌟 核心键盘逻辑：优化回执编号防护 & 订单跳转
 const handlePaymentKeydown = (e, channelKey) => {
   const orderSequence = ['cardPos', 'pagoMovil', 'cashBs', 'cashUsd', 'reference']
   const currentIndex = orderSequence.indexOf(channelKey)
 
-  // 1. [Ctrl + Enter] 直接弹出确认出单预览
   if (e.ctrlKey && e.key === 'Enter') {
     e.preventDefault()
     e.stopPropagation()
@@ -871,20 +856,17 @@ const handlePaymentKeydown = (e, channelKey) => {
     return
   }
 
-  // 2. 如果当前聚焦在回执编号框 (reference)，直接允许正常输入及默认上下光标移动，不触发通道切换
   if (channelKey === 'reference') {
     return
   }
 
-  // 3. [空格键] 或 [= 键] 一键补齐差额（精准包含 IGTF 拆分）
+  // 3. [空格键] 或 [= 键] 一键补齐差额（完美联动 IGTF 与多通道组合）
   if (e.key === ' ' || e.key === '=') {
     e.preventDefault()
 
     const rate = props.bcvRate || 1
-    const currentCashUsd = Number(paymentSplit.value.cashUsd) || 0
-    const currentIgtf = Number((currentCashUsd * 0.03).toFixed(2))
-    const currentTotalUsd = Number((goodsTotalUsd.value + currentIgtf).toFixed(2))
 
+    // 先计算除去当前正在编辑的通道之外，其他通道已经付了多少美元
     let otherPaidInUsd = 0
     for (const k in paymentSplit.value) {
       if (k !== channelKey) {
@@ -897,18 +879,27 @@ const handlePaymentKeydown = (e, channelKey) => {
       }
     }
 
-    const neededTotalUsd = Math.max(0, currentTotalUsd - otherPaidInUsd)
-
     if (channelKey === 'cashUsd') {
-      const baseCashNeeded = neededTotalUsd / 1.03
-      paymentSplit.value.cashUsd = Number(baseCashNeeded.toFixed(2))
+      // 如果当前是美金现金，需要把 IGTF (3%) 考虑进去
+      // 设美金现金输入值为 X，总应付 = 基础商品总额 + (X * 0.03)
+      // 已付总额 = otherPaidInUsd + X = 总应付 = goodsTotalUsd + X * 0.03
+      // 变形得：X * 0.97 = goodsTotalUsd - otherPaidInUsd
+      const goodsNeeded = Math.max(0, goodsTotalUsd.value - otherPaidInUsd)
+      const exactCashUsd = goodsNeeded / 0.97
+      paymentSplit.value.cashUsd = Number(exactCashUsd.toFixed(2))
     } else {
-      paymentSplit.value[channelKey] = Number((neededTotalUsd * rate).toFixed(2))
+      // 如果是 Bs. 通道（POS、Pago Móvil、Bs. 现金），先算出还差多少美元
+      // 如果当前美金现金已经填了值，总应付已经包含了对应的 IGTF
+      const currentCashUsd = Number(paymentSplit.value.cashUsd) || 0
+      const currentIgtf = Number((currentCashUsd * 0.03).toFixed(2))
+      const targetTotalUsd = goodsTotalUsd.value + currentIgtf
+
+      const neededUsd = Math.max(0, targetTotalUsd - otherPaidInUsd)
+      paymentSplit.value[channelKey] = Number((neededUsd * rate).toFixed(2))
     }
     return
   }
 
-  // 4. [ArrowDown 向下方向键] 顺延跳到下一项
   if (e.key === 'ArrowDown') {
     e.preventDefault()
     if (currentIndex !== -1 && currentIndex < orderSequence.length - 1) {
@@ -918,7 +909,6 @@ const handlePaymentKeydown = (e, channelKey) => {
     return
   }
 
-  // 5. [ArrowUp 向上方向键] 回溯跳到上一项
   if (e.key === 'ArrowUp') {
     e.preventDefault()
     if (currentIndex > 0) {
@@ -928,7 +918,6 @@ const handlePaymentKeydown = (e, channelKey) => {
     return
   }
 
-  // 6. [Enter 回车键] 智能顺延跳转与一键结账
   if (e.key === 'Enter') {
     e.preventDefault()
     
@@ -944,7 +933,6 @@ const handlePaymentKeydown = (e, channelKey) => {
   }
 }
 
-// 辅助方法：精准控制各个支付输入框聚焦
 const focusPaymentChannel = (key) => {
   if (key === 'cardPos' && cardPosInputRef.value) cardPosInputRef.value.focus()
   else if (key === 'pagoMovil' && pagoMovilInputRef.value) pagoMovilInputRef.value.focus()
@@ -1232,14 +1220,13 @@ const openPreviewModal = () => {
   }, 300)
 }
 
-const isSubmitting = ref(false) // 🌟 防重复提交状态锁
+const isSubmitting = ref(false)
 
 const confirmAndPrint = async () => {
   if (isSubmitting.value) return 
   isSubmitting.value = true
 
   try {
-    // 🌟 动态计算哪个支付通道有金额，确定主要的支付方式名称
     let dominantMethod = 'Cash_USD'
     const split = paymentSplit.value
     if ((split.cardPos || 0) > 0) dominantMethod = 'Card_POS'
@@ -1247,7 +1234,6 @@ const confirmAndPrint = async () => {
     if ((split.cashBs || 0) > 0) dominantMethod = 'Cash_Bs'
     if ((split.cashUsd || 0) > 0) dominantMethod = 'Cash_USD'
 
-    // 如果有多个通道有金额，标记为组合支付
     const activeChannelsCount = Object.values(split).filter(v => Number(v) > 0).length
     if (activeChannelsCount > 1) {
       dominantMethod = 'Pago_Mixto'
@@ -1255,7 +1241,7 @@ const confirmAndPrint = async () => {
 
     const payload = {
       client_name: quoteClientName.value || "Cliente General",
-      payment_method: dominantMethod, // 🌟 动态传递当前选中的支付方式
+      payment_method: dominantMethod,
       payment_reference: paymentReference.value,
       bcv_rate: props.bcvRate,
       payment_split: paymentSplit.value,
@@ -1326,7 +1312,6 @@ const handleSearchKeydown = (e) => {
 }
 
 const handleGlobalKeydown = (e) => {
-  // 🌟 全局拦截：如果在预览弹窗中，按回车只允许触发一次出单，严禁冒泡
   if (previewModalVisible.value) {
     if (e.key === 'Enter') { 
       e.preventDefault() 
@@ -1345,7 +1330,6 @@ const handleGlobalKeydown = (e) => {
     return
   }
 
-  // 🌟 全局监听 Ctrl + Enter 触发确认出单预览
   if (e.ctrlKey && e.key === 'Enter') {
     e.preventDefault()
     e.stopPropagation()
@@ -1463,13 +1447,11 @@ onUnmounted(() => {
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-10px); }
 
-/* 🌟 隐藏 Chrome、Safari、Edge 等数字输入框原生的上下微调小箭头 */
 input.no-spinner::-webkit-outer-spin-button,
 input.no-spinner::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-/* 隐藏 Firefox 原生上下箭头 */
 input[type=number].no-spinner {
   -moz-appearance: textfield;
 }
