@@ -32,12 +32,27 @@ def create_pos_order(
 ):
     client_name = payload.client_name.strip() if payload.client_name else "Cliente General"
 
+    # 🌟 0. 自动合并 items 中相同的 OEM 商品，防止前端传参重复导致双倍扣库存
+    merged_items_map = {}
+    for item in payload.items:
+        if item.oem in merged_items_map:
+            merged_items_map[item.oem].quantity += item.quantity
+        else:
+            # 复制一份以防直接修改原对象
+            merged_items_map[item.oem] = type(item)(
+                oem=item.oem,
+                name=item.name,
+                price=item.price,
+                quantity=item.quantity
+            )
+    deduped_items = list(merged_items_map.values())
+
     total_base_amount = 0.0  # 不含税总额 (Base Imponible)
     total_tax_amount = 0.0   # 总 IVA 增值税额 (兼容 16%, 8%, 0%)
     order_items_to_create = []
 
-    # 1. 遍历商品，校验库存并计算 SENIAT 财税拆分
-    for item in payload.items:
+    # 1. 遍历去重后的商品，校验库存并计算 SENIAT 财税拆分
+    for item in deduped_items:
         if item.quantity <= 0:
             raise HTTPException(status_code=400, detail=f"商品 {item.oem} 数量必须大于 0")
 

@@ -115,7 +115,7 @@
             :currentDateTime="currentDateTime"
             :currentUser="currentUserObj"
             @add-to-cart="addToCart"
-            @generate-quote="generateAndArchiveQuote"
+            @generate-quote="fetchTransactions(); fetchParts(); fetchDashboardStats(); fetchClients()"
             @exit-pos="activeTab = getDefaultAllowedTab()"
             @clear-cart="cartItems = []"
           />
@@ -536,31 +536,8 @@ const handleImportParts = async (e) => {
 }
 
 const generateAndArchiveQuote = async () => {
-  if (cartItems.value.length === 0) return
-  try {
-    const res = await apiFetch('/api/quotations/generate', {
-      method: 'POST',
-      body: JSON.stringify({
-        client_name: quoteClientName.value || 'Cliente General',
-        lang: currentLang.value,
-        payment_method: selectedPaymentMethod.value,
-        payment_reference: paymentReference.value,
-        items: cartItems.value
-      })
-    })
-
-    if (res.ok) {
-      cartItems.value = []
-      paymentReference.value = ''
-      fetchQuotations(); fetchParts(); fetchTransactions(); fetchDashboardStats(); fetchClients()
-    } else {
-      const errData = await res.json()
-      showSuccessModal(`❌ 拒绝: ${errData.detail || '开单请求失败'}`)
-    }
-  } catch (e) {
-    console.error(e)
-    showSuccessModal('❌ 服务器连接异常！')
-  }
+  // 已经由 POS 接口统一处理，这里仅刷新前端视图
+  fetchQuotations(); fetchParts(); fetchTransactions(); fetchDashboardStats(); fetchClients();
 }
 
 const openDeleteModal = (q) => { targetQuote.value = q; deleteModalVisible.value = true }

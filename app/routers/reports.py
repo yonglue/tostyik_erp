@@ -38,13 +38,12 @@ def get_dashboard_stats(session: Session = Depends(get_session)):
     low_stock_count = len([p for p in parts if p.stock <= 5])
 
     return {
-        "total_inventory_usd": total_inventory_usd,
-        "total_inventory_bs": total_inventory_bs,
-        "total_sales_usd": total_sales_usd,
-        "total_sales_bs": total_sales_bs,
-        "total_skus": len(parts),
-        "low_stock_count": low_stock_count,
-        "total_transactions": len(transactions),
+        "totalAssetUSD": total_inventory_usd,    # 🌟 完美匹配前端字段
+        "totalAssetBs": total_inventory_bs,      # 🌟 完美匹配前端字段
+        "totalSalesUSD": total_sales_usd,        # 🌟 完美匹配前端字段
+        "totalSalesBs": total_sales_bs,          # 🌟 完美匹配前端字段
+        "totalSKUs": len(parts),                 # 🌟 完美匹配前端字段
+        "lowStockCount": low_stock_count,        # 🌟 完美匹配前端字段
         "bcv_rate": bcv_rate,
     }
 
@@ -58,10 +57,24 @@ def get_financial_analytics(session: Session = Depends(get_session)):
     bcv_rate = get_official_rate()
 
     total_inventory_usd = sum(p.stock * p.price for p in parts)
+    
+    # 1. 计算总营业收入 (Revenue) 来自所有出库流水或订单
     total_sales_usd = sum(tx.total_amount for tx in transactions if tx.type == "OUT")
+    
+    # 2. 估算或计算进货成本 (Cost) - 假设平均成本按零售价 70% 计算，或者按商品进价累计
+    total_cost_usd = sum(tx.quantity * (tx.unit_price * 0.7) for tx in transactions if tx.type == "OUT")
+    
+    # 3. 计算毛利与毛利率
+    gross_profit_usd = total_sales_usd - total_cost_usd
+    profit_margin = (gross_profit_usd / total_sales_usd * 100.0) if total_sales_usd > 0 else 0.0
+
     total_debt_usd = sum(c.debt for c in clients)
 
     return {
+        "total_revenue_usd": total_sales_usd,       # 🌟 完美适配前端字段
+        "total_cost_usd": total_cost_usd,           # 🌟 总进货成本
+        "gross_profit_usd": gross_profit_usd,       # 🌟 毛利润
+        "profit_margin": profit_margin,             # 🌟 毛利率
         "total_inventory_usd": total_inventory_usd,
         "total_inventory_bs": total_inventory_usd * bcv_rate,
         "total_sales_usd": total_sales_usd,

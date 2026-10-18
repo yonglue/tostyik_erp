@@ -671,8 +671,10 @@
         </div>
 
         <div class="p-5 bg-white/80 backdrop-blur-md border-t border-slate-200/60 flex gap-4 shrink-0">
-          <button @click="previewModalVisible = false" class="flex-1 py-3 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">返回修改</button>
-          <button @click="confirmAndPrint" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-black shadow-lg shadow-emerald-600/30 transition-all cursor-pointer">确认出单并打印</button>
+          <button @click="previewModalVisible = false" :disabled="isSubmitting" class="flex-1 py-3 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">返回修改</button>
+          <button @click="confirmAndPrint" :disabled="isSubmitting" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white rounded-xl text-sm font-black shadow-lg shadow-emerald-600/30 transition-all cursor-pointer">
+            {{ isSubmitting ? '正在出单...' : '确认出单并打印' }}
+          </button>
         </div>
       </div>
     </div>
@@ -862,7 +864,8 @@ const handlePaymentKeydown = (e, channelKey) => {
   // 1. [Ctrl + Enter] 直接弹出确认出单预览
   if (e.ctrlKey && e.key === 'Enter') {
     e.preventDefault()
-    if (isFullyPaid.value && props.cartItems.length > 0) {
+    e.stopPropagation()
+    if (isFullyPaid.value && props.cartItems.length > 0 && !isSubmitting.value) {
       openPreviewModal()
     }
     return
@@ -929,7 +932,7 @@ const handlePaymentKeydown = (e, channelKey) => {
   if (e.key === 'Enter') {
     e.preventDefault()
     
-    if (isFullyPaid.value) {
+    if (isFullyPaid.value && !isSubmitting.value) {
       openPreviewModal()
       return
     }
@@ -1221,7 +1224,7 @@ const confirmExitPos = () => { exitConfirmVisible.value = true }
 const executeExitPos = () => { exitConfirmVisible.value = false; emit('exit-pos') }
 
 const openPreviewModal = () => { 
-  if (props.cartItems.length === 0 || !isFullyPaid.value) return
+  if (props.cartItems.length === 0 || !isFullyPaid.value || isSubmitting.value) return
   previewModalVisible.value = true
   isPreviewReady.value = false
   setTimeout(() => {
@@ -1229,26 +1232,53 @@ const openPreviewModal = () => {
   }, 300)
 }
 
+const isSubmitting = ref(false) // 🌟 防重复提交状态锁
+
 const confirmAndPrint = async () => {
+  if (isSubmitting.value) return 
+  isSubmitting.value = true
+
   try {
+    // 🌟 动态计算哪个支付通道有金额，确定主要的支付方式名称
+    let dominantMethod = 'Cash_USD'
+    const split = paymentSplit.value
+    if ((split.cardPos || 0) > 0) dominantMethod = 'Card_POS'
+    if ((split.pagoMovil || 0) > 0) dominantMethod = 'Pago_Movil'
+    if ((split.cashBs || 0) > 0) dominantMethod = 'Cash_Bs'
+    if ((split.cashUsd || 0) > 0) dominantMethod = 'Cash_USD'
+
+    // 如果有多个通道有金额，标记为组合支付
+    const activeChannelsCount = Object.values(split).filter(v => Number(v) > 0).length
+    if (activeChannelsCount > 1) {
+      dominantMethod = 'Pago_Mixto'
+    }
+
     const payload = {
       client_name: quoteClientName.value || "Cliente General",
-      payment_method: 'Card_POS',
+      payment_method: dominantMethod, // 🌟 动态传递当前选中的支付方式
       payment_reference: paymentReference.value,
       bcv_rate: props.bcvRate,
       payment_split: paymentSplit.value,
       items: props.cartItems.map(i => ({ oem: i.oem, name: i.name, brand: i.brand || "GENERAL", quantity: i.quantity, price: i.price }))
     }
+
     const res = await apiFetch('/api/pos/orders', { method: 'POST', body: JSON.stringify(payload) })
     if (!res.ok) throw new Error('结账失败')
     const data = await res.json()
+    
     previewModalVisible.value = false
     showToast(`✅ 开单成功！单号: ${data.order_no}`, 'success')
     paymentReference.value = ''
     quoteClientName.value = ''
     emit('generate-quote')
     fetchCompletedOrders()
-  } catch (err) { showToast(err.message || '结账失败', 'error') }
+  } catch (err) { 
+    showToast(err.message || '结账失败', 'error') 
+  } finally {
+    setTimeout(() => {
+      isSubmitting.value = false
+    }, 1000)
+  }
 }
 
 const handleSearchKeydown = (e) => {
@@ -1296,30 +1326,39 @@ const handleSearchKeydown = (e) => {
 }
 
 const handleGlobalKeydown = (e) => {
-  // 🌟 全局监听 Ctrl + Enter 触发确认出单
-  if (e.ctrlKey && e.key === 'Enter') {
-    e.preventDefault()
-    if (isFullyPaid.value && props.cartItems.length > 0 && !previewModalVisible.value) {
-      openPreviewModal()
-    }
-    return
-  }
-
+  // 🌟 全局拦截：如果在预览弹窗中，按回车只允许触发一次出单，严禁冒泡
   if (previewModalVisible.value) {
     if (e.key === 'Enter') { 
       e.preventDefault() 
-      if (isPreviewReady.value) { 
+      e.stopPropagation() 
+      if (isPreviewReady.value && !isSubmitting.value) { 
         confirmAndPrint() 
       }
       return 
     }
-    if (e.key === 'Escape') { e.preventDefault(); previewModalVisible.value = false; return }
+    if (e.key === 'Escape') { 
+      e.preventDefault() 
+      e.stopPropagation()
+      previewModalVisible.value = false 
+      return 
+    }
+    return
+  }
+
+  // 🌟 全局监听 Ctrl + Enter 触发确认出单预览
+  if (e.ctrlKey && e.key === 'Enter') {
+    e.preventDefault()
+    e.stopPropagation()
+    if (isFullyPaid.value && props.cartItems.length > 0 && !previewModalVisible.value && !isSubmitting.value) {
+      openPreviewModal()
+    }
     return
   }
 
   if (clientModalVisible.value || helpModalVisible.value || recallModalVisible.value || shiftReportModalVisible.value || historyModalVisible.value || exitConfirmVisible.value) {
     if (e.key === 'Escape') {
       e.preventDefault()
+      e.stopPropagation()
       if (exitConfirmVisible.value) {
         exitConfirmVisible.value = false
       } else {
@@ -1333,6 +1372,7 @@ const handleGlobalKeydown = (e) => {
     }
     if (exitConfirmVisible.value && e.key === 'Enter') {
       e.preventDefault()
+      e.stopPropagation()
       executeExitPos()
       return
     }

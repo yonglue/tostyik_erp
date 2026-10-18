@@ -34,6 +34,17 @@ def init_db() -> None:
     SQLModel.metadata.create_all(engine)
     print("✅ 数据库表结构检查与初始化完成。")
 
+    # 🌟 自动为 autopart 表补齐 tax_rate 字段
+    with engine.connect() as conn:
+        try:
+            columns = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(autopart);").fetchall()]
+            if "tax_rate" not in columns:
+                conn.exec_driver_sql("ALTER TABLE autopart ADD COLUMN tax_rate FLOAT DEFAULT 0.16;")
+                conn.commit()
+                print("✅ [自动迁移成功] 已为 autopart 表补齐 tax_rate 字段")
+        except Exception as e:
+            print(f"⚠️ autopart 自动迁移异常: {e}")
+
     # 🌟 强制自动补全 shift_records 表的所有拆分字段
     with engine.connect() as conn:
         try:
