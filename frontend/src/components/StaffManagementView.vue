@@ -2,15 +2,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from '../composables/useI18n'
-import { apiFetch } from '../utils/api' // 引入咱们封装好的安全请求工具
-import ConfirmDialog from './ConfirmDialog.vue' // 引入项目原生的优雅确认弹窗组件
-import { useNotifications } from '../composables/useNotifications' // 引入系统统一通知弹窗
+import { apiFetch } from '../utils/api' 
+import ConfirmDialog from './ConfirmDialog.vue' 
+import { useNotifications } from '../composables/useNotifications' 
 
 const { t } = useI18n()
 const { showSuccessModal } = useNotifications()
 const staffList = ref([])
 
-// 🌟 定义细粒度权限分组及具体权限项
 const permissionGroups = [
   {
     title: '💰 前台收银与开单 (POS & Checkout)',
@@ -62,7 +61,6 @@ const permissionGroups = [
   }
 ]
 
-// 新增/编辑员工表单状态，默认赋予常用收银权限
 const newStaff = ref({ 
   username: '', 
   password: '', 
@@ -73,7 +71,6 @@ const newStaff = ref({
 const errorMessage = ref('')
 const successMessage = ref('')
 
-// 自定义删除确认弹窗状态
 const deleteStaffModalVisible = ref(false)
 const targetStaffForDelete = ref(null)
 
@@ -88,18 +85,41 @@ const fetchStaff = async () => {
   }
 }
 
-// 模块全选/取消辅助函数（使用结构赋值创建新数组，强制触发 Vue 响应式更新）
-const toggleGroup = (groupPermissions, selectAll) => {
+// 🌟 新增：判断当前分组是否已全选
+const isGroupAllSelected = (groupPermissions) => {
+  if (groupPermissions.length === 0) return false
+  return groupPermissions.every(p => newStaff.value.permissions.includes(p.key))
+}
+
+// 🌟 重构：智能全选/取消全选
+const toggleGroup = (groupPermissions) => {
+  const allSelected = isGroupAllSelected(groupPermissions)
   let currentPerms = [...newStaff.value.permissions]
-  groupPermissions.forEach(p => {
-    const exists = currentPerms.includes(p.key)
-    if (selectAll && !exists) {
-      currentPerms.push(p.key)
-    } else if (!selectAll && exists) {
-      currentPerms = currentPerms.filter(k => k !== p.key)
-    }
-  })
+  
+  if (allSelected) {
+    // 如果已经全选，则清空该组
+    const keysToRemove = groupPermissions.map(p => p.key)
+    currentPerms = currentPerms.filter(k => !keysToRemove.includes(k))
+  } else {
+    // 如果没有全选，则全部加上
+    groupPermissions.forEach(p => {
+      if (!currentPerms.includes(p.key)) {
+        currentPerms.push(p.key)
+      }
+    })
+  }
   newStaff.value.permissions = currentPerms
+}
+
+// 🌟 新增：处理单个复选框变化
+const handleCheckboxChange = (key, checked) => {
+  let perms = [...newStaff.value.permissions]
+  if (checked) {
+    if (!perms.includes(key)) perms.push(key)
+  } else {
+    perms = perms.filter(k => k !== key)
+  }
+  newStaff.value.permissions = perms
 }
 
 const handleCreateStaff = async () => {
@@ -119,7 +139,6 @@ const handleCreateStaff = async () => {
     if (res.ok) {
       const msg = `[${newStaff.value.username}] ${t.value.staffSuccessMsg || '员工创建成功！'}`
       successMessage.value = msg
-      // 🌟 创建成功时弹出高颜值系统通知模态框
       showSuccessModal(`🎉 ${msg}`)
       newStaff.value = { 
         username: '', 
@@ -137,13 +156,11 @@ const handleCreateStaff = async () => {
   }
 }
 
-// 触发打开自定义删除弹窗
 const openDeleteStaffModal = (staff) => {
   targetStaffForDelete.value = staff
   deleteStaffModalVisible.value = true
 }
 
-// 确认删除员工账号
 const confirmDeleteStaff = async () => {
   if (!targetStaffForDelete.value) return
   try {
@@ -170,7 +187,6 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6 max-w-5xl mx-auto pb-12">
-    <!-- 头部标题 -->
     <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-100 flex items-center justify-between">
       <div>
         <h2 class="font-bold text-lg text-slate-800">👥 {{ t.staffTitle || '员工账号与细粒度权限管理' }}</h2>
@@ -178,7 +194,6 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 创建员工表单（使用 <form> 包裹，符合 DOM 规范并消除浏览器警告） -->
     <form @submit.prevent="handleCreateStaff" class="bg-white p-6 rounded-2xl shadow-xs border border-slate-100 space-y-5">
       <h3 class="font-bold text-sm text-slate-700 uppercase tracking-wider">➕ {{ t.staffAddTitle || '新增员工账号与权限勾选' }}</h3>
       
@@ -213,7 +228,6 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- 🛡️ 细粒度权限勾选矩阵面板 -->
       <div class="space-y-3 pt-2 border-t border-slate-100">
         <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">🛡️ 细粒度功能权限勾选 (Granular Permissions)</label>
         
@@ -222,26 +236,22 @@ onMounted(() => {
             <div class="flex items-center justify-between border-b border-slate-200/60 pb-2">
               <span class="text-xs font-black text-slate-800">{{ group.title }}</span>
               <div class="space-x-2 text-[10px]">
-                <button type="button" @click="toggleGroup(group.permissions, true)" class="text-blue-600 hover:underline font-bold">全选</button>
-                <span class="text-slate-300">|</span>
-                <button type="button" @click="toggleGroup(group.permissions, false)" class="text-slate-500 hover:underline font-bold">清空</button>
+                <!-- 🌟 智能全选/取消全选按钮 -->
+                <button 
+                  type="button" 
+                  @click="toggleGroup(group.permissions)" 
+                  class="text-blue-600 hover:underline font-bold"
+                >
+                  {{ isGroupAllSelected(group.permissions) ? '取消全选' : '全选' }}
+                </button>
               </div>
             </div>
             <div class="space-y-2">
-              <!-- 🌟 采用显式 :checked 与 @change 事件绑定，彻底解决复选框无法勾选/取消的问题 -->
               <label v-for="p in group.permissions" :key="p.key" class="flex items-center gap-2.5 text-xs text-slate-700 cursor-pointer select-none hover:text-slate-900">
                 <input 
                   type="checkbox" 
                   :checked="newStaff.permissions.includes(p.key)"
-                  @change="(e) => {
-                    let perms = [...newStaff.permissions]
-                    if (e.target.checked) {
-                      if (!perms.includes(p.key)) perms.push(p.key)
-                    } else {
-                      perms = perms.filter(k => k !== p.key)
-                    }
-                    newStaff.permissions = perms
-                  }"
+                  @change="(e) => handleCheckboxChange(p.key, e.target.checked)"
                   class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" 
                 />
                 <span class="font-medium">{{ p.label }}</span>
@@ -262,7 +272,6 @@ onMounted(() => {
       </div>
     </form>
 
-    <!-- 员工列表展示 -->
     <div class="bg-white rounded-2xl shadow-xs border border-slate-100 overflow-hidden">
       <div class="px-6 py-4 border-b border-slate-100">
         <h3 class="font-bold text-sm text-slate-700">{{ t.staffListTitle || '已有员工账号与权限概览' }}</h3>
@@ -308,7 +317,6 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 🌟 自定义员工删除确认弹窗组件 -->
     <ConfirmDialog
       :visible="deleteStaffModalVisible"
       overlay-class="bg-slate-900/40"

@@ -7,24 +7,49 @@ import shutil
 import io
 import pandas as pd
 from typing import List, Optional
+from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlmodel import Session, select
 
 from app.config import UPLOAD_DIR
 from app.database import get_session
-from app.deps import Actor, get_current_actor
+from app.deps import Actor, get_current_actor, RequirePermission # 🌟 引入细粒度权限
 from app.models import AutoPart
 from app.services.audit import log_action
 
 router = APIRouter(tags=["配件"])
 
+# 🌟 防护：限制允许上传的图片后缀
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
+def _save_uploaded_files(files: List[UploadFile]) -> List[str]:
+    """安全地保存上传文件，返回访问路径"""
+    image_paths = []
+    for file in files:
+        if not file.filename:
+            continue
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(status_code=400, detail=f"不支持的文件格式: {file.filename}")
+        
+        # 为了防止同名覆盖，可以在这里加个 uuid，目前保持原逻辑
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        image_paths.append(f"/uploads/{file.filename}")
+    return image_paths
+
+# 🌟 加锁：只能看库存的人才能查
 @router.get("/api/parts", response_model=List[AutoPart])
-def get_parts(session: Session = Depends(get_session)):
+def get_parts(
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("parts:view")) 
+):
     return session.exec(select(AutoPart)).all()
 
 
+# 🌟 加锁：必须拥有管理库存权限
 @router.post("/api/parts")
 def create_part(
     oem: str = Form(...),
@@ -32,19 +57,19 @@ def create_part(
     brand: str = Form(...),
     category: str = Form(...),
     stock: int = Form(...),
-    price: float = Form(...),
-    tax_rate: float = Form(...),  # 用户手动选择税率 (如 0.16 或 0.0)
+    price: str = Form(...), # 🌟 使用 str 接收，内部转 Decimal 防精度丢失
+    tax_rate: str = Form(...),  
     cross_references: str = Form(default=""),
+    bin_location: str = Form(default="Estante A-1"), # 补充缺失的字段
     files: List[UploadFile] = File(default=[]),
-    actor: Actor = Depends(get_current_actor),
+    actor: Actor = Depends(RequirePermission("parts:manage")),
     session: Session = Depends(get_session),
 ):
-    image_paths = []
-    for file in files:
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        image_paths.append(f"/uploads/{file.filename}")
+    image_paths = _save_uploaded_files(files)
+    
+    # 🌟 精度处理
+    d_price = Decimal(price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    d_tax_rate = Decimal(tax_rate)
 
     new_part = AutoPart(
         oem=oem,
@@ -52,9 +77,10 @@ def create_part(
         brand=brand,
         category=category,
         stock=stock,
-        price=price,
-        tax_rate=tax_rate,
+        price=float(d_price),
+        tax_rate=float(d_tax_rate),
         cross_references=cross_references,
+        bin_location=bin_location,
         image_url=json.dumps(image_paths) if image_paths else "",
     )
     session.add(new_part)
@@ -65,12 +91,13 @@ def create_part(
         username=actor.username,
         role=actor.role,
         action="CREATE_PART",
-        details=f"新增了配件商品: {name} (OEM: {oem}, 税率: {int(tax_rate*100)}%, 库存: {stock}, 价格: ${price})",
+        details=f"新增了配件商品: {name} (OEM: {oem}, 税率: {tax_rate}, 库存: {stock}, 价格: ${price})",
     )
 
     return {"status": "success", "message": "Part created successfully"}
 
 
+# 🌟 加锁：必须拥有管理库存权限
 @router.put("/api/parts/{part_id}")
 def update_part(
     part_id: int,
@@ -79,34 +106,32 @@ def update_part(
     brand: str = Form(...),
     category: str = Form(...),
     stock: int = Form(...),
-    price: float = Form(...),
-    tax_rate: float = Form(...),  # 用户手动选择税率
+    price: str = Form(...),
+    tax_rate: str = Form(...),
     bin_location: str = Form(default="Estante A-1"),
     cross_references: str = Form(default=""),
     files: List[UploadFile] = File(default=[]),
-    actor: Actor = Depends(get_current_actor),
+    actor: Actor = Depends(RequirePermission("parts:manage")),
     session: Session = Depends(get_session),
 ):
     part = session.get(AutoPart, part_id)
     if not part:
         raise HTTPException(status_code=404, detail="Part not found")
 
-    image_paths = []
     if files:
-        for file in files:
-            file_path = os.path.join(UPLOAD_DIR, file.filename)
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-            image_paths.append(f"/uploads/{file.filename}")
+        image_paths = _save_uploaded_files(files)
         part.image_url = json.dumps(image_paths)
+
+    d_price = Decimal(price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    d_tax_rate = Decimal(tax_rate)
 
     part.oem = oem
     part.name = name
     part.brand = brand
     part.category = category
     part.stock = stock
-    part.price = price
-    part.tax_rate = tax_rate
+    part.price = float(d_price)
+    part.tax_rate = float(d_tax_rate)
     part.bin_location = bin_location
     part.cross_references = cross_references
 
@@ -118,16 +143,17 @@ def update_part(
         username=actor.username,
         role=actor.role,
         action="UPDATE_PART",
-        details=f"更新了配件商品档案: {name} (OEM: {oem}, 税率: {int(tax_rate*100)}%, 库存: {stock}, 价格: ${price})",
+        details=f"更新了配件商品档案: {name} (OEM: {oem}, 税率: {tax_rate}, 库存: {stock}, 价格: ${price})",
     )
 
     return {"status": "success", "message": "Part updated successfully"}
 
 
+# 🌟 加锁：必须拥有管理库存权限
 @router.delete("/api/parts/{part_id}")
 def delete_part(
     part_id: int,
-    actor: Actor = Depends(get_current_actor),
+    actor: Actor = Depends(RequirePermission("parts:manage")),
     session: Session = Depends(get_session),
 ):
     part = session.get(AutoPart, part_id)
@@ -149,8 +175,13 @@ def delete_part(
     return {"status": "success", "message": "Part deleted"}
 
 
+# 🌟 加锁：只需查看权限
 @router.get("/api/parts/search")
-def search_parts(q: str = Query(...), session: Session = Depends(get_session)):
+def search_parts(
+    q: str = Query(...), 
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("parts:view"))
+):
     if not q or not q.strip():
         return []
 
@@ -182,12 +213,14 @@ def search_parts(q: str = Query(...), session: Session = Depends(get_session)):
     return matched_parts
 
 
+# 🌟 加锁：需要采购权限
 @router.get("/api/procurement/suggestions")
 def get_procurement_suggestions(
     brand: Optional[str] = None,
     category: Optional[str] = None,
     threshold: int = 5,
     session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("procurement:view"))
 ):
     query = select(AutoPart).where(AutoPart.stock <= threshold)
     if brand and brand != "ALL":
@@ -199,6 +232,11 @@ def get_procurement_suggestions(
     suggestions = []
     for p in parts:
         suggested_qty = max(10 - p.stock, 5)
+        
+        # 精度保护
+        d_price = Decimal(str(p.price))
+        d_cost = d_price * suggested_qty
+        
         suggestions.append({
             "oem": p.oem,
             "name": p.name,
@@ -206,25 +244,24 @@ def get_procurement_suggestions(
             "category": p.category,
             "current_stock": p.stock,
             "suggested_qty": suggested_qty,
-            "unit_price": p.price,
-            "estimated_cost": suggested_qty * p.price,
+            "unit_price": float(d_price),
+            "estimated_cost": float(d_cost),
         })
 
     return suggestions
 
+# 🌟 加锁：需要导入权限
 @router.post("/api/import/parts")
 async def import_parts(
     file: UploadFile = File(...),
-    actor: Actor = Depends(get_current_actor),
+    actor: Actor = Depends(RequirePermission("parts:import")),
     session: Session = Depends(get_session),
 ):
-    """智能批量导入接口：完美支持 Excel (.xlsx) 和 CSV 文件，自动兼容中英文表头"""
+    """智能批量导入接口"""
     contents = await file.read()
     
     try:
         filename = file.filename.lower()
-        print(f"📂 正在接收导入文件: {file.filename}, 大小: {len(contents)} 字节")
-        
         if filename.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(io.BytesIO(contents))
         else:
@@ -237,12 +274,9 @@ async def import_parts(
             else:
                 raise HTTPException(status_code=400, detail="❌ CSV 文件编码无法识别，请使用 UTF-8！")
     except Exception as e:
-        print(f"❌ 文件读取异常: {e}")
         raise HTTPException(status_code=400, detail=f"❌ 文件解析失败: {str(e)}")
 
-    # 统一将列名转为小写去空格，并兼容中文表头映射
     df.columns = [str(c).strip().lower() for c in df.columns]
-    
     col_mapping = {
         '编号': 'oem', '代码': 'oem', 'sku': 'oem',
         '名称': 'name', '品名': 'name', '商品名称': 'name',
@@ -281,11 +315,11 @@ async def import_parts(
                 stock = 0
 
             try:
-                price = float(row.get('price', 0.0))
+                # 🌟 统一转换为 Decimal 处理后存入
+                price = float(Decimal(str(row.get('price', 0.0))).quantize(Decimal("0.01")))
             except Exception:
                 price = 0.0
 
-            # 检查数据库中是否已存在该 OEM
             existing = session.exec(select(AutoPart).where(AutoPart.oem == oem)).first()
             if existing:
                 existing.name = name
@@ -316,7 +350,6 @@ async def import_parts(
 
     session.commit()
 
-    # 🌟 写入系统审计日志
     log_action(
         session=session,
         username=actor.username,
@@ -324,8 +357,6 @@ async def import_parts(
         action="IMPORT_PARTS",
         details=f"成功批量导入 {imported_count} 个商品，跳过 {skipped_count} 个无效行",
     )
-
-    print(f"✨ 导入完成统计 -> 成功: {imported_count}, 跳过: {skipped_count}")
 
     return {
         "status": "success", 

@@ -1,17 +1,23 @@
 """FastAPI 应用装配。
 
 重构要点：
-* 原先 `@app.on_event("startup")` 注册了两遍（一次建 SQLAlchemy 表、一次建 SQLModel 表
-  并种数据），现在合并为唯一一个 lifespan 处理器，建表统一走 `init_db()`。
+* 原先 `@app.on_event("startup")` 注册了两遍，现在合并为唯一一个 lifespan 处理器。
+* 建表统一走 `init_db()`。
 * 原先模块内先后创建了两个引擎并互相覆盖，现在只从 `app.database` 取唯一引擎。
+* 🌟 引入 Alembic，自动处理数据库迁移。
 """
 
 from contextlib import asynccontextmanager
+import os  # 🌟 引入 os 用于路径处理
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
+
+# 🌟 引入 Alembic 的配置和命令模块
+from alembic.config import Config
+from alembic import command
 
 from app import __version__
 from app import database
@@ -45,11 +51,25 @@ from app.routers import staff
 
 
 def bootstrap() -> None:
-    """建表 + 首次启动的账号与演示数据播种 + 安全自检。
+    """建表 + 首次启动的账号与演示数据播种 + 安全自检。"""
+    
+    # 🌟 核心修改 1：自动执行 Alembic 迁移
+    try:
+        print("⏳ 正在检查并应用数据库迁移 (Alembic)...")
+        # 获取当前文件所在目录，确保 Alembic 能够找到 alembic.ini
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        alembic_ini_path = os.path.join(base_dir, "alembic.ini")
+        
+        alembic_cfg = Config(alembic_ini_path)
+        # 自动升级到最新版本
+        command.upgrade(alembic_cfg, "head")
+        print("✅ 数据库迁移检查完成。")
+    except Exception as e:
+        print(f"⚠️ 数据库迁移执行失败: {e}")
+        # 如果迁移失败，建议直接抛出异常阻止应用启动，防止产生脏数据
+        # raise e 
 
-    这里通过 `database.engine` 动态取引擎（而非在导入时静态绑定），
-    以便测试可以把引擎替换成隔离的测试库，避免测试污染生产数据库。
-    """
+    # 兜底建表（如果 Alembic 还没接管，或者全新数据库）
     init_db()
     print(f"🎯 数据库绝对路径: {DB_PATH}")
 
@@ -73,8 +93,6 @@ def bootstrap() -> None:
             and DEFAULT_ADMIN_PASSWORD != weak_admin_pwd
             and verify_password(weak_admin_pwd, admin_user.password_hash)
         ):
-            # 运维已在 .env 配了强密码，而库里还是出厂弱密码 → 一次性替换掉。
-            # 只在"当前确实是出厂密码"时才动手，避免覆盖用户后来自己改的密码。
             admin_user.password_hash = hash_password(DEFAULT_ADMIN_PASSWORD)
             session.add(admin_user)
             session.commit()
@@ -100,7 +118,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="TOSTIKYK ERP API", version=__version__, lifespan=lifespan)
 
-# 前端来源白名单由 TK_CORS_ORIGINS 控制（见 app/config.py）
+# 前端来源白名单由 TK_CORS_ORIGINS 控制
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -109,9 +127,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 确保上传目录存在，防止挂载失败
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
-# 路由注册顺序与原 main.py 中的定义顺序保持一致
+# 路由注册
 app.include_router(parts.router)
 app.include_router(clients.router)
 app.include_router(transactions.router)

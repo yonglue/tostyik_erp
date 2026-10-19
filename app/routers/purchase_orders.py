@@ -1,14 +1,14 @@
 """采购订单：创建 / 收货入库（联动库存、成本、应付账款、流水）/ 列表。"""
 
 import json
-from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlmodel import Session, select, update
 
 from app.database import get_session
-from app.deps import Actor, get_current_actor
+from app.deps import Actor, RequirePermission # 🌟 引入细粒度权限
 from app.models import AutoPart, InventoryTransaction, PurchaseOrder, Supplier
 from app.schemas import CreatePurchaseOrderRequest
 from app.services.numbering import make_po_no
@@ -21,27 +21,38 @@ router = APIRouter(tags=["采购"])
 @router.post("/api/purchase-orders/create")
 def create_purchase_order(
     payload: CreatePurchaseOrderRequest,
-    actor: Actor = Depends(get_current_actor),
+    actor: Actor = Depends(RequirePermission("procurement:view")), # 🌟 暂用 view 作为采购权限，如果有 manage 请替换
     session: Session = Depends(get_session),
 ):
-    # 1. 供应商不存在则自动建档，避免"找不到记录"报错
+    # 1. 供应商不存在则自动建档
     supplier_name = payload.supplier_name.strip()
     supplier = session.exec(select(Supplier).where(Supplier.name == supplier_name)).first()
     if not supplier:
         supplier = Supplier(name=supplier_name, contact_person="默认联系人", debt_usd=0.0)
         session.add(supplier)
-        # 只 flush 取 id：新供应商也并入本单事务，建单失败时不会留下孤立供应商
         session.flush()
 
-    total_amount = sum(item.unit_price * item.quantity for item in payload.items)
+    # 🌟 核心修复：使用 Decimal 累加总金额，防止精度丢失
+    total_amount_cents = 0
+    items_snapshot = []
+    
+    for item in payload.items:
+        d_price = Decimal(str(item.unit_price))
+        d_qty = Decimal(str(item.quantity))
+        # 每行金额四舍五入到分，再累加
+        line_total = (d_price * d_qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total_amount_cents += int(line_total * 100)
+        
+        items_snapshot.append(item.model_dump())
+
+    total_amount_usd = total_amount_cents / 100
     po_no = make_po_no()
-    items_snapshot = [item.model_dump() for item in payload.items]
 
     po = PurchaseOrder(
         po_no=po_no,
         supplier_id=supplier.id,
         status="PENDING",
-        total_amount_usd=total_amount,
+        total_amount_usd=total_amount_usd,
         items_json=json.dumps(items_snapshot, ensure_ascii=False),
     )
     session.add(po)
@@ -51,7 +62,7 @@ def create_purchase_order(
         username=actor.username,
         role=actor.role,
         action="CREATE_PURCHASE_ORDER",
-        details=f"创建采购单: {po_no}, 供应商: {supplier_name}, 预估总价: ${total_amount:.2f}",
+        details=f"创建采购单: {po_no}, 供应商: {supplier_name}, 预估总价: ${total_amount_usd:.2f}",
     )
 
     session.commit()
@@ -60,53 +71,68 @@ def create_purchase_order(
 
 
 @router.post("/api/purchase-orders/{po_id}/receive")
-def receive_purchase_order(po_id: int, session: Session = Depends(get_session)):
+def receive_purchase_order(
+    po_id: int, 
+    actor: Actor = Depends(RequirePermission("procurement:view")), # 🌟 加上权限
+    session: Session = Depends(get_session)
+):
     try:
-        # 1. 查找采购订单
+        # 🌟 核心修复 1：使用原子性 Update 抢占状态，防止并发“双重入库”
+        # 只有状态为 PENDING 的才能被修改为 RECEIVING，如果两个请求同时进来，只有一个能 rowcount == 1
+        claimed = session.exec(
+            update(PurchaseOrder)
+            .where(PurchaseOrder.id == po_id, PurchaseOrder.status == "PENDING")
+            .values(status="RECEIVING")
+        )
+        if claimed.rowcount == 0:
+            # 重新查一下，判断具体原因
+            po_check = session.get(PurchaseOrder, po_id)
+            if not po_check:
+                raise HTTPException(status_code=404, detail="采购订单不存在")
+            raise HTTPException(status_code=400, detail="该采购订单已经被收货或正在处理中，请勿重复操作")
+
         po = session.get(PurchaseOrder, po_id)
-        if not po:
-            raise HTTPException(status_code=404, detail="采购订单不存在")
 
-        if po.status == "received":
-            raise HTTPException(status_code=400, detail="该采购订单已经完成收货，请勿重复操作")
-
-        # 2. 解析采购单中用 JSON 存储的商品明细
+        # 2. 解析采购单明细
         try:
             items_data = json.loads(po.items_json) if po.items_json else []
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"解析采购单明细失败: {e}")
 
-        # 3. 查找对应的供应商
         supplier = session.get(Supplier, po.supplier_id)
+        
+        # 3. 逐项更新库存 / 写入流水
+        total_order_amount_cents = 0
 
-        total_order_amount = 0.0
-
-        # 4. 逐项更新库存 / 售价、写入库存流水
         for item_dict in items_data:
             oem = item_dict.get("oem")
             name = item_dict.get("name")
             quantity = item_dict.get("quantity", 0)
-            unit_price = item_dict.get("unit_price", 0.0)
-
-            item_total = quantity * unit_price
-            total_order_amount += item_total
+            
+            # 🌟 核心修复 2：从 JSON 取出来的金额也必须用 Decimal 转换
+            unit_price = float(item_dict.get("unit_price", 0.0))
+            d_price = Decimal(str(unit_price))
+            d_qty = Decimal(str(quantity))
+            
+            line_total = (d_price * d_qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            total_order_amount_cents += int(line_total * 100)
 
             part = session.exec(select(AutoPart).where(AutoPart.oem == oem)).first()
 
             if part:
-                # 用 SQL 级自增，避免与其它出入库并发时丢失更新
+                # 🌟 核心修复 3：只增加库存，【绝对不要】覆盖原零售价！成本价应记录在流水或单独字段里。
                 session.exec(
                     update(AutoPart)
                     .where(AutoPart.oem == oem)
-                    .values(stock=AutoPart.stock + quantity, price=unit_price)
+                    .values(stock=AutoPart.stock + quantity)
                 )
             else:
-                # 库里还没有这个配件时自动建档
+                # 库里还没有这个配件时自动建档，此时没有售价，暂时把进货价当作售价占位
                 session.add(AutoPart(
                     name=name,
                     oem=oem,
                     stock=quantity,
-                    price=unit_price,
+                    price=unit_price, 
                 ))
 
             session.add(InventoryTransaction(
@@ -115,25 +141,33 @@ def receive_purchase_order(po_id: int, session: Session = Depends(get_session)):
                 type="PURCHASE_RECEIVE",
                 quantity=quantity,
                 unit_price=unit_price,
-                total_amount=item_total,
+                total_amount=float(line_total),
                 customer_or_supplier=supplier.name if supplier else "Unknown Supplier",
             ))
 
-        # 5. 累加供应商应付账款
+        # 4. 累加供应商应付账款
         if supplier:
-            # SQL 级累加（coalesce 兼容历史 NULL），避免同一供应商并发收货时丢失应付账款
+            total_order_amount = total_order_amount_cents / 100
             session.exec(
                 update(Supplier)
                 .where(Supplier.id == supplier.id)
                 .values(debt_usd=func.coalesce(Supplier.debt_usd, 0.0) + total_order_amount)
             )
 
-        # 6. 采购单置为已收货
+        # 5. 采购单状态置为已收货
         po.status = "received"
         session.add(po)
 
-        # 7. 原子提交：要么全成功，要么全不生效
+        # 6. 原子提交
         session.commit()
+
+        log_action(
+            session=session,
+            username=actor.username,
+            role=actor.role,
+            action="RECEIVE_PURCHASE_ORDER",
+            details=f"采购收货完成: {po.po_no}, 供应商: {supplier.name if supplier else '未知'}, 总金额: ${total_order_amount_cents / 100:.2f}",
+        )
 
         return {
             "status": "success",
@@ -151,6 +185,9 @@ def receive_purchase_order(po_id: int, session: Session = Depends(get_session)):
 
 
 @router.get("/api/purchase-orders")
-def get_purchase_orders(session: Session = Depends(get_session)):
+def get_purchase_orders(
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("procurement:view")) # 🌟 加上权限
+):
     """采购订单列表（按创建时间倒序）。"""
     return session.exec(select(PurchaseOrder).order_by(PurchaseOrder.id.desc())).all()

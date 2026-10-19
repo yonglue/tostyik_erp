@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import List, Optional
 import json
+import logging
 
 from fastapi import Depends, Header, HTTPException, status
 from sqlmodel import Session, select
@@ -11,6 +12,7 @@ from app.security import decode_access_token
 from app.database import get_session
 from app.models import StaffUser, AdminUser
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class Actor:
@@ -40,22 +42,33 @@ def get_current_actor(
         )
     
     username = payload.get("sub")
-    role = payload.get("role", "staff")
+    if not username:
+        raise HTTPException(status_code=401, detail="非法令牌载荷")
+
+    # 🌟 核心修复：实时查库，不信任 Token 中的 role
+    admin = session.exec(select(AdminUser).where(AdminUser.username == username)).first()
+    staff = session.exec(select(StaffUser).where(StaffUser.username == username)).first()
+
+    # 🌟 修复幽灵账号：如果数据库里没这号人，说明被删了，直接拦截！
+    if not admin and not staff:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="账号不存在或已被禁用，请重新登录"
+        )
+
+    # 管理员逻辑
+    if admin:
+        return Actor(username=admin.username, role=admin.role, permissions=["*"])
+
+    # 员工逻辑
     permissions = []
+    try:
+        permissions = json.loads(staff.permissions_json)
+    except Exception as e:
+        logger.error(f"解析员工 {username} 的权限 JSON 失败: {e}")
+        permissions = []
 
-    # 如果是超级管理员，赋予全部虚拟权限
-    if role in ("super_admin", "admin"):
-        permissions = ["*"]
-    else:
-        # 从数据库加载 staff 用户的细粒度权限
-        staff = session.exec(select(StaffUser).where(StaffUser.username == username)).first()
-        if staff:
-            try:
-                permissions = json.loads(staff.permissions_json)
-            except Exception:
-                permissions = []
-
-    return Actor(username=username, role=role, permissions=permissions)
+    return Actor(username=staff.username, role=staff.role, permissions=permissions)
 
 
 def require_admin(actor: Actor = Depends(get_current_actor)) -> Actor:
@@ -66,22 +79,14 @@ def require_admin(actor: Actor = Depends(get_current_actor)) -> Actor:
 
 
 class RequirePermission:
-    """细粒度权限校验依赖类。
-    
-    用法示例：
-        @router.post("/api/settings")
-        def update_settings(actor: Actor = Depends(RequirePermission("settings:manage"))):
-            ...
-    """
+    """细粒度权限校验依赖类。"""
     def __init__(self, required_permission: str):
         self.required_permission = required_permission
 
     def __call__(self, actor: Actor = Depends(get_current_actor)) -> Actor:
-        # 超级管理员 / 管理员默认拥有所有权限
         if actor.role in ("super_admin", "admin") or "*" in actor.permissions:
             return actor
             
-        # 校验用户权限列表中是否包含所需权限
         if self.required_permission not in actor.permissions:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

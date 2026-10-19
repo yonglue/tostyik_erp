@@ -36,12 +36,12 @@
         <div class="flex items-center gap-2.5 pl-2.5 border-l border-slate-200/60">
           <div class="flex items-center gap-2 bg-white/70 hover:bg-blue-50/90 border border-slate-200 hover:border-blue-300 pl-2 pr-3.5 py-1.5 rounded-xl shadow-2xs backdrop-blur-md cursor-pointer transition-all hover:scale-[1.02]">
             <div class="relative flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-black text-xs uppercase shrink-0 shadow-md shadow-blue-500/20">
-              {{ currentUser?.username ? currentUser.username.charAt(0) : 'A' }}
+              {{ currentUser?.username ? currentUser.username.charAt(0) : 'U' }}
               <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
             </div>
             <div class="text-left">
-              <span class="text-[9px] text-slate-400 block uppercase font-extrabold tracking-wider leading-none">{{ currentUser?.role || 'super_admin' }}</span>
-              <span class="text-xs font-bold text-slate-800 leading-tight block mt-0.5">{{ currentUser?.username || 'admin' }}</span>
+              <span class="text-[9px] text-slate-400 block uppercase font-extrabold tracking-wider leading-none">{{ currentUser?.role || 'staff' }}</span>
+              <span class="text-xs font-bold text-slate-800 leading-tight block mt-0.5">{{ currentUser?.username || '用户' }}</span>
             </div>
           </div>
           <button @click="confirmExitPos" class="px-3 py-1.5 bg-white/70 hover:bg-rose-500/15 border border-slate-200 hover:border-rose-300 text-rose-600 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-[1.02]">
@@ -417,7 +417,9 @@
           <span class="bg-rose-500/15 text-rose-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Delete</span>
         </div>
         <div @click="confirmExitPos" class="bg-white/70 hover:bg-slate-200/80 border border-slate-200 hover:border-slate-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
-          <span class="text-slate-800 font-bold">返回后台</span>
+          <span class="text-slate-800 font-bold">
+            {{ (currentUser?.role === 'admin' || currentUser?.permissions?.length > 1) ? '返回后台' : '退出登录' }}
+          </span>
           <span class="bg-slate-200 text-slate-800 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Esc</span>
         </div>
       </div>
@@ -492,8 +494,9 @@
 
         <div class="flex-1 overflow-y-auto p-6 space-y-6 text-sm bg-white/30">
           <div class="bg-white/80 backdrop-blur-md p-5 rounded-2xl border border-white/90 space-y-3 shadow-2xs font-mono">
-            <div class="text-xs font-black text-slate-400 uppercase tracking-wider border-b border-slate-200 pb-2">
-              1. 系统统计应收 (SYSTEM SNAPSHOT)
+            <div class="text-xs font-black text-slate-400 uppercase tracking-wider border-b border-slate-200 pb-2 flex justify-between">
+              <span>1. 系统统计应收 (SYSTEM SNAPSHOT)</span>
+              <span class="text-[10px] text-emerald-600">仅统计今日订单</span>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
               <div class="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
@@ -631,7 +634,7 @@
 
           <div class="space-y-1 text-slate-700 pb-3 border-b border-dashed border-slate-300 font-sans">
             <div><span class="font-bold">Client:</span> {{ quoteClientName || 'Cliente General' }}</div>
-            <div><span class="font-bold">Operator:</span> {{ currentUser?.username || 'admin' }}</div>
+            <div><span class="font-bold">Operator:</span> {{ currentUser?.username || '未知' }}</div>
             <div class="font-bold text-blue-600 mt-1">Payment Breakdown:</div>
             <div v-if="paymentSplit.cardPos > 0"> - Card POS: Bs. {{ paymentSplit.cardPos.toFixed(2) }} (${{ (paymentSplit.cardPos / bcvRate).toFixed(2) }})</div>
             <div v-if="paymentSplit.pagoMovil > 0"> - Pago Móvil: Bs. {{ paymentSplit.pagoMovil.toFixed(2) }} (${{ (paymentSplit.pagoMovil / bcvRate).toFixed(2) }})</div>
@@ -707,6 +710,12 @@
 </template>
 
 <script setup>
+/**
+ * 🌟 QuotationDeskView.vue (POS收银台) - 终极修复版
+ * 1. 前端 JS 浮点精度修复：所有金额计算均采用“分”为单位计算，最后再转为美元。
+ * 2. 交接班逻辑修复：只统计当天的订单数据，避免混入历史订单。
+ * 3. IGTF 计算与提交修复：前台算准，并传给后端。
+ */
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { apiFetch, apiUrl } from '../utils/api'
 import { useI18n } from '../composables/useI18n'
@@ -788,55 +797,59 @@ const paymentSplit = ref({
   cashUsd: 0
 })
 
+// 🌟 核心修复 1：前端 JS 浮点精度处理 (使用 分 * 100 来规避)
 const goodsTotalUsd = computed(() => {
-  return props.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  const totalCents = props.cartItems.reduce((sum, item) => {
+    return sum + Math.round(item.price * 100) * item.quantity
+  }, 0)
+  return totalCents / 100
 })
 
 const totalBaseUsd = computed(() => {
-  return props.cartItems.reduce((sum, item) => {
+  let totalCents = 0
+  props.cartItems.forEach(item => {
     const rate = item.tax_rate ?? 0.16
-    const lineTotal = item.price * item.quantity
+    const lineTotalCents = Math.round(item.price * 100) * item.quantity
     if (rate > 0) {
-      return sum + (lineTotal / (1.0 + rate))
+      // 将含税分转为不含税分并四舍五入
+      totalCents += Math.round(lineTotalCents / (1.0 + rate))
+    } else {
+      totalCents += lineTotalCents
     }
-    return sum + lineTotal
-  }, 0)
+  })
+  return totalCents / 100
 })
 
 const totalTaxUsd = computed(() => {
-  return props.cartItems.reduce((sum, item) => {
-    const rate = item.tax_rate ?? 0.16
-    const lineTotal = item.price * item.quantity
-    if (rate > 0) {
-      const baseSub = lineTotal / (1.0 + rate)
-      return sum + (lineTotal - baseSub)
-    }
-    return sum
-  }, 0)
+  // 总税金 = 总价 - 不含税价，避免重复计算造成精度误差
+  const diffCents = Math.round(goodsTotalUsd.value * 100) - Math.round(totalBaseUsd.value * 100)
+  return diffCents / 100
 })
 
 const igtfAmountUsd = computed(() => {
   const cUsd = Number(paymentSplit.value.cashUsd) || 0
-  return Number((cUsd * 0.03).toFixed(2))
+  return Math.round(cUsd * 100 * 0.03) / 100
 })
 
 const totalUsd = computed(() => {
-  return Number((goodsTotalUsd.value + igtfAmountUsd.value).toFixed(2))
+  const totalCents = Math.round(goodsTotalUsd.value * 100) + Math.round(igtfAmountUsd.value * 100)
+  return totalCents / 100
 })
 
 const totalPaidUsd = computed(() => {
-  const cCard = Number(paymentSplit.value.cardPos) || 0
-  const cPago = Number(paymentSplit.value.pagoMovil) || 0
-  const cBs = Number(paymentSplit.value.cashBs) || 0
-  const cUsd = Number(paymentSplit.value.cashUsd) || 0
-
   const rate = props.bcvRate || 1
-  const paidInUsd = (cCard / rate) + (cPago / rate) + (cBs / rate) + cUsd
-  return Number(paidInUsd.toFixed(2))
+  const cCardCents = Math.round((Number(paymentSplit.value.cardPos) || 0) / rate * 100)
+  const cPagoCents = Math.round((Number(paymentSplit.value.pagoMovil) || 0) / rate * 100)
+  const cBsCents = Math.round((Number(paymentSplit.value.cashBs) || 0) / rate * 100)
+  const cUsdCents = Math.round((Number(paymentSplit.value.cashUsd) || 0) * 100)
+  
+  const paidCents = cCardCents + cPagoCents + cBsCents + cUsdCents
+  return paidCents / 100
 })
 
 const balanceRemaining = computed(() => {
-  return Number((totalUsd.value - totalPaidUsd.value).toFixed(2))
+  const balanceCents = Math.round(totalUsd.value * 100) - Math.round(totalPaidUsd.value * 100)
+  return balanceCents / 100
 })
 
 const isFullyPaid = computed(() => {
@@ -856,17 +869,12 @@ const handlePaymentKeydown = (e, channelKey) => {
     return
   }
 
-  if (channelKey === 'reference') {
-    return
-  }
+  if (channelKey === 'reference') return
 
-  // 3. [空格键] 或 [= 键] 一键补齐差额（完美联动 IGTF 与多通道组合）
   if (e.key === ' ' || e.key === '=') {
     e.preventDefault()
-
     const rate = props.bcvRate || 1
 
-    // 先计算除去当前正在编辑的通道之外，其他通道已经付了多少美元
     let otherPaidInUsd = 0
     for (const k in paymentSplit.value) {
       if (k !== channelKey) {
@@ -880,16 +888,10 @@ const handlePaymentKeydown = (e, channelKey) => {
     }
 
     if (channelKey === 'cashUsd') {
-      // 如果当前是美金现金，需要把 IGTF (3%) 考虑进去
-      // 设美金现金输入值为 X，总应付 = 基础商品总额 + (X * 0.03)
-      // 已付总额 = otherPaidInUsd + X = 总应付 = goodsTotalUsd + X * 0.03
-      // 变形得：X * 0.97 = goodsTotalUsd - otherPaidInUsd
       const goodsNeeded = Math.max(0, goodsTotalUsd.value - otherPaidInUsd)
       const exactCashUsd = goodsNeeded / 0.97
       paymentSplit.value.cashUsd = Number(exactCashUsd.toFixed(2))
     } else {
-      // 如果是 Bs. 通道（POS、Pago Móvil、Bs. 现金），先算出还差多少美元
-      // 如果当前美金现金已经填了值，总应付已经包含了对应的 IGTF
       const currentCashUsd = Number(paymentSplit.value.cashUsd) || 0
       const currentIgtf = Number((currentCashUsd * 0.03).toFixed(2))
       const targetTotalUsd = goodsTotalUsd.value + currentIgtf
@@ -920,12 +922,10 @@ const handlePaymentKeydown = (e, channelKey) => {
 
   if (e.key === 'Enter') {
     e.preventDefault()
-    
     if (isFullyPaid.value && !isSubmitting.value) {
       openPreviewModal()
       return
     }
-
     if (currentIndex !== -1 && currentIndex < orderSequence.length - 1) {
       const nextKey = orderSequence[currentIndex + 1]
       focusPaymentChannel(nextKey)
@@ -1167,34 +1167,47 @@ const deleteHeldOrder = async (id) => {
   fetchHeldOrders()
 }
 
+// 🌟 核心修复 2：只统计今日的订单
 const fetchCompletedOrders = async () => {
   try {
     const res = await apiFetch('/api/pos/orders')
     if (!res.ok) return
     const ordersData = await res.json()
     completedOrders.value = ordersData
-    let cardAmt = 0, pUsd = 0, cBs = 0, cUsd = 0, tUsd = 0
+
+    // 获取本地时区的今天日期 (YYYY-MM-DD)
+    const todayStr = new Date().toLocaleDateString('en-CA') 
+
+    let cardAmtCents = 0, pUsdCents = 0, cBsCents = 0, cUsdCents = 0, tUsdCents = 0
+    let todayOrderCount = 0
+
     ordersData.forEach(o => {
-      tUsd += o.totalUsd
-      if (o.paymentMethod === 'Card_POS') cardAmt += o.totalUsd
-      else if (o.paymentMethod === 'Pago_Movil') pUsd += o.totalUsd
-      else if (o.paymentMethod === 'Cash_Bs') cBs += o.totalUsd
-      else if (o.paymentMethod === 'Cash_USD') cUsd += o.totalUsd
+      // 匹配 o.time (格式例如 "2023-10-27 14:30:00")
+      if (o.time && o.time.startsWith(todayStr)) {
+        const amtCents = Math.round(o.totalUsd * 100)
+        tUsdCents += amtCents
+        todayOrderCount++
+        if (o.paymentMethod === 'Card_POS') cardAmtCents += amtCents
+        else if (o.paymentMethod === 'Pago_Movil') pUsdCents += amtCents
+        else if (o.paymentMethod === 'Cash_Bs') cBsCents += amtCents
+        else if (o.paymentMethod === 'Cash_USD') cUsdCents += amtCents
+      }
     })
+
     shiftStats.value = {
-      cardPos: { amount: cardAmt, count: 0 },
-      pagoMovil: { amount: pUsd, count: 0 },
-      cashBs: { amount: cBs, count: 0 },
-      cashUsd: { amount: cUsd, count: ordersData.length },
-      totalUsd: tUsd,
-      totalCount: ordersData.length
+      cardPos: { amount: cardAmtCents / 100, count: 0 },
+      pagoMovil: { amount: pUsdCents / 100, count: 0 },
+      cashBs: { amount: cBsCents / 100, count: 0 },
+      cashUsd: { amount: cUsdCents / 100, count: todayOrderCount },
+      totalUsd: tUsdCents / 100,
+      totalCount: todayOrderCount
     }
 
     actualCounts.value = {
-      cardPos: Number((cardAmt * (props.bcvRate || 1)).toFixed(2)),
-      pagoMovil: Number((pUsd * (props.bcvRate || 1)).toFixed(2)),
-      cashBs: Number((cBs * (props.bcvRate || 1)).toFixed(2)),
-      cashUsd: cUsd
+      cardPos: Number(((cardAmtCents / 100) * (props.bcvRate || 1)).toFixed(2)),
+      pagoMovil: Number(((pUsdCents / 100) * (props.bcvRate || 1)).toFixed(2)),
+      cashBs: Number(((cBsCents / 100) * (props.bcvRate || 1)).toFixed(2)),
+      cashUsd: cUsdCents / 100
     }
   } catch (e) { console.error(e) }
 }
@@ -1244,7 +1257,8 @@ const confirmAndPrint = async () => {
       payment_method: dominantMethod,
       payment_reference: paymentReference.value,
       bcv_rate: props.bcvRate,
-      payment_split: paymentSplit.value,
+      // 🌟 将前端计算好的 IGTF 金额传给后端
+      igtf_amount: igtfAmountUsd.value,
       items: props.cartItems.map(i => ({ oem: i.oem, name: i.name, brand: i.brand || "GENERAL", quantity: i.quantity, price: i.price }))
     }
 

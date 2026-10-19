@@ -25,7 +25,7 @@
       </button>
     </div>
 
-    <!-- 导航菜单列表（强化划过悬浮效果） -->
+    <!-- 导航菜单列表 -->
     <nav class="flex-1 px-3.5 py-4 space-y-3.5 overflow-y-auto">
       <div v-for="(group, groupIndex) in groupedMenuItems" :key="groupIndex" class="space-y-1">
         <!-- 分组标题 -->
@@ -33,7 +33,7 @@
           {{ group.title }}
         </div>
         
-        <!-- 组内菜单项：增强 Hover 悬浮反馈 -->
+        <!-- 组内菜单项 -->
         <button
           v-for="item in group.items"
           :key="item.key"
@@ -65,8 +65,13 @@
 </template>
 
 <script setup>
+/**
+ * 🌟 Sidebar.vue 侧边栏
+ * 优化：移除了手动读取 LocalStorage 的逻辑，直接与 useAuth 的响应式状态绑定，确保权限变更时菜单实时刷新。
+ */
 import { computed } from 'vue'
 import { useI18n } from '../composables/useI18n'
+import { useAuth } from '../composables/useAuth'
 import { 
   Cpu,
   LayoutDashboard, 
@@ -91,6 +96,8 @@ const props = defineProps({
 const emit = defineEmits(['update:activeTab', 'update:mobileMenuOpen', 'menu-click'])
 
 const { t } = useI18n()
+// 🌟 核心：使用响应式状态获取当前用户
+const { currentUserObj } = useAuth()
 
 const handleMenuClick = (key) => {
   emit('update:activeTab', key)
@@ -133,22 +140,15 @@ const groupedMenuItems = computed(() => {
     }
   ]
 
-  let currentUserData = { role: 'super_admin', permissions: [] }
-  try {
-    const stored = localStorage.getItem('tostiyk_current_user')
-    if (stored) {
-      currentUserData = JSON.parse(stored)
-    }
-  } catch (e) {
-    console.error(e)
-  }
-
-  const role = currentUserData.role || 'staff'
-  const userPerms = currentUserData.permissions || []
+  // 🌟 使用 currentUserObj.value 获取最新数据，避免使用 LocalStorage 导致响应式失效
+  const role = currentUserObj.value?.role || 'staff'
+  const userPerms = currentUserObj.value?.permissions || []
 
   return groups.map(group => {
     const filteredItems = group.items.filter(item => {
+      // 超管放行所有
       if (role === 'super_admin' || role === 'admin' || userPerms.includes('*')) return true
+      // 普通员工校验权限
       if (item.requiredPerm) {
         return userPerms.includes(item.requiredPerm)
       }

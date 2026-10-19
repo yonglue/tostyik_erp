@@ -106,6 +106,7 @@
             @open-tx-modal="txDialogVisible = true"
             @delete-tx="openDeleteTxModal"
           />
+          <!-- 🌟 修改：退出 POS 事件绑定到 handleExitPos -->
           <QuotationDeskView 
             v-else-if="activeTab === 'desk' && hasPermission('pos:access')"
             :partsList="partsList"
@@ -116,7 +117,7 @@
             :currentUser="currentUserObj"
             @add-to-cart="addToCart"
             @generate-quote="fetchTransactions(); fetchParts(); fetchDashboardStats(); fetchClients()"
-            @exit-pos="activeTab = getDefaultAllowedTab()"
+            @exit-pos="handleExitPos" 
             @clear-cart="cartItems = []"
           />
           <BackupView 
@@ -195,7 +196,6 @@
             </div>
           </div>
 
-          <!-- 🌟 优化：新增商品弹窗支持 16%、8% 和 0% 免税下拉 -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">🌟 SENIAT 税率类型属性 (IVA)</label>
@@ -374,9 +374,15 @@
 </template>
 
 <script setup>
+/**
+ * 🌟 App.vue 全局核心装配
+ * 1. 负责登录状态控制与路由跳转（基于 activeTab 状态）。
+ * 2. 负责全局数据拉取注入。
+ * 3. 修复了纯收银员退出 POS 死循环的问题。
+ */
 import StaffManagementView from './components/StaffManagementView.vue'
 import CashRegisterView from './components/CashRegisterView.vue'
-import { ref, computed, defineAsyncComponent, onMounted, onUnmounted } from 'vue'
+import { ref, computed, defineAsyncComponent, onMounted, onUnmounted, watch} from 'vue'
 import { useI18n } from './composables/useI18n'
 
 import Sidebar from './components/Sidebar.vue'
@@ -417,6 +423,7 @@ const {
   handleLogin, handleLogout, openResetModal, submitResetPassword
 } = useAuth()
 
+// 权限校验工具
 const hasPermission = (permKey) => {
   if (!currentUserObj.value) return false
   const role = currentUserObj.value.role || 'staff'
@@ -425,18 +432,41 @@ const hasPermission = (permKey) => {
   return perms.includes(permKey)
 }
 
+// 获取用户默认应当进入的页面
 const getDefaultAllowedTab = () => {
   const role = currentUserObj.value?.role || 'staff'
   if (role === 'super_admin' || role === 'admin') return 'dashboard'
 
   if (hasPermission('parts:view')) return 'parts'
-  if (hasPermission('pos:access')) return 'desk'
   if (hasPermission('clients:view')) return 'clients'
   if (hasPermission('transactions:history')) return 'transactions'
   if (hasPermission('financial:view')) return 'financial'
   if (hasPermission('users:manage')) return 'staff'
-
+  if (hasPermission('pos:access')) return 'desk'
+  
   return 'dashboard'
+}
+
+// 🌟 核心修复：处理退出 POS 逻辑
+const handleExitPos = () => {
+  const role = currentUserObj.value?.role || 'staff'
+  // 判断是否有除 POS 以外的后台权限
+  const hasBackendAccess = hasPermission('parts:view') || 
+                           hasPermission('clients:view') || 
+                           hasPermission('financial:view') || 
+                           hasPermission('settings:manage') || 
+                           hasPermission('users:manage') ||
+                           role === 'admin' || 
+                           role === 'super_admin'
+
+  if (!hasBackendAccess) {
+    // 纯收银员，直接登出
+    showSuccessModal('当前仅有收银权限，已安全退出系统。')
+    setTimeout(() => { handleLogout() }, 1500)
+  } else {
+    // 有后台权限，回退到他有权限的页面
+    activeTab.value = getDefaultAllowedTab()
+  }
 }
 
 const checkAndSwitchTab = (tab) => {
@@ -445,6 +475,28 @@ const checkAndSwitchTab = (tab) => {
 
 const mobileMenuOpen = ref(false)
 const activeTab = ref(getDefaultAllowedTab())
+
+// 🌟 核心修复：监听登录状态与用户信息变化
+watch(isLoggedIn, (newVal) => {
+  if (newVal) {
+    // 登录成功时，重新计算应进入的页面
+    activeTab.value = getDefaultAllowedTab()
+  } else {
+    // 登出时，重置状态，防止污染下一个登录的用户
+    activeTab.value = 'dashboard' 
+  }
+})
+
+// 防止由于 currentUserObj 数据更新滞后导致的页面计算错误
+watch(currentUserObj, (newUser) => {
+  if (isLoggedIn.value && newUser && newUser.username) {
+    // 如果当前页面没权限（或者刚登录），强制切到有权限的页面
+    const defaultTab = getDefaultAllowedTab()
+    if (defaultTab !== 'dashboard' || !newUser.permissions || newUser.permissions.length === 0) {
+       activeTab.value = defaultTab
+    }
+  }
+}, { deep: true })
 
 const searchQuery = ref('')
 const clientSearchQuery = ref('')
@@ -536,7 +588,6 @@ const handleImportParts = async (e) => {
 }
 
 const generateAndArchiveQuote = async () => {
-  // 已经由 POS 接口统一处理，这里仅刷新前端视图
   fetchQuotations(); fetchParts(); fetchTransactions(); fetchDashboardStats(); fetchClients();
 }
 
@@ -633,26 +684,24 @@ const handleAddClient = async () => {
 }
 
 const handleGlobalKeydown = (e) => {
-  // 🌟 1. 当大图预览弹窗（Gallery）打开时，优先拦截处理按键
   if (galleryModalVisible.value) {
     if (e.key === 'Escape') {
       e.preventDefault()
-      galleryModalVisible.value = false // 按 Esc 键一键关闭大图弹窗
+      galleryModalVisible.value = false 
       return
     }
     if (e.key === 'ArrowLeft') {
       e.preventDefault()
-      prevGalleryImage() // 按左方向键切换到上一张图片
+      prevGalleryImage() 
       return
     }
     if (e.key === 'ArrowRight') {
       e.preventDefault()
-      nextGalleryImage() // 按右方向键切换到下一张图片
+      nextGalleryImage() 
       return
     }
   }
 
-  // 🌟 2. 现有的 Esc 按键关闭录入弹窗逻辑
   if (e.key === 'Escape') {
     if (dialogVisible.value) { dialogVisible.value = false; return; }
   }
@@ -682,7 +731,7 @@ const handleGlobalKeydown = (e) => {
   if (deleteClientModalVisible.value) {
     e.preventDefault()
     confirmDeleteClient()
-    return
+    return  
   }
   if (deleteModalVisible.value) {
     e.preventDefault()

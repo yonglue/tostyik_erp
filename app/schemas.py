@@ -4,8 +4,14 @@
 """
 
 from typing import List, Optional
+from pydantic import BaseModel, condecimal
+from decimal import Decimal
 
-from pydantic import BaseModel
+# 🌟 定义通用金额与汇率精度类型
+# 金额最大 12 位，保留 2 位小数（例如：9999999999.99）
+MoneyType = condecimal(max_digits=12, decimal_places=2)
+# 汇率最大 10 位，保留 4 位小数（例如：36.5432）
+RateType = condecimal(max_digits=10, decimal_places=4)
 
 
 # ──────────────────────────── 鉴权 / 员工 ────────────────────────────
@@ -22,6 +28,8 @@ class CreateStaffPayload(BaseModel):
     username: str
     password: str
     role: str = "staff"
+    # 🌟 补全字段：允许前端传入权限数组
+    permissions: List[str] = [] 
 
 
 # ──────────────────────────── 报价 / 开单 ────────────────────────────
@@ -30,7 +38,7 @@ class QuotationItemPayload(BaseModel):
     name: str
     brand: str
     quantity: int
-    price: float
+    price: MoneyType # 🌟 改
 
 
 class CreateQuotationRequest(BaseModel):
@@ -38,13 +46,13 @@ class CreateQuotationRequest(BaseModel):
     lang: Optional[str] = "es"
     payment_method: Optional[str] = "Cash_USD"
     payment_reference: Optional[str] = ""
-    items: List[QuotationItemPayload]  # 🌟 修复：将 QuotationItem 改为正确定义的 QuotationItemPayload
+    items: List[QuotationItemPayload]
 
 
 # ──────────────────────────── 客户还款 ────────────────────────────
 class ClientPaymentPayload(BaseModel):
     client_name: str
-    amount_paid: float
+    amount_paid: MoneyType # 🌟 改
     currency: str                    # 'USD' / 'BS' / 'USDT' ...
     payment_method: str
     reference_no: Optional[str] = ""
@@ -56,7 +64,7 @@ class PurchaseItemPayload(BaseModel):
     oem: str
     name: str
     quantity: int
-    unit_price: float
+    unit_price: MoneyType # 🌟 改
 
 
 class CreatePurchaseOrderRequest(BaseModel):
@@ -70,32 +78,35 @@ class POSItemPayload(BaseModel):
     name: str
     brand: Optional[str] = "GENERAL"
     quantity: int
-    price: float
+    price: MoneyType # 🌟 改
 
 
 class POSOrderCreatePayload(BaseModel):
     client_name: str = "Cliente General"
+    client_id: Optional[int] = None # 🌟 新增：如果前端选了客户，传ID过来，防同名挂错账
     payment_method: str = "Cash_USD"
     payment_reference: Optional[str] = ""
-    bcv_rate: float
+    bcv_rate: RateType # 🌟 改
+    # 🌟 新增：前端算好 IGTF 传过来，后端不再写死 3%
+    igtf_amount: MoneyType = Decimal("0.00") 
     items: List[POSItemPayload]
 
 
 # ──────────────────────────── 收银班结 ────────────────────────────
 class CashRegisterCreatePayload(BaseModel):
     operator: str = "Elias"
-    bcv_rate_snapshot: float = 0.0
-    system_cash_usd: float = 0.0
-    system_zelle: float = 0.0
-    system_pago_movil: float = 0.0
-    system_transfer_bs: float = 0.0
-    system_usdt: float = 0.0
-    actual_cash_usd: float = 0.0
-    actual_zelle: float = 0.0
-    actual_pago_movil: float = 0.0
-    actual_transfer_bs: float = 0.0
-    actual_usdt: float = 0.0
-    total_revenue_usd: float = 0.0
+    bcv_rate_snapshot: RateType = Decimal("0.0000") # 🌟 改
+    system_cash_usd: MoneyType = Decimal("0.00") # 🌟 改
+    system_zelle: MoneyType = Decimal("0.00")
+    system_pago_movil: MoneyType = Decimal("0.00")
+    system_transfer_bs: MoneyType = Decimal("0.00")
+    system_usdt: MoneyType = Decimal("0.00")
+    actual_cash_usd: MoneyType = Decimal("0.00")
+    actual_zelle: MoneyType = Decimal("0.00")
+    actual_pago_movil: MoneyType = Decimal("0.00")
+    actual_transfer_bs: MoneyType = Decimal("0.00")
+    actual_usdt: MoneyType = Decimal("0.00")
+    total_revenue_usd: MoneyType = Decimal("0.00")
     notes: Optional[str] = ""
 
 
