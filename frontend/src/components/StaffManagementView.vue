@@ -24,6 +24,7 @@ const permissionGroups = computed(() => {
       permissions: [
         { key: 'pos:access', label: isZh ? '进入收银工作台' : isEs ? 'Acceder a Caja' : 'Access POS' },
         { key: 'pos:checkout', label: isZh ? '执行结账与出单' : isEs ? 'Cobrar y Emitir' : 'Checkout & Bill' },
+        { key: 'pos:refund', label: isZh ? '执行退货' : isEs ? 'Procesar Devoluciones' : 'Process Refunds' },
         { key: 'pos:hold', label: isZh ? '挂单与取单操作' : isEs ? 'Pausar y Recuperar' : 'Hold & Recall' },
         { key: 'pos:discount', label: isZh ? '特权打价与改价' : isEs ? 'Descuentos y Precios' : 'Discount & Reprice' }
       ]

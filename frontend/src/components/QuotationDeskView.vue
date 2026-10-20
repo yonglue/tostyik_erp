@@ -67,10 +67,10 @@
       <!-- 左侧：商品搜索与购物车 -->
       <div class="flex-1 flex flex-col bg-white/75 backdrop-blur-xl rounded-xl border border-white/60 overflow-hidden shadow-lg">
         
-        <!-- 🌟 优化后的顶部工具栏 (50% : 25% : 25%) -->
+        <!-- 顶部工具栏 -->
         <div class="p-2.5 border-b border-slate-200/60 flex gap-2 bg-white/40 backdrop-blur-md items-center w-full">
           
-          <!-- 1. 配件搜索框：占 50% -->
+          <!-- 1. 配件搜索框 -->
           <div class="relative w-1/2">
             <input 
               ref="searchInputRef"
@@ -82,7 +82,7 @@
             />
           </div>
           
-          <!-- 2. 已选客户信息展示区：占 25% -->
+          <!-- 2. 已选客户信息展示区 -->
           <div class="w-1/4">
             <div v-if="quoteClientName" class="flex items-center justify-between bg-blue-50/80 border border-blue-200/80 px-3 py-1.5 rounded-lg shadow-2xs w-full">
               <div class="flex items-center gap-2 flex-1 truncate">
@@ -92,7 +92,7 @@
                   <div class="text-[10px] text-blue-600/70 font-semibold truncate">{{ tExt.clientSelected }}</div>
                 </div>
               </div>
-              <button @click="quoteClientName = ''" :title="tExt.clearClient" class="text-slate-400 hover:text-rose-500 hover:bg-rose-100 rounded-md p-1 transition-colors cursor-pointer shrink-0 ml-1">
+              <button @click="quoteClientName = ''; quoteClientId = null" :title="tExt.clearClient" class="text-slate-400 hover:text-rose-500 hover:bg-rose-100 rounded-md p-1 transition-colors cursor-pointer shrink-0 ml-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
             </div>
@@ -101,7 +101,7 @@
             </div>
           </div>
 
-          <!-- 3. 搜索/切换客户按钮：占 25% -->
+          <!-- 3. 搜索/切换客户按钮 -->
           <div class="w-1/4">
             <button 
               @click="openClientSearchModal" 
@@ -193,7 +193,7 @@
             </button>
           </div>
 
-                    <div class="space-y-2.5 text-sm">
+          <div class="space-y-2.5 text-sm">
             <!-- 1. Card POS [F4] -->
             <div 
               @click="focusPaymentChannel('cardPos')"
@@ -332,6 +332,14 @@
                   {{ primaryCurrency === 'USD' ? `Bs. ${(totalTaxUsd * bcvRate).toFixed(2)}` : `$${totalTaxUsd.toFixed(2)}` }}
                 </div>
               </div>
+            </div>
+            
+            <!-- 🌟 特殊纳税人代扣提示 -->
+            <div v-if="currentClientIsSpecial" class="bg-amber-50 border border-amber-200 text-amber-800 text-[11px] p-2 rounded-lg mt-1 mb-2 flex items-start gap-2 animate-in fade-in zoom-in-95">
+               <span class="text-base">⚠️</span>
+               <div class="leading-tight font-bold">
+                 {{ tExt.specialTaxpayerNotice }}
+               </div>
             </div>
 
             <div v-if="igtfAmountUsd > 0" class="flex justify-between items-start text-sm font-bold text-amber-700 border-b border-slate-200/60 pb-1.5">
@@ -684,13 +692,11 @@
     <!-- 快捷键指南弹窗 -->
     <PosHelpModal :visible="helpModalVisible" @close="helpModalVisible = false" />
 
-    <!-- 🌟 客户快速搜索 & 未找到创建 Modal（已改为小尺寸，且头部带新增按钮） -->
+    <!-- 🌟 客户快速搜索 & 未找到创建 Modal -->
     <div v-if="clientModalVisible" @click.self="clientModalVisible = false" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-50 p-4 cursor-pointer">
       <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full h-[600px] max-h-[85vh] overflow-hidden border border-slate-100 flex flex-col cursor-default animate-in zoom-in-95 duration-150">
         <div class="p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/50">
           <h3 class="font-extrabold text-base text-slate-900">{{ tExt.clientModalTitle }}</h3>
-          
-          <!-- 🌟 核心修复：在这里加上新增客户按钮 -->
           <div class="flex items-center gap-2">
             <button @click="prepareCreateClient('')" class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer active:scale-95">
               <span>➕</span> {{ tExt.newClientBtn }}
@@ -704,7 +710,7 @@
         </div>
         
         <div class="flex-1 overflow-y-auto p-3 space-y-2 bg-white">
-          <div v-for="c in filteredModalClients" :key="c.id" @click="selectClient(c.name)" class="p-3.5 rounded-xl border border-slate-200/80 bg-white cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all flex items-center justify-between text-xs shadow-2xs">
+          <div v-for="c in filteredModalClients" :key="c.id" @click="selectClient(c)" class="p-3.5 rounded-xl border border-slate-200/80 bg-white cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all flex items-center justify-between text-xs shadow-2xs">
             <div>
               <div class="font-black text-slate-900 text-sm">🏢 {{ c.name }}</div>
               <div class="text-xs text-slate-500 font-mono mt-0.5">RIF: {{ c.rif_or_cedula || '-' }} | 📞 {{ c.phone || tExt.clientNoPhone }}</div>
@@ -712,7 +718,6 @@
             <span class="text-blue-600 font-bold bg-blue-100/50 px-3 py-1.5 rounded-lg">{{ tExt.clientSelectBtn }} ↵</span>
           </div>
           
-          <!-- 🌟 搜索不到，提示创建 -->
           <div v-if="filteredModalClients.length === 0 && clientFilterQuery.trim()" class="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in duration-200">
             <div class="text-slate-400 text-sm font-bold text-center">
               {{ tExt.clientNotFound }} <br>
@@ -736,9 +741,9 @@
       </div>
     </div>
 
-    <!-- 🌟 新建客户 Modal (依然是独立弹窗) -->
+    <!-- 🌟 新建客户 Modal (完整税务字段版) -->
     <div v-if="newClientModalVisible" @click.self="newClientModalVisible = false" class="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center z-[60] p-6">
-      <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 flex flex-col animate-in zoom-in-95 duration-150">
+      <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 flex flex-col animate-in zoom-in-95 duration-150">
         <div class="p-5 border-b border-slate-200/60 flex items-center justify-between bg-white/50 shrink-0">
           <h3 class="font-extrabold text-base text-slate-900">{{ tExt.createClientTitle }}</h3>
           <button @click="newClientModalVisible = false" class="text-slate-400 hover:text-slate-700 font-bold text-base p-1">✕</button>
@@ -748,16 +753,48 @@
             <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.clients.colName }} *</label>
             <input v-model="newClientForm.name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 font-bold text-slate-900" placeholder="Ej: Auto Taller Valencia" />
           </div>
+          
           <div class="grid grid-cols-2 gap-4">
+            <!-- 🌟 RIF 拆分输入 -->
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.clients.colRif }}</label>
-              <input v-model="newClientForm.rif_or_cedula" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 font-mono text-slate-900" placeholder="J-12345678-9" />
+              <div class="flex gap-2">
+                <select v-model="newClientForm.rif_type" class="w-16 bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm outline-none focus:border-blue-500 font-bold text-slate-900 cursor-pointer">
+                  <option value="V">V</option>
+                  <option value="E">E</option>
+                  <option value="J">J</option>
+                  <option value="G">G</option>
+                </select>
+                <input 
+                  v-model="newClientForm.rif_number" 
+                  @input="formatRifNumber"
+                  type="text" 
+                  maxlength="9"
+                  class="flex-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 font-mono text-slate-900" 
+                  placeholder="12345678" 
+                />
+              </div>
             </div>
+            
+            <!-- 🌟 电话号码强格式化 -->
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.clients.colPhone }}</label>
-              <input v-model="newClientForm.phone" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 font-mono text-slate-900" placeholder="+58 412..." />
+              <div class="flex">
+                <span class="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-slate-200 bg-slate-100 text-slate-500 text-sm font-mono font-bold">
+                  +58
+                </span>
+                <input 
+                  v-model="newClientForm.phone" 
+                  @input="formatPhoneNumber"
+                  type="text" 
+                  maxlength="10"
+                  class="flex-1 w-full bg-slate-50 border border-slate-200 rounded-r-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 font-mono text-slate-900" 
+                  placeholder="4121234567" 
+                />
+              </div>
             </div>
           </div>
+          
           <div>
             <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.clients.colType }}</label>
             <select v-model="newClientForm.client_type" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 font-semibold text-slate-900 cursor-pointer">
@@ -765,6 +802,14 @@
               <option value="Taller">{{ tExt.clientTypeTaller }}</option>
               <option value="Mayorista">{{ tExt.clientTypeMayorista }}</option>
             </select>
+          </div>
+          
+          <!-- 🌟 特殊纳税人复选框 -->
+          <div class="flex items-center gap-3 bg-amber-50 border border-amber-200 p-3 rounded-xl">
+            <input type="checkbox" id="specialTax" v-model="newClientForm.is_special_taxpayer" class="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500 cursor-pointer" />
+            <label for="specialTax" class="text-xs font-bold text-amber-900 cursor-pointer">
+              {{ tExt.isSpecialTaxpayer }}
+            </label>
           </div>
         </div>
         <div class="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
@@ -790,7 +835,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { apiFetch, apiUrl } from '../utils/api'
+import { apiFetch } from '../utils/api'
 import { useI18n } from '../composables/useI18n'
 import ConfirmDialog from './ConfirmDialog.vue'
 import PosHelpModal from './pos/PosHelpModal.vue'
@@ -844,10 +889,12 @@ const tExt = computed(() => {
     createThisClient: isZh ? '一键新建客户' : isEs ? 'Crear nuevo cliente' : 'Create new client',
     typeToSearch: isZh ? '请输入客户名称进行搜索...' : isEs ? 'Escriba el nombre para buscar...' : 'Type name to search...',
     createClientTitle: isZh ? '快速新建客户档案' : isEs ? 'Creación Rápida de Cliente' : 'Quick Create Client',
-    newClientBtn: isZh ? '新建客户' : isEs ? 'Nuevo Cliente' : 'New Client', // 🌟 补上这个翻译
+    newClientBtn: isZh ? '新建客户' : isEs ? 'Nuevo Cliente' : 'New Client',
     clientTypeRegular: isZh ? 'Regular (零售)' : isEs ? 'Regular (Minorista)' : 'Regular (Retail)',
     clientTypeTaller: isZh ? 'Taller (修理厂)' : isEs ? 'Taller (Mecánico)' : 'Workshop',
     clientTypeMayorista: isZh ? 'Mayorista (批发商)' : isEs ? 'Mayorista (Distribuidor)' : 'Wholesaler',
+    isSpecialTaxpayer: isZh ? '标记为特殊纳税人 (需代扣 IVA)' : isEs ? 'Contribuyente Especial (Retención IVA)' : 'Special Taxpayer (VAT withholding)',
+    specialTaxpayerNotice: isZh ? '该客户为 SENIAT 特殊纳税人，依法需开具发票并代扣部分 IVA。' : isEs ? 'Cliente Especial (SENIAT). Requiere factura y retención de IVA.' : 'Special Taxpayer (SENIAT). Requires invoice and VAT withholding.',
     exitTitle: isZh ? '确认退出收银台？' : isEs ? '¿Salir de Caja?' : 'Exit POS?',
     exitMsg: isZh ? '当前收银台若有未结算商品，是否继续？' : isEs ? '¿Seguro? El carrito actual se perderá.' : 'Cart will be cleared. Continue?',
     toastStockError: isZh ? '库存不足' : isEs ? 'Stock insuficiente' : 'Insufficient stock',
@@ -860,15 +907,13 @@ const tExt = computed(() => {
     toastCheckoutSuccess: isZh ? '开单成功！单号:' : isEs ? '¡Venta exitosa! Nro:' : 'Checkout success! No:',
     toastCheckoutError: isZh ? '结账失败' : isEs ? 'Error al cobrar' : 'Checkout failed',
     toastReturnSuccess: isZh ? '退货成功' : isEs ? 'Devolución exitosa' : 'Return successful',
+    toastReturnError: isZh ? '退货失败' : isEs ? 'Error en la devolución' : 'Return failed',
     toastReprint: isZh ? '打印小票' : isEs ? 'Reimprimir ticket' : 'Reprint ticket',
     checkoutSuccessTitle: isZh ? '交易完成！' : isEs ? '¡Pago Exitoso!' : 'Payment Successful!',
     toastClientCreated: isZh ? '客户创建成功并已选中！' : isEs ? '¡Cliente creado y seleccionado!' : 'Client created and selected!',
     errorRequired: isZh ? '请输入客户名称' : isEs ? 'Ingrese el nombre del cliente' : 'Enter client name',
   }
 })
-
-// ... 剩下的 props, emits, refs, 逻辑函数保持完全一致 ...
-// (省略以节省字数，确保你只要覆盖 template 和 script 开头即可，但最好是全量替换)
 
 const props = defineProps({
   partsList: Array,
@@ -883,6 +928,7 @@ const emit = defineEmits(['add-to-cart', 'generate-quote', 'exit-pos', 'clear-ca
 
 const deskSearchQuery = ref('')
 const quoteClientName = ref('')
+const quoteClientId = ref(null)
 const paymentReference = ref('')
 const searchInputRef = ref(null)
 const selectedIndex = ref(0)
@@ -985,6 +1031,15 @@ const balanceRemaining = computed(() => {
 
 const isFullyPaid = computed(() => {
   return totalUsd.value > 0 && totalPaidUsd.value >= totalUsd.value
+})
+
+// 🌟 判断当前客户是否为特殊纳税人
+const currentClientIsSpecial = computed(() => {
+  if (!quoteClientName.value || !props.clientsList) return false
+  const client = props.clientsList.find(c =>
+    quoteClientId.value ? c.id === quoteClientId.value : c.name === quoteClientName.value
+  )
+  return client?.is_special_taxpayer || false
 })
 
 const handlePaymentKeydown = (e, channelKey) => {
@@ -1098,7 +1153,7 @@ const systemConfig = ref({ company_name: 'TOSTIYK (TK) - VENEZUELA', rif: 'J-000
 
 const fetchSystemSettings = async () => {
   try {
-    const res = await fetch(apiUrl('/api/settings'))
+    const res = await apiFetch('/api/settings')
     if (res.ok) {
       const data = await res.json()
       systemConfig.value = { ...systemConfig.value, ...data }
@@ -1123,6 +1178,9 @@ const shiftStats = ref({
   pagoMovil: { amount: 0, count: 0 },
   cashBs: { amount: 0, count: 0 },
   cashUsd: { amount: 0, count: 0 },
+  baseUsd: 0,
+  taxUsd: 0,
+  igtfUsd: 0,
   totalUsd: 0,
   totalCount: 0
 })
@@ -1148,20 +1206,38 @@ const totalUsdDiff = computed(() => {
 
 const submitShiftHandover = async () => {
   try {
+    const rate = Number(props.bcvRate) || 0
+    if (rate <= 0) {
+      showToast('❌ ' + tExt.value.toastShiftError, 'error')
+      return
+    }
+
+    const money = (n) => Number((Number(n) || 0).toFixed(2))
     const payload = {
-      system_card_pos: shiftStats.value.cardPos.amount * (props.bcvRate || 1),
-      system_pagomovil_usd: shiftStats.value.pagoMovil.amount * (props.bcvRate || 1),
-      system_cash_bs: shiftStats.value.cashBs.amount * (props.bcvRate || 1),
-      system_cash_usd: shiftStats.value.cashUsd.amount,
-      system_debt_usd: 0,
-      system_total_usd: shiftStats.value.totalUsd,
-      
-      actual_card_pos: actualCounts.value.cardPos || 0,
-      actual_pago_movil: actualCounts.value.pagoMovil || 0,
-      actual_cash_bs: actualCounts.value.cashBs || 0,
-      actual_cash_usd: actualCounts.value.cashUsd || 0,
-      
-      notes: handoverNotes.value
+      bcv_rate: rate,
+
+      system_base_amount_usd: money(shiftStats.value.baseUsd),
+      system_tax_amount_usd: money(shiftStats.value.taxUsd),
+      system_igtf_amount_usd: money(shiftStats.value.igtfUsd),
+
+      system_card_pos_bs: money(shiftStats.value.cardPos.amount * rate),
+      system_pago_movil_bs: money(shiftStats.value.pagoMovil.amount * rate),
+      system_cash_bs: money(shiftStats.value.cashBs.amount * rate),
+      system_cash_usd: money(shiftStats.value.cashUsd.amount),
+      system_zelle_usd: 0,
+      system_transfer_bs: 0,
+      system_usdt_usd: 0,
+      system_total_usd: money(shiftStats.value.totalUsd),
+
+      actual_card_pos_bs: money(actualCounts.value.cardPos),
+      actual_pago_movil_bs: money(actualCounts.value.pagoMovil),
+      actual_cash_bs: money(actualCounts.value.cashBs),
+      actual_cash_usd: money(actualCounts.value.cashUsd),
+      actual_zelle_usd: 0,
+      actual_transfer_bs: 0,
+      actual_usdt_usd: 0,
+
+      notes: handoverNotes.value || ''
     }
     const res = await apiFetch('/api/pos/shift-handover', { method: 'POST', body: JSON.stringify(payload) })
     if (!res.ok) throw new Error(tExt.value.toastShiftError)
@@ -1171,6 +1247,19 @@ const submitShiftHandover = async () => {
 }
 
 const previewModalVisible = ref(false)
+const pendingRequestId = ref(null)
+const makeRequestId = () => {
+  try {
+    return crypto.randomUUID()
+  } catch (e) {
+    return `req-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  }
+}
+// 关闭预览（返回修改/成功/取消）即视为放弃本次幂等键；
+// 停留在预览页重试时则复用同一个 request_id，避免重复扣库存。
+watch(previewModalVisible, (visible) => {
+  if (!visible) pendingRequestId.value = null
+})
 const isPreviewReady = ref(false)
 const helpModalVisible = ref(false)
 const toastMessage = ref('')
@@ -1200,8 +1289,9 @@ const openClientSearchModal = async () => {
   }
 }
 
-const selectClient = (name) => {
-  quoteClientName.value = name
+const selectClient = (client) => {
+  quoteClientName.value = client?.name || ''
+  quoteClientId.value = client?.id ?? null
   clientModalVisible.value = false
 }
 
@@ -1209,7 +1299,7 @@ const handleClientModalKeydown = (e) => {
   if (e.key === 'Enter') {
     const matched = filteredModalClients.value
     if (matched.length > 0) {
-      selectClient(matched[0].name)
+      selectClient(matched[0])
     } else if (clientFilterQuery.value.trim()) {
       prepareCreateClient(clientFilterQuery.value)
     }
@@ -1226,23 +1316,42 @@ const filteredModalClients = computed(() => {
 // 🌟 新建客户逻辑
 const newClientModalVisible = ref(false)
 const isSavingClient = ref(false)
+// 细化字段
 const newClientForm = ref({
   name: '',
-  rif_or_cedula: '',
-  phone: '',
+  rif_type: 'V',     // V, E, J, G
+  rif_number: '',    // 仅数字部分
+  phone: '',         // 仅10位数字部分
   client_type: 'Regular',
   address: '',
-  notes: ''
+  notes: '',
+  is_special_taxpayer: false
 })
+
+// 格式化手机号输入
+const formatPhoneNumber = (e) => {
+  let val = e.target.value.replace(/\D/g, '')
+  if (val.length > 10) val = val.slice(0, 10)
+  newClientForm.value.phone = val
+}
+
+// 格式化 RIF 输入
+const formatRifNumber = (e) => {
+  let val = e.target.value.replace(/\D/g, '')
+  if (val.length > 9) val = val.slice(0, 9)
+  newClientForm.value.rif_number = val
+}
 
 const prepareCreateClient = (nameToCreate) => {
   newClientForm.value = { 
     name: nameToCreate || '', 
-    rif_or_cedula: '', 
+    rif_type: 'V',
+    rif_number: '', 
     phone: '', 
     client_type: 'Regular', 
     address: '', 
-    notes: '' 
+    notes: '',
+    is_special_taxpayer: false
   }
   clientModalVisible.value = false 
   newClientModalVisible.value = true 
@@ -1253,16 +1362,32 @@ const saveNewClient = async () => {
     showToast(tExt.value.errorRequired, 'error')
     return
   }
+  
+  // 组装提交格式
+  const finalRif = newClientForm.value.rif_number ? `${newClientForm.value.rif_type}-${newClientForm.value.rif_number}` : ""
+  const finalPhone = newClientForm.value.phone ? `+58${newClientForm.value.phone}` : ""
+  
+  const payload = {
+    name: newClientForm.value.name,
+    rif_or_cedula: finalRif,
+    phone: finalPhone,
+    client_type: newClientForm.value.client_type,
+    address: newClientForm.value.address,
+    notes: newClientForm.value.notes,
+    is_special_taxpayer: newClientForm.value.is_special_taxpayer
+  }
+
   isSavingClient.value = true
   try {
     const res = await apiFetch('/api/clients', {
       method: 'POST',
-      body: JSON.stringify(newClientForm.value)
+      body: JSON.stringify(payload)
     })
     if (res.ok) {
       const data = await res.json()
       newClientModalVisible.value = false
       quoteClientName.value = data.name
+      quoteClientId.value = data.id ?? null
       
       showToast('✅ ' + tExt.value.toastClientCreated, 'success')
       
@@ -1373,6 +1498,7 @@ const holdCurrentOrder = async () => {
     if (res.ok) {
       props.cartItems.splice(0, props.cartItems.length)
       quoteClientName.value = ''
+      quoteClientId.value = null
       showToast('📌 ' + tExt.value.toastHoldSuccess, 'success')
       fetchHeldOrders()
     }
@@ -1392,7 +1518,9 @@ const recallOrder = (order) => {
   try {
     const parsedItems = JSON.parse(order.items_json)
     props.cartItems.splice(0, props.cartItems.length, ...parsedItems)
+    const matchedClient = props.clientsList?.find(c => c.name === order.client_name)
     quoteClientName.value = order.client_name
+    quoteClientId.value = matchedClient?.id ?? null
     apiFetch(`/api/held-orders/${order.id}`, { method: 'DELETE' }).then(() => fetchHeldOrders())
     recallModalVisible.value = false
     showToast('✅ ' + tExt.value.toastRecallSuccess, 'success')
@@ -1411,15 +1539,21 @@ const fetchCompletedOrders = async () => {
     const ordersData = await res.json()
     completedOrders.value = ordersData
 
-    const todayStr = new Date().toLocaleDateString('en-CA') 
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })
 
     let cardAmtCents = 0, pUsdCents = 0, cBsCents = 0, cUsdCents = 0, tUsdCents = 0
+    let baseCents = 0, taxCents = 0, igtfCents = 0
     let todayOrderCount = 0
 
     ordersData.forEach(o => {
+      // 已退货订单不计入班结营收/支付渠道统计
+      if (o.status === 'REFUNDED') return
       if (o.time && o.time.startsWith(todayStr)) {
         const amtCents = Math.round(o.totalUsd * 100)
         tUsdCents += amtCents
+        baseCents += Math.round((o.baseAmountUsd || 0) * 100)
+        taxCents += Math.round((o.taxAmountUsd || 0) * 100)
+        igtfCents += Math.round((o.igtfAmountUsd || 0) * 100)
         todayOrderCount++
         if (o.paymentMethod === 'Card_POS') cardAmtCents += amtCents
         else if (o.paymentMethod === 'Pago_Movil') pUsdCents += amtCents
@@ -1433,6 +1567,9 @@ const fetchCompletedOrders = async () => {
       pagoMovil: { amount: pUsdCents / 100, count: 0 },
       cashBs: { amount: cBsCents / 100, count: 0 },
       cashUsd: { amount: cUsdCents / 100, count: todayOrderCount },
+      baseUsd: baseCents / 100,
+      taxUsd: taxCents / 100,
+      igtfUsd: igtfCents / 100,
       totalUsd: tUsdCents / 100,
       totalCount: todayOrderCount
     }
@@ -1450,9 +1587,18 @@ const openHistoryModal = async () => { await fetchCompletedOrders(); historyModa
 const openShiftReportModal = async () => { await fetchCompletedOrders(); shiftReportModalVisible.value = true }
 const reprintOrderTicket = (order) => { showToast(`🖨️ ${tExt.value.toastReprint} #${order.orderId}`, 'success') }
 const processReturnOrder = async (dbId) => {
-  await apiFetch(`/api/pos/orders/${dbId}/refund`, { method: 'POST' })
-  showToast('🔄 ' + tExt.value.toastReturnSuccess, 'success')
-  fetchCompletedOrders()
+  try {
+    const res = await apiFetch(`/api/pos/orders/${dbId}/refund`, { method: 'POST' })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      showToast('❌ ' + (err.detail || tExt.value.toastReturnError), 'error')
+      return
+    }
+    showToast('🔄 ' + tExt.value.toastReturnSuccess, 'success')
+    fetchCompletedOrders()
+  } catch (e) {
+    showToast('❌ ' + tExt.value.toastReturnError, 'error')
+  }
 }
 
 const confirmExitPos = () => { exitConfirmVisible.value = true }
@@ -1460,6 +1606,7 @@ const executeExitPos = () => { exitConfirmVisible.value = false; emit('exit-pos'
 
 const openPreviewModal = () => { 
   if (props.cartItems.length === 0 || !isFullyPaid.value || isSubmitting.value) return
+  if (!pendingRequestId.value) pendingRequestId.value = makeRequestId()
   previewModalVisible.value = true
   isPreviewReady.value = false
   setTimeout(() => {
@@ -1488,6 +1635,8 @@ const confirmAndPrint = async () => {
 
     const payload = {
       client_name: quoteClientName.value || "Cliente General",
+      client_id: quoteClientId.value || null,
+      request_id: pendingRequestId.value || makeRequestId(),
       payment_method: dominantMethod,
       payment_reference: paymentReference.value,
       bcv_rate: props.bcvRate,
@@ -1506,6 +1655,7 @@ const confirmAndPrint = async () => {
     showToast(`✅ ${tExt.value.toastCheckoutSuccess} ${data.order_no}`, 'success')
     paymentReference.value = ''
     quoteClientName.value = ''
+    quoteClientId.value = null
     emit('generate-quote')
     fetchCompletedOrders()
   } catch (err) { 

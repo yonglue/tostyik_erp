@@ -3,7 +3,7 @@
 // 库存/客户/流水/报价/看板数据与取数函数。
 
 import { computed, ref } from 'vue'
-import { apiFetch } from '../utils/api'
+import { apiFetch, AUTH_CURRENT_USER_KEY } from '../utils/api'
 
 const bcvRate = ref(36.50)
 const partsList = ref([])
@@ -31,7 +31,7 @@ async function safeJson(url) {
 // 🌟 辅助函数：从 localStorage 检查当前用户是否具备指定权限
 const checkUserPermission = (permKey) => {
   try {
-    const stored = localStorage.getItem('tostiyk_current_user')
+    const stored = localStorage.getItem(AUTH_CURRENT_USER_KEY)
     if (!stored) return false
     const user = JSON.parse(stored)
     const role = user.role || 'staff'

@@ -5,6 +5,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select, update
 
 from app.database import get_session
@@ -43,7 +44,10 @@ def create_purchase_order(
         line_total = (d_price * d_qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         total_amount_cents += int(line_total * 100)
         
-        items_snapshot.append(item.model_dump())
+        # MoneyType 是 Decimal，json.dumps 不能直接序列化
+        snapshot = item.model_dump()
+        snapshot["unit_price"] = float(item.unit_price)
+        items_snapshot.append(snapshot)
 
     total_amount_usd = total_amount_cents / 100
     po_no = make_po_no()
@@ -56,7 +60,11 @@ def create_purchase_order(
         items_json=json.dumps(items_snapshot, ensure_ascii=False),
     )
     session.add(po)
+    session.commit()
+    session.refresh(po)
+    po_id = po.id
 
+    # 业务先落库，再写审计；审计失败 rollback 不会回滚采购单。
     log_action(
         session=session,
         username=actor.username,
@@ -65,9 +73,7 @@ def create_purchase_order(
         details=f"创建采购单: {po_no}, 供应商: {supplier_name}, 预估总价: ${total_amount_usd:.2f}",
     )
 
-    session.commit()
-    session.refresh(po)
-    return {"status": "success", "po_id": po.id, "po_no": po_no, "message": "采购订单创建成功（待收货入库）"}
+    return {"status": "success", "po_id": po_id, "po_no": po_no, "message": "采购订单创建成功（待收货入库）"}
 
 
 @router.post("/api/purchase-orders/{po_id}/receive")
@@ -117,20 +123,39 @@ def receive_purchase_order(
             line_total = (d_price * d_qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             total_order_amount_cents += int(line_total * 100)
 
-            part = session.exec(select(AutoPart).where(AutoPart.oem == oem)).first()
+            brand = (item_dict.get("brand") or "").strip()
+            if brand:
+                part = session.exec(
+                    select(AutoPart).where(AutoPart.oem == oem, AutoPart.brand == brand)
+                ).first()
+            else:
+                # 老采购单没有 brand：只有 OEM 唯一时才允许猜，否则拒绝以免误改多品牌库存
+                matches = session.exec(select(AutoPart).where(AutoPart.oem == oem)).all()
+                if len(matches) > 1:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"OEM [{oem}] 存在多个品牌，采购单缺少 brand，无法确定入库商品；"
+                            "请重新创建采购单并补充品牌"
+                        ),
+                    )
+                part = matches[0] if matches else None
 
             if part:
                 # 🌟 核心修复 3：只增加库存，【绝对不要】覆盖原零售价！成本价应记录在流水或单独字段里。
-                session.exec(
+                changed = session.exec(
                     update(AutoPart)
-                    .where(AutoPart.oem == oem)
+                    .where(AutoPart.id == part.id)
                     .values(stock=AutoPart.stock + quantity)
                 )
+                if changed.rowcount != 1:
+                    raise HTTPException(status_code=409, detail=f"商品 {oem} 已变更，请重试")
             else:
                 # 库里还没有这个配件时自动建档，此时没有售价，暂时把进货价当作售价占位
                 session.add(AutoPart(
                     name=name,
                     oem=oem,
+                    brand=brand or "GENERAL",
                     stock=quantity,
                     price=unit_price, 
                 ))
@@ -178,6 +203,12 @@ def receive_purchase_order(
     except HTTPException:
         session.rollback()
         raise
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="商品档案冲突（OEM + 品牌已存在），请刷新后重试",
+        )
     except Exception as e:
         session.rollback()
         print(f"❌ 采购收货发生严重异常，已执行事务回滚。错误详情: {e}")

@@ -3,17 +3,85 @@
 // 统一请求层：
 //  * 后端地址由 .env 的 VITE_API_BASE 控制，组件里不再硬编码 localhost:8000
 //  * 登录后自动携带 Authorization: Bearer <token>
+//  * 401 不再“一票否决”直接清 Token：先调用 /api/auth/me 复核，
+//    只有确认 Token 失效才清理登录态并通知 UI 回到登录页。
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 /** 相对路径拼成完整地址；已是 http(s) 绝对地址则原样返回 */
 export const apiUrl = (url) => (url?.startsWith('http') ? url : `${API_BASE}${url}`)
 
-const TOKEN_KEY = 'tostiyk_token'
+// 登录页、请求层、员工/用户缓存必须共用同一套键名
+export const AUTH_TOKEN_KEY = 'tostiyk_token'
+export const AUTH_LOGGED_IN_KEY = 'tostiyk_logged_in'
+export const AUTH_USERNAME_KEY = 'tostiyk_username'
+export const AUTH_CURRENT_USER_KEY = 'tostiyk_current_user'
 
-export const getToken = () => localStorage.getItem(TOKEN_KEY) || ''
-export const setToken = (token) => localStorage.setItem(TOKEN_KEY, token)
-export const clearToken = () => localStorage.removeItem(TOKEN_KEY)
+/** 401 复核失败后广播；useAuth 监听后把 isLoggedIn 置 false，显示登录页 */
+export const AUTH_EXPIRED_EVENT = 'tostiyk:auth-expired'
+
+const AUTH_PUBLIC_PATHS = ['/api/auth/login', '/api/auth/reset-admin']
+
+export const getToken = () => localStorage.getItem(AUTH_TOKEN_KEY) || ''
+
+export const setToken = (token) => {
+  if (token) localStorage.setItem(AUTH_TOKEN_KEY, token)
+}
+
+export const clearToken = () => localStorage.removeItem(AUTH_TOKEN_KEY)
+
+/** 清理本地登录态；仅由“确认失效”或主动退出调用 */
+export const clearAuthStorage = () => {
+  localStorage.removeItem(AUTH_TOKEN_KEY)
+  localStorage.removeItem(AUTH_LOGGED_IN_KEY)
+  localStorage.removeItem(AUTH_USERNAME_KEY)
+  localStorage.removeItem(AUTH_CURRENT_USER_KEY)
+}
+
+const requestPath = (url) => {
+  try {
+    return new URL(url, window.location.origin).pathname
+  } catch (e) {
+    return String(url || '').split('?')[0]
+  }
+}
+
+const isAuthPublicPath = (url) => AUTH_PUBLIC_PATHS.includes(requestPath(url))
+
+// 同一时刻的多个 401 只发一次 /api/auth/me 复核
+let sessionCheckPromise = null
+
+const verifySessionToken = (tokenToCheck) => {
+  if (!sessionCheckPromise) {
+    sessionCheckPromise = fetch(apiUrl('/api/auth/me'), {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${tokenToCheck}` },
+      cache: 'no-store'
+    })
+      .then((res) => {
+        if (res.ok) return true
+        if (res.status === 401) return false
+        return null // 后端异常/404/网络问题：不据此踢人
+      })
+      .catch(() => null)
+      .finally(() => {
+        sessionCheckPromise = null
+      })
+  }
+  return sessionCheckPromise
+}
+
+const notifyAuthExpired = () => {
+  // 已经清理过（同一批并发 401 的后到者）就不再重复广播
+  const hasSessionMarkers =
+    !!getToken() || localStorage.getItem(AUTH_LOGGED_IN_KEY) === 'true'
+  if (!hasSessionMarkers) return
+
+  clearAuthStorage()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT))
+  }
+}
 
 export const apiFetch = async (url, options = {}) => {
   const token = getToken()
@@ -32,10 +100,20 @@ export const apiFetch = async (url, options = {}) => {
     headers
   })
 
-  // 令牌无效 / 过期：清理本地登录态，由调用方跳回登录页
-  if (response.status === 401) {
-    clearToken()
-    localStorage.removeItem('tostiyk_logged_in')
+  // 登录/重置接口的 401 属于“凭证错误”，不能影响现有登录态
+  if (response.status === 401 && !isAuthPublicPath(url)) {
+    if (!token) {
+      // 没有 Token 但本地仍标记已登录：属于半登录脏状态，直接回登录页
+      if (localStorage.getItem(AUTH_LOGGED_IN_KEY) === 'true') {
+        notifyAuthExpired()
+      }
+    } else {
+      // 关键：个别接口 401 不代表 Token 失效，必须用 /api/auth/me 复核
+      const valid = await verifySessionToken(token)
+      if (valid === false && getToken() === token) {
+        notifyAuthExpired()
+      }
+    }
   }
 
   return response

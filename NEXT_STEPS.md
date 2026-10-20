@@ -1383,3 +1383,172 @@ cd frontend && npm run build
 | 14 | 文件型测试库 | 并发崩溃消失(8/12 → 3/10 失败) |
 | 15 | 原子扣减 | 抢单用例 10/10 通过,完整套件连续 3 轮稳定 47 passed |
 | 16 | lifespan | 未单独验证,属可选加固 |
+
+
+
+
+
+## 20-10-2026
+
+
+
+第一批（1、4、5）已经完成。
+
+**1｜交接班键名对齐与显式 Schema**
+- [schemas.py](app/schemas.py#L102) 新增 `ShiftHandoverPayload`，所有金额字段强制带币种后缀：`*_usd` 表示美元，`*_bs` 表示玻利瓦尔；字段全部必填，缺字段直接 422，不再静默按 0 落库。
+- [models.py](app/models.py#L212) 为 `CashRegisterSession` 补上缺失的 `system_card_pos`、`system_cash_bs`、`actual_card_pos`、`actual_cash_bs` 四列。
+- [pos.py](app/routers/pos.py#L362) 交接班改为显式字段映射：`actual_*` 只从 `actual_*` 读取，不再复制 `system_*`；同时移除了大范围 `try/except`。
+- [QuotationDeskView.vue](frontend/src/components/QuotationDeskView.vue#L1203) 前端按新键名提交，并补充 Base/IVA/IGTF 的当班汇总；汇率未加载时阻止提交。
+
+**4｜多品牌唯一键与 `part_id`**
+- [models.py](app/models.py#L27) 为 `AutoPart` 增加 `(oem, brand)` 唯一索引。
+- [pos.py](app/routers/pos.py#L31) 新增 `_resolve_part`：同一 OEM 多品牌时按 brand 唯一定位，无法唯一定位返回 400；扣库存改为 `WHERE id = part_id`，并用 `rowcount == 1` 判断。
+- [models.py](app/models.py#L165) `OrderItem` 新增 `part_id`，下单时写入；退款优先按 `part_id` 精确回补，老订单没有 `part_id` 时才回退到 OEM 匹配，匹配不唯一则 409 中止。
+- [parts.py](app/routers/parts.py#L27) 新增/编辑商品先做 `(oem, brand)` 冲突检查，并捕获 `IntegrityError` 返回 409。
+- [exports.py](app/routers/exports.py#L118) CSV 导入改为按 `(oem, brand)` 查找/建档，并捕获唯一键冲突。
+
+**5｜金额与汇率防呆**
+- [schemas.py](app/schemas.py#L82) `POSItemPayload.price` 改为 `gt=0`；`POSOrderCreatePayload.bcv_rate` 改为 `gt=0`；`igtf_amount` 改为 `ge=0`。
+- [pos.py](app/routers/pos.py#L141) 路由层再做一次兜底校验：单价 > 0、汇率 > 0、IGTF 非负且不超过货款的 3%（含 0.01 舍入容差）。
+
+**迁移与验证**
+- 新增迁移 [9f3c1a7b2d4e_pos_batch1_unique_partid_shift.py](alembic/versions/9f3c1a7b2d4e_pos_batch1_unique_partid_shift.py)，兼容空库、已有库和重复执行；真实库已升级到 `head`，迁移前备份在 `/tmp/tostiyk_erp_batch1_backup.db`。
+- 在空库、现有库副本上分别验证了 `upgrade → downgrade → upgrade`，均通过。
+- 新增 5 个回归用例，覆盖多品牌扣/退库存隔离、歧义 OEM 拒绝、单价/IGTF/汇率校验、交接班实盘与系统分开落库、重复 `(oem, brand)` 拦截：`5 passed`。
+- `npm run build` 通过；`app.main.bootstrap()` 启动通过。
+- 全量 `test_erp.py` 仍有 44 个历史失败，主要是测试夹具 `drop_all` 后未重建 admin，导致所有 `AUTH_ADMIN` 请求 401；失败数量与本批改动前一致，新增的 5 个用例单独运行全绿。
+
+**下一批前的已知遗留**
+`purchase_orders.py` 和 `transactions.py` 里仍存在按 `oem` 直接 `UPDATE AutoPart` 的路径，多品牌场景下会误改所有品牌行。这属于第 4 点的延伸，建议放在下一批（或你发对应模块时）一起处理。
+
+可以发下一批了。
+
+
+
+
+
+第二批已完成（2、3、10，外加 `purchase_orders` / `transactions` 的多品牌库存隐患）。
+
+**2｜退款净额与班结过滤**
+- [reports.py](app/routers/reports.py#L26) 新增 `_is_refund` / `_sales_delta` / `_cost_delta`：`OUT` 记正，`REFUND`（或旧版 `IN + 退货回滚-` 前缀）记负；看板营业额、财务营收/成本/毛利、销售总览、商品销量、历史 SKU 全部改为净额。
+- [pos.py](app/routers/pos.py#L302) 退款流水改为独立类型 `type="REFUND"`。
+- 新迁移 [b7d2e4f6a8c1_pos_batch2_clientid_refund_type.py](alembic/versions/b7d2e4f6a8c1_pos_batch2_clientid_refund_type.py) 会把历史 `IN + 退货回滚-` 流水统一改成 `REFUND`。
+- 班结统计过滤已退货单：[QuotationDeskView.vue](frontend/src/components/QuotationDeskView.vue#L1536)、[CashRegisterView.vue](frontend/src/components/CashRegisterView.vue#L182)、[FinancialView.vue](frontend/src/components/FinancialView.vue#L228) 均跳过 `status === 'REFUNDED'` 的订单。
+- [TransactionsView.vue](frontend/src/components/TransactionsView.vue#L66) 增加“退款”类型标签，并隐藏退款流水的删除按钮；后端 [transactions.py](app/routers/transactions.py#L121) 也只允许删除手工 `IN/OUT` 流水。
+
+**3｜挂账与信用额度**
+- [models.py](app/models.py#L135) `Order` 新增 `client_id`，迁移同步加列和索引。
+- [pos.py](app/routers/pos.py#L52) 下单优先用 `client_id` 精确查客户；不存在返回 404；未传 id 时按姓名匹配，同名多客户且为挂账则 400。
+- 挂账前校验 `client.debt + total_usd > client.credit_limit`，并用条件 `UPDATE ... WHERE debt + total <= credit_limit` 兜住并发；失败统一回滚库存/订单。
+- 退款按 `order.client_id` 精确反减；只有老订单没有 `client_id` 时才回退按姓名匹配，匹配不唯一返回 409。
+- [QuotationDeskView.vue](frontend/src/components/QuotationDeskView.vue#L931) 增加 `quoteClientId`，选择客户、新建客户、召回挂单、结账、清空客户时都会同步维护，结账 payload 已带 `client_id`（[L1624](frontend/src/components/QuotationDeskView.vue#L1624)）。
+
+**10｜审计事务与防重复扣库存**
+- [audit.py](app/services/audit.py#L8) `log_action` 异常时执行 `session.rollback()`，不再把 Session 留在 needs-rollback 状态。
+- [pos.py](app/routers/pos.py#L252) 在 `commit()` 前取出 `order_id`；退款在 commit 前取出 `order_no`，审计失败也不会再抛 `PendingRollbackError`。
+- 调整了所有“先审计、后提交”的调用点：[clients.py](app/routers/clients.py#L59) 还款、[purchase_orders.py](app/routers/purchase_orders.py#L80) 创建采购单都改为业务先 commit，再写审计。
+
+**顺手修复**
+- [transactions.py](app/routers/transactions.py#L18) 手工出入库不再按 OEM 批量更新：OEM 多品牌时返回 400，唯一时按 `part.id` 精确更新；同时拒绝负数数量与非手工类型的删除。
+- [purchase_orders.py](app/routers/purchase_orders.py#L80) 收货支持可选的 `brand`；老采购单没有 brand 且 OEM 多品牌时返回 400，不再误改所有品牌行。
+- 顺带修复了采购单明细 `MoneyType`（Decimal）无法 `json.dumps` 的 500 问题。
+
+**迁移与验证**
+- 真实库已升级到 `b7d2e4f6a8c1 (head)`，迁移前备份在 `/tmp/tostiyk_erp_batch2_backup.db`。
+- 在空库、现有库副本上验证了 `upgrade → downgrade → upgrade`，并验证历史退款流水会从 `IN` 转为 `REFUND`。
+- 累计 10 个回归用例全部通过（上批 5 个 + 本批 5 个），覆盖退款净额、挂账额度、`client_id` 改名后退款、审计提交失败、采购多品牌、手工流水多品牌。
+- `npm run build` 通过；`app.main.bootstrap()` 启动通过。
+- 全量 `test_erp.py` 仍为 44 个历史失败、28 个通过；失败原因仍是测试夹具 drop 表后未重建 admin 导致 401，与本批改动无关。
+
+**已知边界**
+- 前端班结统计按订单日期取数，跨日退款在日报/财务接口已按 `REFUND` 流水时间扣减，但班结的支付渠道拆分尚未按退款流水回冲（需要给退款流水补 `order_id` / `payment_method` 才能精确到渠道）。
+- 手工流水目前没有 `brand` 字段，多品牌 OEM 会被明确拒绝；后续若要支持，需要给该接口补 `brand` 或 `part_id`。
+
+可以发下一批了。
+
+
+
+
+
+临时文件已清理完毕：`/tmp/tostiyk*` 已无残留；真实库仍在迁移 head `c3e5f7a9b1d2`。新增的 16 个回归用例全部通过，全量套件仍为 34 passed / 44 个既有鉴权夹具失败。
+
+以下内容可直接转给团队：
+
+---
+
+## 上线注意事项｜Tostiyk ERP POS 模块
+
+### 1. 数据库迁移（上线前必做）
+- **先完整备份生产库** `tostiyk_erp.db`，再启动服务。
+- 启动时会自动执行 `alembic upgrade head`，当前迁移版本：**`c3e5f7a9b1d2`**；也可手动执行 `alembic upgrade head`。
+- 本次迁移包含：
+  - `orders.client_id`、`orders.request_id`（唯一索引，幂等键）
+  - `order_items.part_id`
+  - 交接班新增卡机 / 本币现金列
+  - 历史退款流水由 `IN` 统一修正为 `REFUND`
+  - `autopart (oem, brand)` 唯一索引
+- 若启动日志提示存在重复的 `(oem, brand)`，先清理重复商品再重启；当前库已检查无重复。
+- 结构回滚可用 `alembic downgrade -1`；历史退款类型数据不会自动回退。
+
+### 2. 员工权限（必须重新勾选）
+- 新增权限：**`pos:refund`（执行退货）**。
+- 按岗位重新勾选：
+  - 收银员：`pos:access`、`pos:checkout`、`pos:hold`
+  - 主管/店长：额外勾选 `pos:refund`、`shift:report`
+- 未勾选会直接返回 403；管理员账号不受影响。
+- 建议：退款权限只给主管或店长，不要默认全开。
+
+### 3. 前端发布
+- 本次前端有改动，必须重新 `npm run build` 并部署，员工浏览器强制刷新/清缓存。
+- 旧前端仍可正常下单，但不会发送 `request_id`，无法享受重复提交保护。
+
+### 4. 收银操作变化
+- 结账现在带幂等键：同一笔结算重复点击/网络重试，只会生成一张订单、只扣一次库存。
+- 退款统一走订单的“退货”按钮；退款流水类型为 `REFUND`，**不能在进销存页面手工删除**。
+- 挂单、交接班、订单日期统一按**委内瑞拉时区（UTC-4）**。
+- 订单历史接口最多返回最近 **200 条**；单日超过 200 单时，前端班结统计可能被截断，建议当天分次交接或后续增加汇总接口。
+
+### 5. 上线后 5 分钟验收
+- 开单 → 退款 → 看板营业额/毛利应回到 0。
+- 挂账超信用额度应被拒绝；额度内成功，退款后欠款恢复。
+- 同一请求重复提交只产生一张订单，库存只扣一次。
+- 挂单/交接班时间与委内瑞拉当地时间一致。
+
+---
+建议把这条也发给团队：**“上线前请在生产环境重新做一次数据库备份；本地临时备份已清理，不再保留。”**
+
+
+
+已定位并修复。核心原因不是 `/api/settings` 或 `/api/clients` 需要超额权限，而是**任意一个接口返回 401 时，`api.js` 会直接清空 Token，但 `isLoggedIn` 仍保持 true**，于是页面既不回登录页，后续请求又全部不带 Token，形成“永久 401”的死循环。
+
+**后端鉴权检查结果**
+- [settings.py](app/routers/settings.py#L50)：`GET /api/settings` 只要求有效登录（`get_current_actor`），没有额外权限要求。
+- [clients.py](app/routers/clients.py#L20)：`GET /api/clients` 要求 `clients:view`。带有效 Token 且有该权限时返回 200；只有 `pos:access` 时返回 **403**（不是 401）。如果收银员需要选客户，请授予 `clients:view`，这不是管理员级权限。
+- 新增 [auth.py](app/routers/auth.py#L141) `GET /api/auth/me`，用于前端轻量校验 Token 并拉取最新角色/权限。
+
+**前端 401 处理修复**
+- [api.js](frontend/src/utils/api.js#L54)：401 不再直接清 Token，而是先调用 `/api/auth/me` 复核：
+  - `/me` 也 401 → 确认失效，才清理登录态并广播 `tostiyk:auth-expired`。
+  - `/me` 返回 200 → 说明只是该接口的个别问题，保留 Token。
+  - `/me` 网络异常/404/500 → 不踢人，避免后端抖动导致全员掉线。
+  - 登录/重置接口的 401 不触碰现有登录态。
+- [useAuth.js](frontend/src/composables/useAuth.js#L54)：监听失效事件，把 `isLoggedIn` 置 false，登录页正常出现，并提示“登录已过期”。
+- [useAuth.js](frontend/src/composables/useAuth.js#L39)：启动时只有“已登录标记 + 真实 Token”同时存在才算登录；半登录脏状态会被清理。
+- [App.vue](frontend/src/App.vue#L771)：未登录时不再请求受保护接口；刷新页面先校验 Token，再加载业务数据；登录成功后自动刷新数据。
+- [QuotationDeskView.vue](frontend/src/components/QuotationDeskView.vue#L1156)：原来用裸 `fetch(apiUrl('/api/settings'))`，不带 Authorization，已改为 `apiFetch`。这是进入 POS 时 `/api/settings` 报 401 的直接原因之一。
+- [useInventory.js](frontend/src/composables/useInventory.js) 也改用统一的用户缓存键名。
+
+**Token 键名检查**
+- 登录保存走 `setToken(data.access_token)`，键名是 `tostiyk_token`；`api.js` 读取的也是同一个键。
+- 现在四个键名全部集中在 [api.js](frontend/src/utils/api.js#L15) 导出，`useAuth` / `useInventory` 不再手写字符串，已用全局搜索确认无遗漏。
+- 登录响应缺少 `access_token` 时会明确报错，不再写入 `undefined`。
+
+**验证**
+- 新增后端用例覆盖：无 Token 401、坏 Token 401、有效管理员 Token 通过 `/api/auth/me` + `/api/settings` + `/api/clients`、`clients:view` 员工通过、`pos:access` 员工对 `/api/clients` 得到 403。用例通过。
+- 用 Node 模拟验证了 401 拦截器 5 种场景（有效 Token / 失效 Token / `/me` 500 / 登录失败 / 半登录状态），全部符合预期。
+- 全量后端套件：**35 passed / 44 个既有鉴权夹具失败**（与本次无关）。
+- `npm run build` 通过。
+
+**部署提醒**
+- 本次无数据库迁移；需要**重启后端**以加载 `/api/auth/me`，并**重新 build/部署前端**。
+- 部署后如果用户原本 Token 已过期，会被正常引导回登录页，重新登录即可，不会再出现“页面还在、Token 没了”的半死状态。

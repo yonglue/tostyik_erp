@@ -10,6 +10,7 @@ from typing import List, Optional
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.config import UPLOAD_DIR
@@ -22,6 +23,20 @@ router = APIRouter(tags=["配件"])
 
 # 🌟 防护：限制允许上传的图片后缀
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+def _ensure_unique_oem_brand(
+    session: Session, oem: str, brand: str, exclude_id: Optional[int] = None
+) -> None:
+    """(oem, brand) 是库存唯一键，重复建档会让按 OEM 的批量操作再次出现歧义。"""
+    stmt = select(AutoPart).where(AutoPart.oem == oem, AutoPart.brand == brand)
+    if exclude_id is not None:
+        stmt = stmt.where(AutoPart.id != exclude_id)
+    if session.exec(stmt).first():
+        raise HTTPException(
+            status_code=409,
+            detail=f"OEM {oem} + 品牌 {brand} 的商品已存在，请直接修改该商品",
+        )
+
 
 def _save_uploaded_files(files: List[UploadFile]) -> List[str]:
     """安全地保存上传文件，返回访问路径"""
@@ -66,6 +81,7 @@ def create_part(
     session: Session = Depends(get_session),
 ):
     image_paths = _save_uploaded_files(files)
+    _ensure_unique_oem_brand(session, oem, brand)
     
     # 🌟 精度处理
     d_price = Decimal(price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -84,7 +100,14 @@ def create_part(
         image_url=json.dumps(image_paths) if image_paths else "",
     )
     session.add(new_part)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"OEM {oem} + 品牌 {brand} 的商品已存在",
+        )
 
     log_action(
         session=session,
@@ -122,6 +145,8 @@ def update_part(
         image_paths = _save_uploaded_files(files)
         part.image_url = json.dumps(image_paths)
 
+    _ensure_unique_oem_brand(session, oem, brand, exclude_id=part_id)
+
     d_price = Decimal(price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     d_tax_rate = Decimal(tax_rate)
 
@@ -136,7 +161,14 @@ def update_part(
     part.cross_references = cross_references
 
     session.add(part)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"OEM {oem} + 品牌 {brand} 的商品已存在",
+        )
 
     log_action(
         session=session,

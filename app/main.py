@@ -149,3 +149,27 @@ app.include_router(staff.router)
 @app.get("/")
 def read_root():
     return {"message": "TOSTIKYK ERP API is running", "version": __version__}
+
+
+
+from fastapi import Request, status
+from fastapi.responses import JSONResponse
+import traceback
+
+@app.middleware("http")
+async def catch_exceptions_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        # 打印完整的报错堆栈到后端终端
+        print("=== 后端捕获到未处理异常 ===")
+        traceback.print_exc()
+        # 即使报错也强制带上 CORS 响应头，让前端能看到具体的错误内容
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": str(e)},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )

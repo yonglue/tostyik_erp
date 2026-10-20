@@ -160,7 +160,7 @@ const tExt = computed(() => {
 })
 
 const bcvRate = ref(881.8769) // 可以动态从接口获取，或者从父组件传入
-const todayStr = new Date().toLocaleDateString('en-CA')
+const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })
 const selectedDate = ref(todayStr)
 
 const shiftRecords = ref([])
@@ -179,10 +179,11 @@ const fetchData = async () => {
     const posRes = await apiFetch('/api/pos/orders')
     if (posRes.ok) {
       const orders = await posRes.json()
+      const activeOrders = orders.filter(o => o.status !== 'REFUNDED')
       let tRev = 0, tQty = 0, sRev = 0
       let pSplit = { cashUsd: 0, zelle: 0, pagoMovil: 0, transferBs: 0, usdt: 0 }
       
-      orders.forEach(o => {
+      activeOrders.forEach(o => {
         const isToday = o.time && o.time.startsWith(selectedDate.value)
         const rev = o.totalUsd || 0
         
@@ -201,7 +202,7 @@ const fetchData = async () => {
       summary.value = {
         selectedRevenue: selectedDate.value ? sRev : tRev,
         totalRevenue: tRev,
-        totalOrders: orders.length,
+        totalOrders: activeOrders.length,
         totalQty: tQty
       }
       paymentSplit.value = pSplit

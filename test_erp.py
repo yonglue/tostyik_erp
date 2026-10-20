@@ -2,7 +2,7 @@
 import pytest
 import concurrent.futures
 from fastapi.testclient import TestClient
-from sqlmodel import SQLModel, create_engine, Session
+from sqlmodel import SQLModel, create_engine, Session, select
 from main import app, get_session, AutoPart, Client, StaffUser, AuditLog, InventoryTransaction
 from datetime import datetime
 import concurrent.futures
@@ -1541,3 +1541,794 @@ def test_pos_overpayment_change_validation():
     assert data.get("status") == "success"
     assert "order_no" in data
 
+
+# ══════════════════ POS 批次 1：多品牌 / 防呆 / 交接班回归 ══════════════════
+
+def _seed_admin_for_auth():
+    """deps.get_current_actor 会实时查库，测试库被 drop 后必须重新播种 admin。"""
+    from app.models import AdminUser
+    from app.security import hash_password
+
+    with Session(test_engine) as session:
+        session.add(AdminUser(
+            username="admin",
+            password_hash=hash_password("test-admin"),
+            role="super_admin",
+        ))
+        session.commit()
+
+
+def test_pos_multibrand_stock_isolation_and_refund_by_part_id():
+    """同一 OEM 的两个品牌：开单只扣对应品牌，退货只回补对应品牌并记录 part_id。"""
+    from app.models import AutoPart as Part, OrderItem as Item
+
+    _seed_admin_for_auth()
+    with Session(test_engine) as session:
+        toyota = Part(oem="MULTI-01", name="多品牌件-T", brand="Toyota",
+                      stock=10, price=100.0, tax_rate=0.16)
+        ford = Part(oem="MULTI-01", name="多品牌件-F", brand="Ford",
+                    stock=5, price=100.0, tax_rate=0.16)
+        session.add(toyota)
+        session.add(ford)
+        session.commit()
+        toyota_id = toyota.id
+        ford_id = ford.id
+
+    res = client.post("/api/pos/orders", json={
+        "client_name": "Cliente General",
+        "payment_method": "Cash_USD",
+        "bcv_rate": 100.0,
+        "items": [{
+            "oem": "MULTI-01", "name": "多品牌件-T", "brand": "Toyota",
+            "quantity": 2, "price": 100.0,
+        }],
+    }, headers=AUTH_ADMIN)
+    assert res.status_code == 200, res.text
+    order_id = res.json()["order_id"]
+
+    with Session(test_engine) as session:
+        assert session.get(Part, toyota_id).stock == 8
+        assert session.get(Part, ford_id).stock == 5
+        item = session.exec(select(Item).where(Item.order_id == order_id)).one()
+        assert item.part_id == toyota_id
+
+    refund = client.post(f"/api/pos/orders/{order_id}/refund", headers=AUTH_ADMIN)
+    assert refund.status_code == 200, refund.text
+    with Session(test_engine) as session:
+        assert session.get(Part, toyota_id).stock == 10
+        assert session.get(Part, ford_id).stock == 5
+
+
+def test_pos_rejects_ambiguous_oem_without_brand():
+    """同 OEM 多品牌且明细未指定品牌时必须拒绝，不能任选一行扣库存。"""
+    from app.models import AutoPart as Part
+
+    _seed_admin_for_auth()
+    with Session(test_engine) as session:
+        session.add(Part(oem="AMB-01", name="歧义件-T", brand="Toyota", stock=5, price=10.0))
+        session.add(Part(oem="AMB-01", name="歧义件-F", brand="Ford", stock=5, price=10.0))
+        # 单品牌商品：旧前端不传 brand 时仍应能正常下单
+        session.add(Part(oem="SINGLE-01", name="单品牌件", brand="Toyota", stock=5, price=10.0))
+        session.commit()
+
+    res = client.post("/api/pos/orders", json={
+        "client_name": "Cliente General",
+        "payment_method": "Cash_USD",
+        "bcv_rate": 100.0,
+        "items": [{"oem": "AMB-01", "name": "歧义件", "quantity": 1, "price": 10.0}],
+    }, headers=AUTH_ADMIN)
+    assert res.status_code == 400, res.text
+
+    with Session(test_engine) as session:
+        assert {p.stock for p in session.exec(select(Part)).all()} == {5}
+
+    ok = client.post("/api/pos/orders", json={
+        "client_name": "Cliente General",
+        "payment_method": "Cash_USD",
+        "bcv_rate": 100.0,
+        "items": [{"oem": "SINGLE-01", "name": "单品牌件", "quantity": 1, "price": 10.0}],
+    }, headers=AUTH_ADMIN)
+    assert ok.status_code == 200, ok.text
+    with Session(test_engine) as session:
+        single = session.exec(select(Part).where(Part.oem == "SINGLE-01")).one()
+        assert single.stock == 4
+
+
+def test_pos_price_igtf_and_rate_are_validated():
+    """单价 <= 0 / IGTF < 0 / 汇率为 0 返回 422；IGTF 超上限返回 400 且不扣库存。"""
+    from app.models import AutoPart as Part
+
+    _seed_admin_for_auth()
+    with Session(test_engine) as session:
+        part = Part(oem="GUARD-01", name="防呆件", brand="Toyota",
+                    stock=10, price=100.0, tax_rate=0.16)
+        session.add(part)
+        session.commit()
+        part_id = part.id
+
+    def order_body(**overrides):
+        body = {
+            "client_name": "Cliente General",
+            "payment_method": "Cash_USD",
+            "bcv_rate": 100.0,
+            "items": [{
+                "oem": "GUARD-01", "name": "防呆件", "brand": "Toyota",
+                "quantity": 1, "price": 100.0,
+            }],
+        }
+        body.update(overrides)
+        return body
+
+    assert client.post("/api/pos/orders", json=order_body(
+        items=[{"oem": "GUARD-01", "name": "防呆件", "brand": "Toyota", "quantity": 1, "price": 0}],
+    ), headers=AUTH_ADMIN).status_code == 422
+    assert client.post("/api/pos/orders", json=order_body(
+        items=[{"oem": "GUARD-01", "name": "防呆件", "brand": "Toyota", "quantity": 1, "price": -1}],
+    ), headers=AUTH_ADMIN).status_code == 422
+    assert client.post("/api/pos/orders", json=order_body(igtf_amount=-1), headers=AUTH_ADMIN).status_code == 422
+    assert client.post("/api/pos/orders", json=order_body(bcv_rate=0), headers=AUTH_ADMIN).status_code == 422
+
+    too_much_igtf = client.post("/api/pos/orders", json=order_body(igtf_amount=999), headers=AUTH_ADMIN)
+    assert too_much_igtf.status_code == 400, too_much_igtf.text
+
+    with Session(test_engine) as session:
+        assert session.get(Part, part_id).stock == 10
+
+
+def test_pos_shift_handover_schema_maps_actual_and_system_separately():
+    """交接班必须按显式 schema 落库：actual_* 不能复制 system_*，缺字段必须 422。"""
+    from app.models import CashRegisterSession as Shift
+
+    _seed_admin_for_auth()
+    payload = {
+        "bcv_rate": 100.0,
+        "system_base_amount_usd": 86.21,
+        "system_tax_amount_usd": 13.79,
+        "system_igtf_amount_usd": 3.0,
+        "system_card_pos_bs": 1000.0,
+        "system_pago_movil_bs": 2000.0,
+        "system_cash_bs": 3000.0,
+        "system_cash_usd": 40.0,
+        "system_zelle_usd": 0.0,
+        "system_transfer_bs": 0.0,
+        "system_usdt_usd": 0.0,
+        "system_total_usd": 143.0,
+        "actual_card_pos_bs": 1111.0,
+        "actual_pago_movil_bs": 2222.0,
+        "actual_cash_bs": 3333.0,
+        "actual_cash_usd": 44.0,
+        "actual_zelle_usd": 0.0,
+        "actual_transfer_bs": 0.0,
+        "actual_usdt_usd": 0.0,
+        "notes": "batch1-regression",
+    }
+    res = client.post("/api/pos/shift-handover", json=payload, headers=AUTH_ADMIN)
+    assert res.status_code == 200, res.text
+
+    with Session(test_engine) as session:
+        record = session.exec(select(Shift)).one()
+        assert record.system_card_pos == 1000.0
+        assert record.system_pago_movil == 2000.0
+        assert record.system_cash_bs == 3000.0
+        assert record.actual_card_pos == 1111.0
+        assert record.actual_pago_movil == 2222.0
+        assert record.actual_cash_bs == 3333.0
+        assert record.actual_cash_usd == 44.0
+        assert record.total_base_amount_usd == 86.21
+        assert record.total_iva_amount_usd == 13.79
+        assert record.total_igtf_amount_usd == 3.0
+        assert record.bcv_rate_snapshot == 100.0
+
+    missing = client.post("/api/pos/shift-handover", json={"bcv_rate": 100.0}, headers=AUTH_ADMIN)
+    assert missing.status_code == 422, missing.text
+
+
+def test_create_part_rejects_duplicate_oem_and_brand_but_allows_other_brand():
+    """(oem, brand) 唯一：重复建档 409；同 OEM 不同品牌允许 200。"""
+    _seed_admin_for_auth()
+    form = {
+        "oem": "UNIQ-01", "name": "唯一件", "brand": "Toyota", "category": "测试",
+        "stock": "1", "price": "10", "tax_rate": "0.16",
+    }
+    first = client.post("/api/parts", data=form, headers=AUTH_ADMIN)
+    assert first.status_code == 200, first.text
+
+    duplicate = client.post("/api/parts", data=form, headers=AUTH_ADMIN)
+    assert duplicate.status_code == 409, duplicate.text
+
+    other_brand = client.post("/api/parts", data={**form, "brand": "Ford"}, headers=AUTH_ADMIN)
+    assert other_brand.status_code == 200, other_brand.text
+
+
+# ══════════════════ POS 批次 2：退款净额 / 挂账信用 / 审计事务 ══════════════════
+
+def test_pos_refund_reduces_revenue_and_uses_refund_type(monkeypatch):
+    """退款必须写 REFUND 流水，并从看板/财务/销售总览的营业额与毛利中扣减。"""
+    from app.models import AutoPart as Part, InventoryTransaction
+
+    _seed_admin_for_auth()
+    monkeypatch.setattr("app.routers.reports.get_official_rate", lambda *a, **k: 100.0)
+
+    with Session(test_engine) as session:
+        part = Part(oem="REF-NET-01", name="退款净额件", brand="Toyota",
+                    stock=10, price=100.0, tax_rate=0.0)
+        session.add(part)
+        session.commit()
+        part_id = part.id
+
+    res = client.post("/api/pos/orders", json={
+        "client_name": "Cliente General",
+        "payment_method": "Cash_USD",
+        "bcv_rate": 100.0,
+        "items": [{"oem": "REF-NET-01", "name": "退款净额件", "brand": "Toyota",
+                   "quantity": 1, "price": 100.0}],
+    }, headers=AUTH_ADMIN)
+    assert res.status_code == 200, res.text
+    order_id = res.json()["order_id"]
+
+    dashboard = client.get("/api/dashboard/stats").json()
+    assert dashboard["totalSalesUSD"] == 100.0
+
+    refund = client.post(f"/api/pos/orders/{order_id}/refund", headers=AUTH_ADMIN)
+    assert refund.status_code == 200, refund.text
+
+    with Session(test_engine) as session:
+        refund_tx = session.exec(
+            select(InventoryTransaction).where(InventoryTransaction.type == "REFUND")
+        ).one()
+        assert refund_tx.quantity == 1
+        assert refund_tx.total_amount == 100.0
+        assert session.get(Part, part_id).stock == 10
+
+    dashboard = client.get("/api/dashboard/stats").json()
+    assert abs(dashboard["totalSalesUSD"]) < 1e-9
+
+    analytics = client.get("/api/financial/analytics").json()
+    assert abs(analytics["total_revenue_usd"]) < 1e-9
+    assert abs(analytics["total_cost_usd"]) < 1e-9
+    assert abs(analytics["gross_profit_usd"]) < 1e-9
+
+    overview = client.get("/api/sales/overview").json()
+    assert abs(overview["daily_total_usd"]) < 1e-9
+    assert overview["history_total_skus_sold"] == 0
+    assert overview["product_sales_items"] == []
+
+    # 退款流水不允许手工删除，避免库存/订单状态脱节
+    delete_res = client.delete(f"/api/transactions/{refund_tx.id}", headers=AUTH_ADMIN)
+    assert delete_res.status_code == 400, delete_res.text
+
+
+def test_pos_debt_uses_client_id_credit_limit_and_refunds_by_id():
+    """挂账必须按 client_id 精确记账并校验额度；客户改名后退款仍按 id 反减。"""
+    from app.models import AutoPart as Part, Client as Customer, Order
+
+    _seed_admin_for_auth()
+    with Session(test_engine) as session:
+        customer = Customer(name="Cliente Fiado", debt=490.0, credit_limit=500.0)
+        part = Part(oem="DEBT-01", name="挂账件", brand="Toyota",
+                    stock=10, price=20.0, tax_rate=0.0)
+        session.add(customer)
+        session.add(part)
+        session.commit()
+        customer_id = customer.id
+        part_id = part.id
+
+    def debt_order(price=20.0):
+        return client.post("/api/pos/orders", json={
+            "client_name": "Cliente Fiado",
+            "client_id": customer_id,
+            "payment_method": "Fiado",
+            "bcv_rate": 100.0,
+            "items": [{"oem": "DEBT-01", "name": "挂账件", "brand": "Toyota",
+                       "quantity": 1, "price": price}],
+        }, headers=AUTH_ADMIN)
+
+    # 490 + 20 = 510 > 500：拒绝，且库存/订单都不能留下痕迹
+    over_limit = debt_order(20.0)
+    assert over_limit.status_code == 400, over_limit.text
+    with Session(test_engine) as session:
+        assert session.get(Part, part_id).stock == 10
+        assert session.exec(select(Order)).all() == []
+        assert session.get(Customer, customer_id).debt == 490.0
+
+    # 降到 480 后，20 美元挂账刚好等于 500 上限，应允许
+    with Session(test_engine) as session:
+        c = session.get(Customer, customer_id)
+        c.debt = 480.0
+        session.add(c)
+        session.commit()
+
+    ok = debt_order(20.0)
+    assert ok.status_code == 200, ok.text
+    order_id = ok.json()["order_id"]
+
+    with Session(test_engine) as session:
+        order = session.get(Order, order_id)
+        assert order.client_id == customer_id
+        assert session.get(Customer, customer_id).debt == 500.0
+
+    # 客户改名后，退款仍应按 order.client_id 精确反减
+    with Session(test_engine) as session:
+        c = session.get(Customer, customer_id)
+        c.name = "Cliente Renombrado"
+        session.add(c)
+        session.commit()
+
+    refund = client.post(f"/api/pos/orders/{order_id}/refund", headers=AUTH_ADMIN)
+    assert refund.status_code == 200, refund.text
+    with Session(test_engine) as session:
+        assert session.get(Customer, customer_id).debt == 480.0
+
+    # 不存在的 client_id 必须 404，不能静默按名字挂账
+    missing = client.post("/api/pos/orders", json={
+        "client_name": "Cliente Fiado",
+        "client_id": 999999,
+        "payment_method": "Fiado",
+        "bcv_rate": 100.0,
+        "items": [{"oem": "DEBT-01", "name": "挂账件", "brand": "Toyota",
+                   "quantity": 1, "price": 10.0}],
+    }, headers=AUTH_ADMIN)
+    assert missing.status_code == 404, missing.text
+
+
+def test_pos_order_survives_audit_commit_failure(monkeypatch):
+    """审计日志写入失败时，已提交的订单必须返回 200，且不能被回滚或重复扣库存。"""
+    from sqlmodel import Session as SqlSession
+
+    from app.models import AuditLog, AutoPart as Part, Order, OrderItem
+
+    _seed_admin_for_auth()
+    with Session(test_engine) as session:
+        part = Part(oem="AUDIT-FAIL-01", name="审计失败件", brand="Toyota",
+                    stock=10, price=5.0, tax_rate=0.0)
+        session.add(part)
+        session.commit()
+        part_id = part.id
+
+    commits = {"n": 0}
+    real_commit = SqlSession.commit
+
+    def fail_second_commit(self):
+        commits["n"] += 1
+        if commits["n"] == 2:
+            raise RuntimeError("模拟审计日志提交失败")
+        return real_commit(self)
+
+    monkeypatch.setattr(SqlSession, "commit", fail_second_commit)
+    try:
+        res = client.post("/api/pos/orders", json={
+            "client_name": "Cliente General",
+            "payment_method": "Cash_USD",
+            "bcv_rate": 100.0,
+            "items": [{"oem": "AUDIT-FAIL-01", "name": "审计失败件", "brand": "Toyota",
+                       "quantity": 2, "price": 5.0}],
+        }, headers=AUTH_ADMIN)
+    finally:
+        monkeypatch.undo()
+
+    assert commits["n"] == 2, f"应只发生业务提交 + 审计提交两次，实际 {commits['n']}"
+    assert res.status_code == 200, res.text
+
+    with Session(test_engine) as session:
+        assert session.exec(select(Order)).one().id == res.json()["order_id"]
+        assert len(session.exec(select(OrderItem)).all()) == 1
+        assert session.get(Part, part_id).stock == 8
+        assert session.exec(select(AuditLog)).all() == []
+
+
+def test_purchase_receive_requires_brand_when_oem_has_multiple_brands():
+    """采购收货遇到同 OEM 多品牌时必须要求 brand，且只增加对应品牌库存。"""
+    from app.models import AutoPart as Part, PurchaseOrder
+
+    _seed_admin_for_auth()
+    with Session(test_engine) as session:
+        toyota = Part(oem="PO-MULTI", name="采购件-T", brand="Toyota",
+                      stock=0, price=10.0, tax_rate=0.0)
+        ford = Part(oem="PO-MULTI", name="采购件-F", brand="Ford",
+                    stock=0, price=10.0, tax_rate=0.0)
+        session.add(toyota)
+        session.add(ford)
+        session.commit()
+        toyota_id = toyota.id
+        ford_id = ford.id
+
+    no_brand = client.post("/api/purchase-orders", json={
+        "supplier_name": "多品牌供应商",
+        "items": [{"oem": "PO-MULTI", "name": "采购件", "quantity": 5, "unit_price": 10.0}],
+    }, headers=AUTH_ADMIN)
+    assert no_brand.status_code == 200, no_brand.text
+    no_brand_id = no_brand.json()["po_id"]
+
+    rejected = client.post(f"/api/purchase-orders/{no_brand_id}/receive", headers=AUTH_ADMIN)
+    assert rejected.status_code == 400, rejected.text
+    with Session(test_engine) as session:
+        assert session.get(Part, toyota_id).stock == 0
+        assert session.get(Part, ford_id).stock == 0
+        assert session.get(PurchaseOrder, no_brand_id).status == "PENDING"
+
+    with_brand = client.post("/api/purchase-orders", json={
+        "supplier_name": "多品牌供应商",
+        "items": [{"oem": "PO-MULTI", "name": "采购件-T", "brand": "Toyota",
+                   "quantity": 5, "unit_price": 10.0}],
+    }, headers=AUTH_ADMIN)
+    assert with_brand.status_code == 200, with_brand.text
+    received = client.post(
+        f"/api/purchase-orders/{with_brand.json()['po_id']}/receive",
+        headers=AUTH_ADMIN,
+    )
+    assert received.status_code == 200, received.text
+    with Session(test_engine) as session:
+        assert session.get(Part, toyota_id).stock == 5
+        assert session.get(Part, ford_id).stock == 0
+
+
+def test_manual_transaction_rejects_ambiguous_oem():
+    """手工流水没有 brand 字段，同 OEM 多品牌时必须拒绝而不是误改全部品牌。"""
+    from app.models import AutoPart as Part
+
+    _seed_admin_for_auth()
+    with Session(test_engine) as session:
+        t = Part(oem="TX-MULTI", name="手工件-T", brand="Toyota", stock=5, price=10.0)
+        f = Part(oem="TX-MULTI", name="手工件-F", brand="Ford", stock=5, price=10.0)
+        session.add(t)
+        session.add(f)
+        session.commit()
+        t_id, f_id = t.id, f.id
+
+    res = client.post("/api/transactions", json={
+        "part_oem": "TX-MULTI", "part_name": "手工件", "type": "OUT",
+        "quantity": 1, "unit_price": 10.0, "total_amount": 0,
+        "customer_or_supplier": "测试",
+    }, headers=AUTH_ADMIN)
+    assert res.status_code == 400, res.text
+    with Session(test_engine) as session:
+        assert session.get(Part, t_id).stock == 5
+        assert session.get(Part, f_id).stock == 5
+
+
+# ══════════════════ POS 批次 3：去重 / 权限 / 查询 / 时区 / 幂等 ══════════════════
+
+def _valid_shift_payload():
+    return {
+        "bcv_rate": 100.0,
+        "system_base_amount_usd": 0.0,
+        "system_tax_amount_usd": 0.0,
+        "system_igtf_amount_usd": 0.0,
+        "system_card_pos_bs": 0.0,
+        "system_pago_movil_bs": 0.0,
+        "system_cash_bs": 0.0,
+        "system_cash_usd": 0.0,
+        "system_zelle_usd": 0.0,
+        "system_transfer_bs": 0.0,
+        "system_usdt_usd": 0.0,
+        "system_total_usd": 0.0,
+        "actual_card_pos_bs": 0.0,
+        "actual_pago_movil_bs": 0.0,
+        "actual_cash_bs": 0.0,
+        "actual_cash_usd": 0.0,
+        "actual_zelle_usd": 0.0,
+        "actual_transfer_bs": 0.0,
+        "actual_usdt_usd": 0.0,
+        "notes": "batch3",
+    }
+
+
+def _staff_headers(username, permissions):
+    import json
+
+    from app.models import StaffUser
+    from app.security import create_access_token, hash_password
+
+    with Session(test_engine) as session:
+        session.add(StaffUser(
+            username=username,
+            password_hash=hash_password("test-staff"),
+            role="staff",
+            permissions_json=json.dumps(permissions),
+        ))
+        session.commit()
+    return {"Authorization": f"Bearer {create_access_token(username, 'staff')}"}
+
+
+def test_pos_dedupe_keeps_distinct_prices_and_rejects_empty_items():
+    """同 OEM + 品牌但不同单价必须保留为两行；空订单必须拒绝。"""
+    from app.models import AutoPart as Part, OrderItem
+
+    _seed_admin_for_auth()
+    with Session(test_engine) as session:
+        part = Part(oem="PRICE-01", name="多价件", brand="Toyota",
+                    stock=10, price=10.0, tax_rate=0.0)
+        session.add(part)
+        session.commit()
+        part_id = part.id
+
+    def body(items):
+        return {
+            "client_name": "Cliente General",
+            "payment_method": "Cash_USD",
+            "bcv_rate": 100.0,
+            "items": items,
+        }
+
+    empty = client.post("/api/pos/orders", json=body([]), headers=AUTH_ADMIN)
+    assert empty.status_code == 400, empty.text
+
+    zero_qty = client.post("/api/pos/orders", json=body([
+        {"oem": "PRICE-01", "name": "多价件", "brand": "Toyota", "quantity": 0, "price": 10.0},
+    ]), headers=AUTH_ADMIN)
+    assert zero_qty.status_code == 422, zero_qty.text
+
+    res = client.post("/api/pos/orders", json=body([
+        {"oem": "PRICE-01", "name": "多价件", "brand": "Toyota", "quantity": 1, "price": 10.0},
+        {"oem": "PRICE-01", "name": "多价件", "brand": "Toyota", "quantity": 2, "price": 12.0},
+    ]), headers=AUTH_ADMIN)
+    assert res.status_code == 200, res.text
+
+    with Session(test_engine) as session:
+        items = session.exec(
+            select(OrderItem).where(OrderItem.order_id == res.json()["order_id"])
+        ).all()
+        assert [(i.quantity, i.price_usd) for i in items] == [(1, 10.0), (2, 12.0)]
+        assert session.get(Part, part_id).stock == 7
+
+
+def test_pos_permissions_enforced_for_checkout_refund_hold_shift():
+    """只读店员不能结账/退款/挂单/班结；授权后才能操作。"""
+    from app.models import AutoPart as Part
+
+    _seed_admin_for_auth()
+    with Session(test_engine) as session:
+        session.add(Part(oem="PERM-01", name="权限件", brand="Toyota",
+                         stock=10, price=10.0, tax_rate=0.0))
+        session.commit()
+
+    limited = _staff_headers("pos_limited", ["pos:access"])
+    order_body = {
+        "client_name": "Cliente General",
+        "payment_method": "Cash_USD",
+        "bcv_rate": 100.0,
+        "request_id": "perm-limited-1",
+        "items": [{"oem": "PERM-01", "name": "权限件", "brand": "Toyota",
+                   "quantity": 1, "price": 10.0}],
+    }
+    held_body = {
+        "client_name": "Cliente General",
+        "payment_method": "Cash_USD",
+        "items": [{"oem": "PERM-01", "name": "权限件", "brand": "Toyota",
+                   "quantity": 1, "price": 10.0}],
+    }
+
+    assert client.post("/api/pos/orders", json=order_body, headers=limited).status_code == 403
+    assert client.post("/api/pos/orders/1/refund", headers=limited).status_code == 403
+    assert client.get("/api/held-orders", headers=limited).status_code == 403
+    assert client.post("/api/held-orders", json=held_body, headers=limited).status_code == 403
+    assert client.get("/api/pos/shift-records", headers=limited).status_code == 403
+    assert client.post(
+        "/api/pos/shift-handover", json=_valid_shift_payload(), headers=limited
+    ).status_code == 403
+
+    # 权限不足时不能扣库存
+    with Session(test_engine) as session:
+        assert session.exec(select(Part).where(Part.oem == "PERM-01")).one().stock == 10
+
+    full = _staff_headers(
+        "pos_full",
+        ["pos:access", "pos:checkout", "pos:refund", "pos:hold", "shift:report"],
+    )
+    created = client.post("/api/pos/orders", json=order_body, headers=full)
+    assert created.status_code == 200, created.text
+
+    held = client.post("/api/held-orders", json=held_body, headers=full)
+    assert held.status_code == 200, held.text
+    assert client.get("/api/held-orders", headers=full).status_code == 200
+    assert client.post(
+        "/api/pos/shift-handover", json=_valid_shift_payload(), headers=full
+    ).status_code == 200
+
+    refund = client.post(
+        f"/api/pos/orders/{created.json()['order_id']}/refund", headers=full
+    )
+    assert refund.status_code == 200, refund.text
+
+
+def test_pos_orders_date_filter_and_limit():
+    """date 过滤必须生效，且最多返回 200 条。"""
+    from datetime import datetime
+
+    from app.models import Order
+
+    _seed_admin_for_auth()
+    base = dict(
+        client_name="Cliente General",
+        operator="admin",
+        total_usd=1.0,
+        total_bs=1.0,
+        bcv_rate=1.0,
+        payment_method="Cash_USD",
+    )
+    with Session(test_engine) as session:
+        for i in range(205):
+            session.add(Order(
+                order_no=f"DATE-{i:03d}",
+                created_at=datetime(2026, 10, 20, 12, 0),
+                **base,
+            ))
+        session.add(Order(
+            order_no="DATE-OLD",
+            created_at=datetime(2026, 10, 19, 12, 0),
+            **base,
+        ))
+        session.commit()
+
+    day = client.get("/api/pos/orders?date=2026-10-20", headers=AUTH_ADMIN)
+    assert day.status_code == 200, day.text
+    assert len(day.json()) == 200
+    assert all(o["time"].startswith("2026-10-20") for o in day.json())
+
+    old = client.get("/api/pos/orders?date=2026-10-19", headers=AUTH_ADMIN)
+    assert old.status_code == 200
+    assert [o["orderId"] for o in old.json()] == ["DATE-OLD"]
+
+    assert client.get("/api/pos/orders?date=bad-date", headers=AUTH_ADMIN).status_code == 400
+    assert len(client.get("/api/pos/orders", headers=AUTH_ADMIN).json()) == 200
+
+
+def test_held_order_schema_and_venezuela_timestamp():
+    """挂单必须走严格 schema；金额由后端按明细计算；时间用委内瑞拉时区。"""
+    import json
+    from datetime import datetime
+
+    from app.models import HeldOrder, _VENEZUELA_TZ
+
+    _seed_admin_for_auth()
+    assert client.post("/api/held-orders", json={"client_name": "X"}, headers=AUTH_ADMIN).status_code == 422
+    assert client.post(
+        "/api/held-orders",
+        json={"client_name": "X", "items": []},
+        headers=AUTH_ADMIN,
+    ).status_code == 422
+
+    res = client.post("/api/held-orders", json={
+        "client_name": "Cliente Hold",
+        "payment_method": "Pago_Mixto",
+        "items": [
+            {"oem": "HOLD-01", "name": "挂单件", "brand": "Toyota", "quantity": 2, "price": 5.5},
+        ],
+    }, headers=AUTH_ADMIN)
+    assert res.status_code == 200, res.text
+    held = res.json()["held_order"]
+    assert held["total_amount"] == 11.0
+    assert json.loads(held["items_json"])[0]["price"] == 5.5
+    today = datetime.now(_VENEZUELA_TZ).strftime("%Y-%m-%d")
+    assert held["timestamp"].startswith(today)
+
+    with Session(test_engine) as session:
+        stored = session.get(HeldOrder, held["id"])
+        assert stored.total_amount == 11.0
+        assert stored.timestamp.startswith(today)
+
+    shift = client.post(
+        "/api/pos/shift-handover", json=_valid_shift_payload(), headers=AUTH_ADMIN
+    )
+    assert shift.status_code == 200, shift.text
+    with Session(test_engine) as session:
+        from app.models import CashRegisterSession
+        record = session.exec(select(CashRegisterSession)).one()
+        assert record.closed_at.startswith(today)
+
+
+def test_pos_request_id_is_idempotent():
+    """同一 request_id 重复提交只建一单、只扣一次库存；换 id 才允许新单。"""
+    from app.models import AutoPart as Part, Order
+
+    _seed_admin_for_auth()
+    with Session(test_engine) as session:
+        part = Part(oem="IDEM-01", name="幂等件", brand="Toyota",
+                    stock=10, price=5.0, tax_rate=0.0)
+        session.add(part)
+        session.commit()
+        part_id = part.id
+
+    body = {
+        "client_name": "Cliente General",
+        "payment_method": "Cash_USD",
+        "bcv_rate": 100.0,
+        "request_id": "idem-0001",
+        "items": [{"oem": "IDEM-01", "name": "幂等件", "brand": "Toyota",
+                   "quantity": 2, "price": 5.0}],
+    }
+    first = client.post("/api/pos/orders", json=body, headers=AUTH_ADMIN)
+    assert first.status_code == 200, first.text
+
+    # 即使价格被改动，同一 request_id 也必须返回原订单，不能再扣库存
+    retry = client.post("/api/pos/orders", json={
+        **body,
+        "items": [{"oem": "IDEM-01", "name": "幂等件", "brand": "Toyota",
+                   "quantity": 2, "price": 999.0}],
+    }, headers=AUTH_ADMIN)
+    assert retry.status_code == 200, retry.text
+    assert retry.json()["order_id"] == first.json()["order_id"]
+    assert retry.json()["order_no"] == first.json()["order_no"]
+    assert retry.json()["idempotent"] is True
+
+    with Session(test_engine) as session:
+        assert len(session.exec(select(Order)).all()) == 1
+        assert session.get(Part, part_id).stock == 8
+
+    new_order = client.post("/api/pos/orders", json={**body, "request_id": "idem-0002"}, headers=AUTH_ADMIN)
+    assert new_order.status_code == 200, new_order.text
+    assert new_order.json()["order_id"] != first.json()["order_id"]
+    with Session(test_engine) as session:
+        assert session.get(Part, part_id).stock == 6
+
+
+def test_pos_request_id_concurrent_submit_creates_one_order():
+    """并发重复提交同一 request_id 时，只能产生一张订单、扣一次库存。"""
+    import concurrent.futures as cf
+
+    from app.models import AutoPart as Part, Order
+
+    _seed_admin_for_auth()
+    with Session(test_engine) as session:
+        session.add(Part(oem="IDEM-RACE", name="幂等竞态件", brand="Toyota",
+                         stock=10, price=5.0, tax_rate=0.0))
+        session.commit()
+
+    body = {
+        "client_name": "Cliente General",
+        "payment_method": "Cash_USD",
+        "bcv_rate": 100.0,
+        "request_id": "idem-race-001",
+        "items": [{"oem": "IDEM-RACE", "name": "幂等竞态件", "brand": "Toyota",
+                   "quantity": 2, "price": 5.0}],
+    }
+
+    def submit(_):
+        return client.post("/api/pos/orders", json=body, headers=AUTH_ADMIN)
+
+    with cf.ThreadPoolExecutor(max_workers=3) as ex:
+        responses = list(ex.map(submit, range(3)))
+
+    codes = sorted(r.status_code for r in responses)
+    assert codes == [200, 200, 200], [r.text for r in responses]
+    ids = {r.json()["order_id"] for r in responses}
+    assert len(ids) == 1, ids
+
+    with Session(test_engine) as session:
+        assert len(session.exec(select(Order)).all()) == 1
+        part = session.exec(select(Part).where(Part.oem == "IDEM-RACE")).one()
+        assert part.stock == 8
+
+
+def test_auth_me_and_settings_clients_token_and_permissions():
+    """/api/settings 只需登录；/api/clients 需要 clients:view（权限不足是 403，不是 401）。"""
+    _seed_admin_for_auth()
+
+    # 无 Token / 坏 Token 都是 401
+    assert client.get("/api/settings").status_code == 401
+    assert client.get("/api/clients").status_code == 401
+    bad = {"Authorization": "Bearer not-a-valid-token"}
+    assert client.get("/api/settings", headers=bad).status_code == 401
+    assert client.get("/api/clients", headers=bad).status_code == 401
+
+    # 正确的 Bearer Token 必须能通过 /api/auth/me、/api/settings、/api/clients
+    me = client.get("/api/auth/me", headers=AUTH_ADMIN)
+    assert me.status_code == 200, me.text
+    assert me.json() == {
+        "username": "admin",
+        "role": "super_admin",
+        "permissions": ["*"],
+    }
+    assert client.get("/api/settings", headers=AUTH_ADMIN).status_code == 200
+    assert client.get("/api/clients", headers=AUTH_ADMIN).status_code == 200
+
+    # 有 clients:view 的员工：settings（任意登录用户）和 clients 都能读
+    viewer = _staff_headers("client_viewer", ["clients:view"])
+    assert client.get("/api/settings", headers=viewer).status_code == 200
+    assert client.get("/api/clients", headers=viewer).status_code == 200
+
+    # 只有 pos:access 的收银员：settings 可读，clients 是 403（权限不足），绝不是 401
+    cashier = _staff_headers("pos_only", ["pos:access"])
+    assert client.get("/api/settings", headers=cashier).status_code == 200
+    clients_res = client.get("/api/clients", headers=cashier)
+    assert clients_res.status_code == 403, clients_res.text

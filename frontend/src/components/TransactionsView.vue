@@ -62,8 +62,8 @@
               <td class="py-4 px-6 font-mono font-bold text-blue-600">{{ tx.part_oem }}</td>
               <td class="py-4 px-6 font-bold text-slate-800">{{ tx.part_name }}</td>
               <td class="py-4 px-6">
-                <span :class="tx.type === 'IN' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'" class="px-2.5 py-1 rounded-md text-xs font-bold">
-                  {{ tx.type === 'IN' ? tExt.typeIn : tExt.typeOut }}
+                <span :class="tx.type === 'IN' ? 'bg-emerald-50 text-emerald-600' : tx.type === 'REFUND' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'" class="px-2.5 py-1 rounded-md text-xs font-bold">
+                  {{ tx.type === 'IN' ? tExt.typeIn : tx.type === 'REFUND' ? tExt.typeRefund : tExt.typeOut }}
                 </span>
               </td>
               <td class="py-4 px-6 font-mono font-bold">{{ tx.quantity }}</td>
@@ -71,7 +71,7 @@
               <td class="py-4 px-6 font-mono font-bold text-slate-900">$ {{ Number(tx.total_amount || 0).toFixed(2) }}</td>
               <td class="py-4 px-6 text-slate-600">{{ tx.customer_or_supplier || '-' }}</td>
               <td class="py-4 px-6 text-center">
-                <button @click="$emit('delete-tx', tx)" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer">
+                <button v-if="tx.type !== 'REFUND'" @click="$emit('delete-tx', tx)" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer">
                   {{ tExt.btnDelete }}
                 </button>
               </td>
@@ -121,6 +121,7 @@ const tExt = computed(() => {
     colActions: isZh ? '操作' : isEs ? 'Acciones' : 'Actions',
     typeIn: isZh ? '入库' : isEs ? 'ENTRADA' : 'IN',
     typeOut: isZh ? '出库' : isEs ? 'SALIDA' : 'OUT',
+    typeRefund: isZh ? '退款' : isEs ? 'REEMBOLSO' : 'REFUND',
     btnDelete: isZh ? '删除' : isEs ? 'Eliminar' : 'Delete',
     emptyData: isZh ? '没有找到符合条件的进销存单据记录' : isEs ? 'No se encontraron registros de inventario' : 'No inventory records found'
   }

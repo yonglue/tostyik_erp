@@ -5,6 +5,7 @@ import io
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.config import DB_PATH
@@ -114,10 +115,12 @@ async def import_parts_csv(file: UploadFile = File(...), session: Session = Depe
         except (ValueError, TypeError):
             price_val = 0.0
 
-        existing = session.exec(select(AutoPart).where(AutoPart.oem == oem)).first()
+        brand = (row.get("brand") or "GENERAL").strip() or "GENERAL"
+        existing = session.exec(
+            select(AutoPart).where(AutoPart.oem == oem, AutoPart.brand == brand)
+        ).first()
         if existing:
             existing.name = name
-            existing.brand = row.get("brand", existing.brand)
             existing.category = row.get("category", existing.category)
             existing.stock = stock_val
             existing.price = price_val
@@ -127,14 +130,21 @@ async def import_parts_csv(file: UploadFile = File(...), session: Session = Depe
             session.add(AutoPart(
                 oem=oem,
                 name=name,
-                brand=row.get("brand", "GENERAL"),
+                brand=brand,
                 category=row.get("category", "未分类"),
                 stock=stock_val,
                 price=price_val,
                 bin_location=row.get("bin_location", "Estante A-1"),
             ))
         count += 1
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="CSV 中存在重复的 (oem, brand)，请先去重后再导入",
+        )
     return {"status": "success", "imported_count": count}
 
 

@@ -138,6 +138,18 @@ def reset_admin_password(
     return {"status": "success", "message": "Password reset successfully"}
 
 
+@router.get("/api/auth/me")
+def get_current_me(
+    actor: Actor = Depends(get_current_actor),
+):
+    """轻量校验当前 Token，并返回实时角色/权限。前端 401 复核与刷新会话都走这里。"""
+    return {
+        "username": actor.username,
+        "role": actor.role,
+        "permissions": actor.permissions,
+    }
+
+
 @router.get("/api/staff")
 def get_staff_list(
     actor: Actor = Depends(require_admin), # 🌟 修复：仅管理员可见

@@ -453,7 +453,7 @@ const {
   isLoggedIn, currentAdminUser, currentUserObj,
   loginForm, loginError, resetMessage,
   resetModalVisible, resetPinInput,
-  handleLogin, handleLogout, openResetModal, submitResetPassword
+  handleLogin, handleLogout, openResetModal, submitResetPassword, validateSession
 } = useAuth()
 
 // 权限校验工具
@@ -512,6 +512,8 @@ const activeTab = ref(getDefaultAllowedTab())
 watch(isLoggedIn, (newVal) => {
   if (newVal) {
     activeTab.value = getDefaultAllowedTab()
+    // 登录成功后按权限加载数据（onMounted 时通常还没登录）
+    refreshAll()
   } else {
     activeTab.value = 'dashboard' 
   }
@@ -586,7 +588,7 @@ const {
   bcvRate, partsList, clientsList, transactionsList, quotationsList,
   stats, brandsList,
   fetchParts, fetchClients, fetchTransactions, fetchQuotations,
-  fetchDashboardStats, fetchBcvRate
+  fetchDashboardStats, fetchBcvRate, refreshAll
 } = useInventory()
 
 const {
@@ -769,9 +771,16 @@ const handleGlobalKeydown = (e) => {
   }
 }
 
-onMounted(() => {
-  fetchParts(); fetchClients(); fetchTransactions(); fetchQuotations(); fetchDashboardStats(); fetchBcvRate()
+onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
+
+  // 未登录时不要发任何受保护请求，避免无 Token 的 401 反过来清空登录态
+  if (!isLoggedIn.value) return
+
+  // 刷新页面后先复核 Token；有效再拉业务数据，并同步最新权限
+  if (await validateSession()) {
+    refreshAll()
+  }
 })
 
 onUnmounted(() => {

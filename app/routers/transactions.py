@@ -14,6 +14,26 @@ from app.services.audit import log_action
 
 router = APIRouter(tags=["进销存"])
 
+
+def _resolve_part_by_oem(session: Session, oem: str) -> AutoPart:
+    """手工流水没有 brand 字段：同 OEM 多品牌时必须拒绝，不能任选一行改库存。"""
+    matches = session.exec(select(AutoPart).where(AutoPart.oem == oem)).all()
+    if not matches:
+        raise HTTPException(
+            status_code=404,
+            detail=f"商品 OEM [{oem}] 不存在，无法操作库存",
+        )
+    if len(matches) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"OEM [{oem}] 存在多个品牌，手工流水无法定位具体商品；"
+                "请改用带品牌的 POS / 采购收货流程"
+            ),
+        )
+    return matches[0]
+
+
 # 🌟 加锁：必须拥有查看历史流水的权限
 @router.get("/api/transactions", response_model=List[InventoryTransaction])
 def get_transactions(
@@ -33,32 +53,33 @@ def create_transaction(
     # 🌟 校验类型合法性
     if tx.type not in ("IN", "OUT"):
         raise HTTPException(status_code=400, detail="无效的库存变动类型，只能是 'IN' 或 'OUT'")
+    if tx.quantity <= 0:
+        raise HTTPException(status_code=400, detail="库存变动数量必须大于 0")
 
-    part = session.exec(select(AutoPart).where(AutoPart.oem == tx.part_oem)).first()
-    
-    # 🌟 核心修复：如果商品不存在，绝对不允许产生流水（避免幽灵记录）
-    if not part:
-        raise HTTPException(status_code=404, detail=f"商品 OEM [{tx.part_oem}] 不存在，无法操作库存")
+    part = _resolve_part_by_oem(session, tx.part_oem)
 
     old_stock = part.stock
     new_stock = old_stock
 
     if tx.type == "IN":
-        # 原子自增
-        session.exec(
+        # 原子自增，按主键精确命中一行
+        changed = session.exec(
             update(AutoPart)
-            .where(AutoPart.oem == tx.part_oem)
+            .where(AutoPart.id == part.id)
             .values(stock=AutoPart.stock + tx.quantity)
         )
+        if changed.rowcount != 1:
+            session.rollback()
+            raise HTTPException(status_code=409, detail="商品已变更，请刷新后重试")
         new_stock = old_stock + tx.quantity
     elif tx.type == "OUT":
         # 原子条件扣减：并发时只有一个能扣成功，避免超卖
         changed = session.exec(
             update(AutoPart)
-            .where(AutoPart.oem == tx.part_oem, AutoPart.stock >= tx.quantity)
+            .where(AutoPart.id == part.id, AutoPart.stock >= tx.quantity)
             .values(stock=AutoPart.stock - tx.quantity)
         )
-        if changed.rowcount == 0:
+        if changed.rowcount != 1:
             session.rollback()
             raise HTTPException(status_code=400, detail="库存不足，无法出库！")
         new_stock = old_stock - tx.quantity
@@ -97,26 +118,47 @@ def delete_transaction(
     if not tx:
         raise HTTPException(status_code=404, detail="流水记录不存在")
 
-    part = session.exec(select(AutoPart).where(AutoPart.oem == tx.part_oem)).first()
+    if tx.type not in ("IN", "OUT"):
+        raise HTTPException(
+            status_code=400,
+            detail="只有手工入库/出库流水可以删除；系统生成的退款/采购流水请走对应业务流程",
+        )
+
+    matches = session.exec(select(AutoPart).where(AutoPart.oem == tx.part_oem)).all()
+    if len(matches) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"OEM [{tx.part_oem}] 存在多个品牌，无法确定要回滚哪一行库存；"
+                "请先拆分商品档案"
+            ),
+        )
+    part = matches[0] if matches else None
     old_stock = new_stock = None
 
     if part:
         old_stock = part.stock
         if tx.type == "OUT":
             # 删除出库单，意味着把货退回来，库存增加
-            session.exec(
+            changed = session.exec(
                 update(AutoPart)
-                .where(AutoPart.oem == tx.part_oem)
+                .where(AutoPart.id == part.id)
                 .values(stock=AutoPart.stock + tx.quantity)
             )
+            if changed.rowcount != 1:
+                session.rollback()
+                raise HTTPException(status_code=409, detail="商品已变更，请刷新后重试")
             new_stock = old_stock + tx.quantity
         elif tx.type == "IN":
             # 删除入库单，意味着把货拿走，库存减少（兜底不能扣成负数）
-            session.exec(
+            changed = session.exec(
                 update(AutoPart)
-                .where(AutoPart.oem == tx.part_oem)
+                .where(AutoPart.id == part.id)
                 .values(stock=func.max(0, AutoPart.stock - tx.quantity))
             )
+            if changed.rowcount != 1:
+                session.rollback()
+                raise HTTPException(status_code=409, detail="商品已变更，请刷新后重试")
             new_stock = max(0, old_stock - tx.quantity)
 
     session.delete(tx)

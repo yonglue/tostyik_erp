@@ -15,4 +15,8 @@ def log_action(session: Session, username: str, role: str, action: str, details:
         session.add(log)
         session.commit()
     except Exception as e:  # noqa: BLE001 - 有意吞掉，避免审计故障中断业务
+        # 不 rollback 会让 Session 停在 needs-rollback 状态，调用方随后读取
+        # 已过期对象（如 order.id / order.order_no）就会抛 PendingRollbackError，
+        # 把已经成功提交的业务变成 500，客户端重试后重复扣库存。
+        session.rollback()
         print(f"写入操作日志异常: {e}")

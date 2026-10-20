@@ -224,6 +224,8 @@ const fetchFinancialData = async () => {
     const orderRes = await apiFetch('/api/pos/orders')
     if (orderRes.ok) {
       const orders = await orderRes.json()
+      // 已退货订单不再计入营收/成本/支付方式拆解
+      const activeOrders = orders.filter(o => o.status !== 'REFUNDED')
       let cpCount = 0, cpSum = 0; // Card POS
       let pmCount = 0, pmSum = 0; // Pago Móvil
       let cbCount = 0, cbSum = 0; // Cash Bs
@@ -231,7 +233,7 @@ const fetchFinancialData = async () => {
       let mixCount = 0, mixSum = 0; // Pago Mixto
       let totalFlow = 0;
 
-      dailyAuditList.value = orders.map(order => {
+      dailyAuditList.value = activeOrders.map(order => {
         const rev = Number(order.totalUsd || order.total_usd || 0)
         const cost = Number(order.totalCostUsd || rev * 0.7) 
         const profit = rev - cost
