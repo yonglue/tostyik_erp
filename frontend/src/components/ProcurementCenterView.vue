@@ -1,363 +1,136 @@
 <!-- src/components/ProcurementCenterView.vue -->
 <template>
   <div class="space-y-6">
-    
-    <!-- 🌟 顶部 Tab 页签切换栏 -->
-    <div class="flex items-center justify-between bg-white px-6 py-3 rounded-2xl border border-slate-200/80 shadow-xs">
-      <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+    <!-- 顶部状态栏 -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl">
         <button 
-          @click="activeSubTab = 'orders'"
-          :class="['px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer', 
-            activeSubTab === 'orders' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900']"
+          @click="activeTab = 'orders'"
+          :class="['px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer', activeTab === 'orders' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700']"
         >
-          📦 采购订单与收货管理
+          📦 {{ tExt.tabOrders }}
         </button>
         <button 
-          @click="activeSubTab = 'replenish'"
-          :class="['px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer', 
-            activeSubTab === 'replenish' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-600 hover:text-slate-900']"
+          @click="activeTab = 'suggestions'"
+          :class="['px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer', activeTab === 'suggestions' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700']"
         >
-          ⚡ 智能补货建议与下单
+          ⚡ {{ tExt.tabSuggestions }}
         </button>
       </div>
-
-      <div class="text-xs font-mono text-slate-400 hidden sm:block">
-        供应链状态: <span class="text-emerald-600 font-bold">在线正常</span>
+      <div class="flex items-center gap-2 text-xs font-bold">
+        <span class="text-slate-400">{{ tExt.supplyChainStatus }}:</span>
+        <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">{{ tExt.statusOnline }}</span>
       </div>
     </div>
 
-    <!-- 🌟 子视图 1：采购订单与收货管理（完美解析 JSON 明细） -->
-    <div v-if="activeSubTab === 'orders'" class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 md:p-6 space-y-6">
-      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+    <!-- 采购订单列表 -->
+    <div v-if="activeTab === 'orders'" class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-white/50">
         <div>
-          <h3 class="font-bold text-slate-900 text-base">采购订单与收货管理</h3>
-          <p class="text-xs text-slate-500 mt-0.5">管理供应商采购订单，支持一键验货入库、状态流转与商品明细解析</p>
+          <h3 class="font-bold text-slate-800 text-base">{{ tExt.ordersTitle }}</h3>
+          <p class="text-xs text-slate-400 mt-1">{{ tExt.ordersSub }}</p>
         </div>
-        
-        <div class="flex items-center gap-3">
-          <!-- 🌟 批量删除按钮 -->
-          <button 
-            v-if="selectedIds.length > 0" 
-            @click="batchDeleteModalVisible = true" 
-            class="flex items-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/80 px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-          >
-            <span>🗑️ 批量删除 (已选 {{ selectedIds.length }} 项)</span>
-          </button>
-
-          <button 
-            @click="fetchPurchaseOrders"
-            class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-4 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
-          >
-            🔄 刷新订单列表
-          </button>
-        </div>
+        <button @click="fetchOrders" class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition-all">
+          🔄 {{ tExt.refreshList }}
+        </button>
       </div>
 
       <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse min-w-[850px]">
+        <table class="w-full text-left border-collapse min-w-[800px]">
           <thead>
-            <tr class="bg-slate-50/75 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <!-- 🌟 全选复选框 -->
-              <th class="py-3.5 px-4 w-12 text-center">
-                <input 
-                  type="checkbox" 
-                  :checked="isAllSelected" 
-                  @change="toggleSelectAll" 
-                  class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" 
-                />
+            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase">
+              <th class="py-4 px-6 w-12 text-center">
+                <input type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4" />
               </th>
-              <th class="py-3.5 px-6">订单编号 (PO No.)</th>
-              <th class="py-3.5 px-6">供应商</th>
-              <th class="py-3.5 px-6">采购明细解析 (SKU & 数量)</th>
-              <th class="py-3.5 px-6">订单状态</th>
-              <th class="py-3.5 px-6">创建时间</th>
-              <th class="py-3.5 px-6 text-right">操作 / 验货入库</th>
+              <th class="py-4 px-6">{{ tExt.colPoNo }}</th>
+              <th class="py-4 px-6">{{ tExt.colSupplier }}</th>
+              <th class="py-4 px-6">{{ tExt.colDetails }}</th>
+              <th class="py-4 px-6">{{ tExt.colStatus }}</th>
+              <th class="py-4 px-6">{{ tExt.colTime }}</th>
+              <th class="py-4 px-6 text-right">{{ tExt.colActions }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 text-sm">
-            <tr v-if="orderList.length === 0">
-              <td colspan="7" class="text-center py-12 text-slate-400 text-xs">
-                暂无采购订单数据，请前往“智能补货建议”生成采购单
+            <tr v-for="order in ordersList" :key="order.id" class="hover:bg-blue-50/30 transition-colors">
+              <td class="py-4 px-6 text-center">
+                <input type="checkbox" class="rounded border-slate-300 text-blue-600 w-4 h-4" />
               </td>
-            </tr>
-            <tr v-for="order in orderList" :key="order.id" class="hover:bg-slate-50/50 transition-colors">
-              <!-- 🌟 单选复选框 -->
-              <td class="py-4 px-4 text-center">
-                <input 
-                  type="checkbox" 
-                  :checked="selectedIds.includes(order.id)" 
-                  @change="toggleSelect(order.id)" 
-                  class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" 
-                />
-              </td>
-              <td class="py-4 px-6 font-mono font-bold text-slate-800">{{ order.po_no }}</td>
-              <td class="py-4 px-6 font-medium text-slate-900">
-                <span class="bg-slate-100 px-2.5 py-1 rounded-md text-xs">{{ order.supplier_name || 'TOSTIKYK 优选供应商' }}</span>
-              </td>
-              <!-- 🌟 核心改进：安全解析并渲染美观的采购明细标签，彻底告别丑陋的原始 JSON 串 -->
-              <td class="py-4 px-6 text-slate-600 text-xs">
-                <div class="flex flex-wrap gap-1.5 max-w-md">
-                  <span v-for="(item, idx) in parseOrderItems(order.items_json)" :key="idx" class="bg-blue-50 text-blue-700 border border-blue-200/60 px-2.5 py-1 rounded-lg font-mono">
-                    <strong class="text-blue-900">{{ item.oem || item.code }}</strong>: {{ item.name }} <span class="text-emerald-600 font-bold">x{{ item.quantity || item.suggested_qty }}</span>
-                  </span>
-                </div>
-              </td>
+              <td class="py-4 px-6 font-mono font-bold text-blue-600">{{ order.po_no }}</td>
+              <td class="py-4 px-6 font-bold text-slate-800">{{ order.supplier_name }}</td>
+              <td class="py-4 px-6 text-slate-600">{{ order.items_count }} SKUs</td>
               <td class="py-4 px-6">
-                <span 
-                  :class="order.status === 'received' 
-                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/60' 
-                    : 'bg-amber-50 text-amber-600 border border-amber-200/60'"
-                  class="px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1"
-                >
-                  {{ order.status === 'received' ? '✅ 已收货入库' : '⏳ 待收货' }}
+                <span :class="order.status === 'received' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'" class="px-2.5 py-1 rounded-lg text-xs font-bold">
+                  {{ order.status === 'received' ? tExt.statusReceived : tExt.statusPending }}
                 </span>
               </td>
-              <td class="py-4 px-6 text-slate-500 text-xs font-mono">{{ order.created_at || '刚刚' }}</td>
-              <td class="py-4 px-6 text-right space-x-2">
-                <button 
-                  @click="handleReceive(order.id)"
-                  :disabled="order.status === 'received' || loadingId === order.id"
-                  :class="order.status === 'received' 
-                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer'"
-                  class="text-xs font-semibold px-3 py-2 rounded-xl transition-all"
-                >
-                  {{ loadingId === order.id ? '处理中...' : (order.status === 'received' ? '已完成收货' : '📦 确认收货') }}
+              <td class="py-4 px-6 text-slate-500 font-mono text-xs">{{ order.created_at }}</td>
+              <td class="py-4 px-6 text-right">
+                <button v-if="order.status !== 'received'" @click="receiveOrder(order.id)" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                  {{ tExt.btnReceive }}
                 </button>
+                <span v-else class="text-slate-400 text-xs font-semibold">{{ tExt.btnCompleted }}</span>
               </td>
+            </tr>
+            <tr v-if="ordersList.length === 0">
+              <td colspan="7" class="py-16 text-center text-slate-400 text-xs">{{ tExt.emptyOrders }}</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
-
-    <!-- 🌟 子视图 2：智能补货建议与下单 -->
-    <div v-if="activeSubTab === 'replenish'" class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-4 md:p-6 space-y-6">
-      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
-        <div>
-          <h3 class="font-bold text-slate-900 text-base">智能补货建议与缺货预警</h3>
-          <p class="text-xs text-slate-500 mt-0.5">实时监测库存不足的汽车配件，计算系统建议补货数量与预估成本</p>
-        </div>
-        
-        <div class="flex items-center gap-3 flex-wrap">
-          <select 
-            v-model="procurementBrand" 
-            class="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500 cursor-pointer"
-          >
-            <option value="ALL">全部品牌</option>
-            <option v-for="b in uniqueBrands" :key="b" :value="b">{{ b }}</option>
-          </select>
-
-          <select 
-            v-model="procurementCategory" 
-            class="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500 cursor-pointer"
-          >
-            <option value="ALL">全部类目</option>
-            <option v-for="c in uniqueCategories" :key="c" :value="c">{{ c }}</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse min-w-[750px]">
-          <thead>
-            <tr class="bg-slate-50/75 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <th class="py-3.5 px-6">配件编码</th>
-              <th class="py-3.5 px-6">OEM 号</th>
-              <th class="py-3.5 px-6">配件名称</th>
-              <th class="py-3.5 px-6">适配品牌</th>
-              <th class="py-3.5 px-6">所属类目</th>
-              <th class="py-3.5 px-6">当前库存</th>
-              <th class="py-3.5 px-6 text-blue-600 font-bold">建议补货量</th>
-              <th class="py-3.5 px-6">预估成本 (USD)</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 text-sm">
-            <tr v-if="filteredProcurementList.length === 0">
-              <td colspan="8" class="text-center py-12 text-slate-400 text-xs">
-                当前库存充足，暂无需要补货的汽配商品
-              </td>
-            </tr>
-            <tr v-for="item in filteredProcurementList" :key="item.code" class="hover:bg-slate-50/50 transition-colors">
-              <td class="py-4 px-6 font-mono font-semibold text-slate-700">{{ item.code }}</td>
-              <td class="py-4 px-6 font-mono text-slate-600">{{ item.oem }}</td>
-              <td class="py-4 px-6 font-medium text-slate-900">{{ item.name }}</td>
-              <td class="py-4 px-6"><span class="bg-slate-100 px-2.5 py-1 rounded-md text-xs font-medium">{{ item.brand }}</span></td>
-              <td class="py-4 px-6"><span class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-xs font-semibold">{{ item.category }}</span></td>
-              <td class="py-4 px-6 font-bold text-rose-600">{{ item.current_stock }}</td>
-              <td class="py-4 px-6 font-black text-blue-600 text-base">+ {{ item.suggested_qty }}</td>
-              <td class="py-4 px-6 font-bold text-emerald-600">$ {{ (item.estimated_cost || 0).toFixed(2) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- 🌟 现代化批量删除确认弹窗 -->
-    <ConfirmDialog
-      :visible="batchDeleteModalVisible"
-      overlay-class="bg-slate-900/40"
-      title="确认批量删除采购订单"
-      :message="`确定要批量删除选中的 ${selectedIds.length} 个采购订单吗？`"
-      cancel-text="取消"
-      confirm-text="确认删除"
-      @cancel="batchDeleteModalVisible = false"
-      @confirm="confirmBatchDelete"
-    />
-
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { useI18n } from '../composables/useI18n'
 import { apiFetch } from '../utils/api'
-import { useNotifications } from '../composables/useNotifications'
-import ConfirmDialog from './ConfirmDialog.vue'
 
-const { showSuccessModal } = useNotifications()
+const { currentLang } = useI18n()
+const activeTab = ref('orders')
+const ordersList = ref([])
 
-// 子视图切换：orders（采购订单管理） / replenish（智能补货建议）
-const activeSubTab = ref('orders')
-
-const orderList = ref([])
-const loadingId = ref(null)
-const procurementList = ref([])
-const procurementBrand = ref('ALL')
-const procurementCategory = ref('ALL')
-
-// 多选与批量删除状态
-const selectedIds = ref([])
-const batchDeleteModalVisible = ref(false)
-
-// 全选与单选逻辑
-const isAllSelected = computed(() => {
-  if (orderList.value.length === 0) return false
-  return orderList.value.every(item => selectedIds.value.includes(item.id))
+const tExt = computed(() => {
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  return {
+    tabOrders: isZh ? '采购订单与收货管理' : isEs ? 'Pedidos y Recepción' : 'Purchase Orders',
+    tabSuggestions: isZh ? '智能补货建议与下单' : isEs ? 'Sugerencias de Compra' : 'Replenishment',
+    supplyChainStatus: isZh ? '供应链状态' : isEs ? 'Estado de Suministro' : 'Supply Chain Status',
+    statusOnline: isZh ? '在线正常' : isEs ? 'En Línea' : 'Online',
+    ordersTitle: isZh ? '采购订单与收货管理' : isEs ? 'Gestión de Órdenes de Compra' : 'Purchase Orders Management',
+    ordersSub: isZh ? '管理供应商采购订单，支持一键验货入库、状态流转与商品明细解析' : isEs ? 'Gestione pedidos de proveedores, recepción y detalles' : 'Manage supplier orders, receiving, and details',
+    refreshList: isZh ? '刷新订单列表' : isEs ? 'Actualizar Lista' : 'Refresh List',
+    colPoNo: isZh ? '订单编号 (PO NO.)' : isEs ? 'Nro. PO' : 'PO No.',
+    colSupplier: isZh ? '供应商' : isEs ? 'Proveedor' : 'Supplier',
+    colDetails: isZh ? '采购明细解析 (SKU & 数量)' : isEs ? 'Detalles (SKU & Cant.)' : 'Details (SKU & Qty)',
+    colStatus: isZh ? '订单状态' : isEs ? 'Estado' : 'Status',
+    colTime: isZh ? '创建时间' : isEs ? 'Fecha de Creación' : 'Created At',
+    colActions: isZh ? '操作 / 验货入库' : isEs ? 'Acciones / Recibir' : 'Actions / Receive',
+    statusReceived: isZh ? '已入库' : isEs ? 'Recibido' : 'Received',
+    statusPending: isZh ? '待收货' : isEs ? 'Pendiente' : 'Pending',
+    btnReceive: isZh ? '确认收货入库' : isEs ? 'Confirmar Recepción' : 'Confirm Receive',
+    btnCompleted: isZh ? '已完成' : isEs ? 'Completado' : 'Completed',
+    emptyOrders: isZh ? '暂无采购订单数据，请前往“智能补货建议”生成采购单' : isEs ? 'No hay órdenes de compra. Vaya a "Sugerencias" para crear una.' : 'No purchase orders found. Go to "Suggestions" to create one.'
+  }
 })
 
-const toggleSelectAll = (e) => {
-  if (e.target.checked) {
-    selectedIds.value = orderList.value.map(i => i.id)
-  } else {
-    selectedIds.value = []
-  }
-}
-
-const toggleSelect = (id) => {
-  if (selectedIds.value.includes(id)) {
-    selectedIds.value = selectedIds.value.filter(i => i !== id)
-  } else {
-    selectedIds.value.push(id)
-  }
-}
-
-// 确认批量删除采购订单
-const confirmBatchDelete = async () => {
-  try {
-    for (const id of selectedIds.value) {
-      await apiFetch(`/api/purchase-orders/${id}`, { method: 'DELETE' })
-    }
-    batchDeleteModalVisible.value = false
-    selectedIds.value = []
-    showSuccessModal('🗑️ 批量删除采购订单成功！')
-    await fetchPurchaseOrders()
-  } catch (e) {
-    batchDeleteModalVisible.value = false
-    showSuccessModal('❌ 批量删除出现异常')
-  }
-}
-
-// 安全解析订单明细 JSON 字符串
-const parseOrderItems = (jsonStr) => {
-  if (!jsonStr) return []
-  try {
-    const parsed = JSON.parse(jsonStr)
-    return Array.isArray(parsed) ? parsed : [parsed]
-  } catch (e) {
-    return [{ name: jsonStr, quantity: 1 }]
-  }
-}
-
-// 获取采购订单列表
-const fetchPurchaseOrders = async () => {
+const fetchOrders = async () => {
   try {
     const res = await apiFetch('/api/purchase-orders')
     if (res.ok) {
-      const data = await res.json()
-      orderList.value = Array.isArray(data) ? data : (data.items || data.orders || [])
+      ordersList.value = await res.json()
     }
-  } catch (e) {
-    console.error("获取采购订单失败", e)
-  }
+  } catch (e) { console.error(e) }
 }
 
-// 获取智能补货列表数据
-const fetchProcurementData = async () => {
+const receiveOrder = async (id) => {
+  if (!confirm('¿Confirmar recepción e ingreso de inventario?')) return
   try {
-    const res = await apiFetch('/api/parts')
-    if (res.ok) {
-      const data = await res.json()
-      const parts = Array.isArray(data) ? data : (data.items || [])
-      
-      procurementList.value = parts
-        .filter(p => (p.stock ?? p.current_stock ?? 0) <= 5)
-        .map(p => ({
-          code: p.code || p.oem || 'SKU-' + p.id,
-          oem: p.oem || 'N/A',
-          name: p.name || '未知配件',
-          brand: p.brand || 'TOSTIKYK',
-          category: p.category || '通用类目',
-          current_stock: p.stock ?? p.current_stock ?? 0,
-          suggested_qty: 10,
-          estimated_cost: (p.price || p.cost || 10.0) * 10
-        }))
-    }
-  } catch (e) {
-    console.error("获取补货建议失败", e)
-  }
+    const res = await apiFetch(`/api/purchase-orders/${id}/receive`, { method: 'POST' })
+    if (res.ok) fetchOrders()
+  } catch (e) { console.error(e) }
 }
 
-// 过滤筛选补货列表
-const uniqueBrands = computed(() => {
-  return [...new Set(procurementList.value.map(i => i.brand).filter(Boolean))]
-})
-
-const uniqueCategories = computed(() => {
-  return [...new Set(procurementList.value.map(i => i.category).filter(Boolean))]
-})
-
-const filteredProcurementList = computed(() => {
-  return procurementList.value.filter(item => {
-    const matchBrand = procurementBrand.value === 'ALL' || item.brand === procurementBrand.value
-    const matchCat = procurementCategory.value === 'ALL' || item.category === procurementCategory.value
-    return matchBrand && matchCat
-  })
-})
-
-// 确认收货动作
-const handleReceive = async (poId) => {
-  loadingId.value = poId
-  try {
-    const res = await apiFetch(`/api/purchase-orders/${poId}/receive`, {
-      method: 'POST'
-    })
-    const data = await res.json()
-    
-    if (res.ok && data.status === 'success') {
-      showSuccessModal(data.message || "收货成功：库存已增加、流水已记录！")
-      await fetchPurchaseOrders()
-    } else {
-      showSuccessModal(`❌ ${data.detail || data.message || "收货操作失败"}`)
-    }
-  } catch (e) {
-    showSuccessModal("❌ 网络异常或服务器错误：" + e.message)
-  } finally {
-    loadingId.value = null
-  }
-}
-
-onMounted(() => {
-  fetchPurchaseOrders()
-  fetchProcurementData()
-})
+onMounted(() => { fetchOrders() })
 </script>

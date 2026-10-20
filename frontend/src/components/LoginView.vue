@@ -18,14 +18,13 @@
           <Cpu :size="28" />
         </div>
         <h2 class="font-black text-xl text-slate-900">TOSTIKYK ERP</h2>
-        <p class="text-xs text-slate-400">{{ t.loginSubtitle || 'ERP 权限控制 - 请输入管理员凭证' }}</p>
+        <p class="text-xs text-slate-400">{{ tExt.subtitle }}</p>
       </div>
 
       <!-- 登录表单 -->
       <form @submit.prevent="handleLogin" class="space-y-4">
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.usernameLabel || '管理员账号' }}</label>
-          <!-- 🌟 1. 为账号输入框绑定 ref 引用 -->
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ tExt.usernameLabel }}</label>
           <input 
             ref="usernameInputRef"
             v-model="loginForm.username" 
@@ -36,7 +35,7 @@
           />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.passwordLabel || '管理员密码' }}</label>
+          <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ tExt.passwordLabel }}</label>
           <input 
             v-model="loginForm.password" 
             type="password" 
@@ -49,13 +48,13 @@
         <p v-if="resetMessage" class="text-xs text-emerald-600 font-semibold text-center">{{ resetMessage }}</p>
 
         <button type="submit" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/25 transition-all cursor-pointer">
-          {{ t.loginBtn || '安全登录系统' }}
+          {{ tExt.loginBtn }}
         </button>
       </form>
 
       <div class="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
         <button @click="openResetModal" class="text-blue-600 hover:underline font-medium cursor-pointer">
-          {{ t.forgotPasswordBtn || '忘记密码？(重置)' }}
+          {{ tExt.forgotPassword }}
         </button>
         <span class="text-slate-400 font-mono text-[11px]">v4.3 Enterprise</span>
       </div>
@@ -64,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, computed } from 'vue'
 import { Cpu } from 'lucide-vue-next'
 import { useI18n } from '../composables/useI18n'
 import { useAuth } from '../composables/useAuth'
@@ -75,10 +74,21 @@ const {
   handleLogin, openResetModal
 } = useAuth()
 
-// 🌟 2. 定义账号输入框的引用变量
+// 🌟 扩展翻译字典
+const tExt = computed(() => {
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  return {
+    subtitle: isZh ? 'ERP 权限控制 - 请输入管理员凭证' : isEs ? 'Control de Acceso - Ingrese credenciales' : 'Access Control - Enter credentials',
+    usernameLabel: isZh ? '管理员账号' : isEs ? 'Usuario Administrador' : 'Admin Username',
+    passwordLabel: isZh ? '管理员密码' : isEs ? 'Contraseña' : 'Admin Password',
+    loginBtn: isZh ? '安全登录系统' : isEs ? 'Iniciar Sesión Seguro' : 'Secure Login',
+    forgotPassword: isZh ? '忘记密码？(重置)' : isEs ? '¿Olvidó su contraseña? (Restablecer)' : 'Forgot password? (Reset)'
+  }
+})
+
 const usernameInputRef = ref(null)
 
-// 🌟 3. 组件挂载后自动聚焦到账号输入框
 onMounted(async () => {
   await nextTick()
   if (usernameInputRef.value) {

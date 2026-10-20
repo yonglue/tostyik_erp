@@ -2,6 +2,16 @@
 <template>
   <div class="fixed inset-0 bg-slate-950/25 backdrop-blur-md z-40 flex flex-col overflow-hidden text-slate-900 font-sans transition-all">
     
+    <!-- 结账成功的全屏绿色对勾遮罩 -->
+    <div v-if="checkoutSuccessVisible" class="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center flex-col transition-all duration-300">
+      <div class="w-40 h-40 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_60px_rgba(16,185,129,0.6)] animate-pop-in">
+        <svg class="w-24 h-24 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
+      <h2 class="text-white text-2xl font-black mt-8 tracking-widest drop-shadow-lg">{{ tExt.checkoutSuccessTitle }}</h2>
+    </div>
+
     <!-- 右上角提示条 -->
     <transition name="fade">
       <div v-if="toastMessage" :class="toastType === 'success' ? 'bg-emerald-600/90 border-emerald-400/30' : 'bg-rose-600/90 border-rose-400/30'" class="fixed top-2 right-4 z-50 text-white px-4 py-3 rounded-xl shadow-xl backdrop-blur-md border flex items-center gap-2 text-sm font-bold animate-bounce">
@@ -13,24 +23,24 @@
     <!-- 顶部状态栏 -->
     <header class="h-12 bg-white/75 backdrop-blur-xl border-b border-white/60 px-4 flex items-center justify-between shrink-0 shadow-2xs">
       <div class="flex items-center space-x-3">
-        <span class="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-2xs">POS v2.9</span>
+        <span class="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-2xs">POS v3.1</span>
         <span class="text-sm font-bold text-slate-700">📅 {{ currentDateTime }}</span>
-        <span class="text-sm text-emerald-600 font-mono font-bold">{{ t.bcvLabel }}: {{ bcvRate }}</span>
+        <span class="text-sm text-emerald-600 font-mono font-bold">{{ t.dashboard.bcvLabel }}: {{ bcvRate }}</span>
         
         <button v-if="heldOrders.length > 0" @click="openRecallModal" class="bg-white/70 hover:bg-amber-500/10 text-amber-800 border border-slate-200 hover:border-amber-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
-          <span>📦 挂单池 ({{ heldOrders.length }}) [Ctrl+R]</span>
+          <span>📦 {{ t.pos.holdPool }} ({{ heldOrders.length }}) [Ctrl+R]</span>
         </button>
       </div>
       
       <div class="flex items-center space-x-2.5">
         <button @click="openHistoryModal" class="bg-white/70 hover:bg-white/90 text-indigo-700 border border-slate-200 hover:border-indigo-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
-          <span>📜 销售历史</span>
+          <span>📜 {{ t.pos.salesHistory }}</span>
         </button>
         <button @click="openShiftReportModal" class="bg-white/70 hover:bg-white/90 text-emerald-700 border border-slate-200 hover:border-emerald-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
-          <span>📊 交接班</span>
+          <span>📊 {{ t.pos.shiftReport }}</span>
         </button>
         <button @click="helpModalVisible = true" class="bg-white/70 hover:bg-white/90 text-blue-600 border border-slate-200 hover:border-blue-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
-          <span>⌨️ 快捷键</span>
+          <span>⌨️ {{ t.pos.shortcutGuide }}</span>
         </button>
 
         <div class="flex items-center gap-2.5 pl-2.5 border-l border-slate-200/60">
@@ -41,11 +51,11 @@
             </div>
             <div class="text-left">
               <span class="text-[9px] text-slate-400 block uppercase font-extrabold tracking-wider leading-none">{{ currentUser?.role || 'staff' }}</span>
-              <span class="text-xs font-bold text-slate-800 leading-tight block mt-0.5">{{ currentUser?.username || '用户' }}</span>
+              <span class="text-xs font-bold text-slate-800 leading-tight block mt-0.5">{{ currentUser?.username || 'User' }}</span>
             </div>
           </div>
           <button @click="confirmExitPos" class="px-3 py-1.5 bg-white/70 hover:bg-rose-500/15 border border-slate-200 hover:border-rose-300 text-rose-600 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-[1.02]">
-            退出
+            {{ t.pos.exit }}
           </button>
         </div>
       </div>
@@ -57,77 +67,53 @@
       <!-- 左侧：商品搜索与购物车 -->
       <div class="flex-1 flex flex-col bg-white/75 backdrop-blur-xl rounded-xl border border-white/60 overflow-hidden shadow-lg">
         
-        <div class="p-2.5 border-b border-slate-200/60 flex gap-2 bg-white/40 backdrop-blur-md">
-          <div class="flex-1 relative">
+        <!-- 🌟 优化后的顶部工具栏 (50% : 25% : 25%) -->
+        <div class="p-2.5 border-b border-slate-200/60 flex gap-2 bg-white/40 backdrop-blur-md items-center w-full">
+          
+          <!-- 1. 配件搜索框：占 50% -->
+          <div class="relative w-1/2">
             <input 
               ref="searchInputRef"
               v-model="deskSearchQuery" 
               @keydown="handleSearchKeydown"
               type="text" 
-              placeholder="按 [/] 键聚焦，输入 OEM / 互换号 / 品名搜索..." 
-              class="w-full bg-white/90 hover:bg-white focus:bg-white border border-slate-200/80 focus:border-blue-500 rounded-lg px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none font-mono shadow-2xs transition-all font-bold"
+              :placeholder="t.pos.searchPlaceholder" 
+              class="w-full bg-white/90 hover:bg-white focus:bg-white border border-slate-200/80 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 rounded-lg px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none font-mono shadow-2xs transition-all font-bold"
             />
           </div>
-          <div class="w-68 flex items-center gap-1.5">
+          
+          <!-- 2. 已选客户信息展示区：占 25% -->
+          <div class="w-1/4">
+            <div v-if="quoteClientName" class="flex items-center justify-between bg-blue-50/80 border border-blue-200/80 px-3 py-1.5 rounded-lg shadow-2xs w-full">
+              <div class="flex items-center gap-2 flex-1 truncate">
+                <span class="text-blue-600 text-lg">👤</span>
+                <div class="truncate">
+                  <div class="text-sm font-bold text-slate-800 leading-tight truncate">{{ quoteClientName }}</div>
+                  <div class="text-[10px] text-blue-600/70 font-semibold truncate">{{ tExt.clientSelected }}</div>
+                </div>
+              </div>
+              <button @click="quoteClientName = ''" :title="tExt.clearClient" class="text-slate-400 hover:text-rose-500 hover:bg-rose-100 rounded-md p-1 transition-colors cursor-pointer shrink-0 ml-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+            <div v-else class="flex items-center justify-center border border-dashed border-slate-300 bg-slate-50/50 rounded-lg px-3 py-2.5 text-slate-400 text-xs font-semibold w-full">
+              {{ tExt.noClientSelected }}
+            </div>
+          </div>
+
+          <!-- 3. 搜索/切换客户按钮：占 25% -->
+          <div class="w-1/4">
             <button 
               @click="openClientSearchModal" 
               type="button"
-              class="flex-1 bg-white/90 hover:bg-blue-50/70 border border-blue-300/60 hover:border-blue-500 text-slate-800 rounded-lg px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-all shadow-2xs cursor-pointer truncate"
+              class="w-full flex items-center justify-between bg-white border border-slate-200 hover:border-blue-400 hover:bg-blue-50 text-slate-600 rounded-lg px-3.5 py-2.5 text-xs font-bold transition-all shadow-2xs cursor-pointer"
             >
-              <div class="flex items-center gap-2 truncate">
-                <span class="text-blue-600 text-sm">👤</span>
-                <span class="truncate text-xs font-bold" :class="quoteClientName ? 'text-slate-900' : 'text-slate-400'">
-                  {{ quoteClientName || '🔍 选择客户...' }}
-                </span>
+              <div class="flex items-center gap-1.5 truncate">
+                <span class="text-blue-500">🔍</span>
+                <span class="truncate">{{ t.pos.selectClient }}</span>
               </div>
-              <span class="text-xs text-slate-400 ml-1">选择</span>
+              <span class="text-slate-400 font-mono text-[10px] hidden sm:inline">Ctrl+F</span>
             </button>
-            <button 
-              v-if="quoteClientName"
-              @click="quoteClientName = ''"
-              title="清除当前选中客户"
-              type="button"
-              class="w-8 h-9.5 shrink-0 bg-slate-100 hover:bg-rose-500/20 text-slate-500 hover:text-rose-600 border border-slate-200 rounded-lg flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
-        <!-- 搜索结果快捷点选栏 -->
-        <div v-if="deskSearchQuery.trim()" class="max-h-56 overflow-y-auto border-b border-slate-200/60 bg-white/95 backdrop-blur-md p-2 space-y-1.5 z-20 shadow-xl">
-          <div 
-            v-for="(p, index) in filteredParts" 
-            :key="p.oem" 
-            :ref="el => { if (selectedIndex === index) activeItemRef = el }"
-            @click="selectAndAddToCart(p)"
-            @mouseenter="selectedIndex = index"
-            :class="[
-              selectedIndex === index ? 'bg-blue-500/15 border-blue-300 text-blue-950 shadow-2xs' : 'hover:bg-slate-100/70 border-slate-100 text-slate-800',
-              p.stock <= 0 ? 'opacity-60 bg-slate-100/60' : ''
-            ]"
-            class="flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-all border text-sm"
-          >
-            <div>
-              <span class="font-mono font-black text-blue-600 text-sm mr-3">{{ p.oem }}</span>
-              <span class="font-bold text-slate-800">{{ p.name }}</span>
-              <span class="text-xs text-slate-400 ml-2">({{ p.brand }})</span>
-            </div>
-            <div class="flex items-center gap-4 text-right">
-              <div>
-                <span class="text-sm font-mono font-black text-slate-900">${{ p.price.toFixed(2) }}</span>
-                <span class="text-xs text-slate-400 font-mono block">Bs. {{ (p.price * bcvRate).toFixed(2) }}</span>
-              </div>
-              <span :class="p.tax_rate > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200'" class="text-[10px] px-1.5 py-0.5 rounded border font-bold">
-                {{ p.tax_rate > 0 ? '16% IVA' : '免税' }}
-              </span>
-              <span :class="p.stock > 0 ? 'text-emerald-600' : 'text-rose-600 font-bold'" class="text-xs font-mono font-black">
-                库存: {{ p.stock }}
-              </span>
-            </div>
-          </div>
-          <div v-if="filteredParts.length === 0" class="text-center py-4 text-sm text-slate-400 font-bold">
-            未找到相关配件商品
           </div>
         </div>
 
@@ -136,13 +122,12 @@
           <table class="w-full text-left border-collapse">
             <thead>
               <tr class="border-b-2 border-slate-200 text-slate-600 text-xs font-extrabold uppercase bg-slate-100/50">
-                <th class="py-3 px-3">OEM 编号</th>
-                <th class="py-3 px-3">配件名称</th>
-                <th class="py-3 px-3">税率属性 (IVA)</th>
-                <th class="py-3 px-3 text-right">单价 ($ / Bs.)</th>
-                <th class="py-3 px-3 text-center">数量 (支持 3* 语法)</th>
-                <th class="py-3 px-3 text-right">小计 ($ / Bs.)</th>
-                <th class="py-3 px-3 text-center">操作</th>
+                <th class="py-3 px-3">{{ tExt.cartOem }}</th>
+                <th class="py-3 px-3">{{ tExt.cartName }}</th>
+                <th class="py-3 px-3 text-right">{{ tExt.cartPrice }}</th>
+                <th class="py-3 px-3 text-center">{{ tExt.cartQty }}</th>
+                <th class="py-3 px-3 text-right">{{ tExt.cartSubtotal }}</th>
+                <th class="py-3 px-3 text-center">{{ tExt.cartAction }}</th>
               </tr>
             </thead>
             <tbody class="text-sm font-medium">
@@ -157,24 +142,19 @@
               >
                 <td class="py-3 px-3 font-mono font-black text-blue-600 text-sm">{{ item.oem }}</td>
                 <td class="py-3 px-3 text-slate-900 font-bold">{{ item.name }}</td>
-                <td class="py-3 px-3">
-                  <span :class="(item.tax_rate ?? 0.16) > 0 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200'" class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border">
-                    {{ (item.tax_rate ?? 0.16) > 0 ? '16% IVA' : '0% 免税' }}
-                  </span>
-                </td>
                 <td class="py-3 px-3 text-right font-mono text-slate-700 font-bold">
                   <div>${{ item.price.toFixed(2) }}</div>
                   <div class="text-xs text-slate-400 font-normal">Bs. {{ (item.price * bcvRate).toFixed(2) }}</div>
                 </td>
                 <td class="py-3 px-3 text-center" @click.stop>
-                  <div class="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white shadow-2xs">
+                  <div class="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white shadow-2xs focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
                     <button @click="item.quantity > 1 ? item.quantity-- : null" class="px-2.5 py-1 text-slate-600 hover:bg-slate-200 font-bold text-sm">-</button>
                     <input 
                       v-model="itemInputQuantities[index]" 
+                      @focus="$event.target.select()"
                       @blur="applyMultiplierQuantity(index)"
                       @keydown.enter="applyMultiplierQuantity(index)"
                       type="text" 
-                      placeholder="1" 
                       class="w-12 text-center bg-transparent text-slate-900 text-sm font-mono outline-none font-black" 
                     />
                     <button @click="item.quantity++; itemInputQuantities[index] = item.quantity" class="px-2.5 py-1 text-slate-600 hover:bg-slate-200 font-bold text-sm">+</button>
@@ -185,18 +165,17 @@
                   <div class="text-xs text-emerald-700/80 font-normal">Bs. {{ (item.price * item.quantity * bcvRate).toFixed(2) }}</div>
                 </td>
                 <td class="py-3 px-3 text-center" @click.stop>
-                  <button @click="cartItems.splice(index, 1)" class="text-rose-600 text-xs font-bold px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg transition-all cursor-pointer shadow-2xs">删除</button>
+                  <button @click="cartItems.splice(index, 1)" class="text-rose-600 text-xs font-bold px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg transition-all cursor-pointer shadow-2xs">{{ t.common.delete }}</button>
                 </td>
               </tr>
               <tr v-if="cartItems.length === 0">
-                <td colspan="7" class="text-center py-20 text-slate-400 text-sm font-bold">
-                  🛒 购物车为空，请按 [/] 键搜索添加配件商品...
+                <td colspan="6" class="text-center py-20 text-slate-400 text-sm font-bold">
+                  🛒 {{ tExt.cartEmpty }}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-
       </div>
 
       <!-- 右侧：组合支付面板 -->
@@ -204,99 +183,127 @@
         
         <div class="flex-1 overflow-y-auto p-3.5 space-y-3">
           <div class="flex items-center justify-between border-b border-slate-200/60 pb-2">
-            <h3 class="font-bold text-xs text-slate-800 uppercase tracking-wider">💳 多通道组合支付</h3>
+            <h3 class="font-bold text-xs text-slate-800 uppercase tracking-wider">💳 {{ t.pos.payPanelTitle }}</h3>
             <button 
               @click="toggleMainCurrency" 
               type="button"
               class="bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 border border-blue-200/60 px-2.5 py-1 rounded-lg text-xs font-bold font-mono transition-all cursor-pointer shadow-2xs flex items-center gap-1"
             >
-              <span>🔄 主显: {{ primaryCurrency === 'USD' ? '美元 ($)' : 'Bs.' }}</span>
+              <span>🔄 {{ t.pos.mainCurrency }}: {{ primaryCurrency === 'USD' ? 'USD ($)' : 'Bs.' }}</span>
             </button>
           </div>
 
-          <div class="space-y-2 text-sm">
+                    <div class="space-y-2.5 text-sm">
             <!-- 1. Card POS [F4] -->
-            <div class="bg-white/70 hover:bg-white p-2 rounded-xl border border-white/90 hover:border-blue-300 transition-all flex items-center justify-between shadow-2xs">
-              <div>
-                <span class="font-bold text-slate-800 flex items-center gap-1">💳 刷卡 POS (Bs.) <span class="text-[10px] text-blue-600 font-mono">[F4]</span></span>
-                <span class="text-xs text-emerald-600 font-mono font-bold">{{ primaryCurrency === 'USD' ? `≈ $${((Number(paymentSplit.cardPos) || 0) / (bcvRate || 1)).toFixed(2)}` : `Bs. ${(Number(paymentSplit.cardPos) || 0).toFixed(2)}` }}</span>
+            <div 
+              @click="focusPaymentChannel('cardPos')"
+              class="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 transition-all duration-200 flex items-center justify-between shadow-2xs cursor-pointer
+                     hover:bg-white hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5
+                     focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 focus-within:bg-blue-50/30 focus-within:shadow-md"
+            >
+              <div class="flex-1">
+                <span class="font-bold text-slate-800 flex items-center gap-1 text-[13px]">💳 {{ t.pos.payCardPos }} <span class="text-[10px] text-blue-600 font-mono">[F4]</span></span>
+                <span class="text-xs text-emerald-600 font-mono font-bold block mt-0.5">{{ primaryCurrency === 'USD' ? `≈ $${((Number(paymentSplit.cardPos) || 0) / (bcvRate || 1)).toFixed(2)}` : `Bs. ${(Number(paymentSplit.cardPos) || 0).toFixed(2)}` }}</span>
               </div>
-              <div class="flex items-center gap-1">
-                <span class="text-slate-400 font-bold">Bs.</span>
-                <input 
-                  ref="cardPosInputRef"
-                  v-model.number="paymentSplit.cardPos" 
-                  @keydown="e => { if(e.key === ' ') { e.preventDefault(); handlePaymentKeydown(e, 'cardPos'); } else { handlePaymentKeydown(e, 'cardPos'); } }"
-                  type="number" step="10" placeholder="0" 
-                  class="w-28 bg-white/90 focus:bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono font-black text-slate-900 outline-none focus:border-blue-500 text-sm no-spinner" 
-                />
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-400 font-bold text-xs">Bs.</span>
+                <div class="w-28 bg-white border border-slate-300 rounded-lg px-2 py-1 shadow-inner focus-within:border-blue-500 transition-colors">
+                  <input 
+                    ref="cardPosInputRef"
+                    v-model.number="paymentSplit.cardPos" 
+                    @keydown="e => handlePaymentKeydown(e, 'cardPos')"
+                    type="number" step="10" placeholder="0" 
+                    class="w-full bg-transparent text-right font-mono font-black text-slate-900 outline-none text-sm no-spinner" 
+                  />
+                </div>
               </div>
             </div>
 
             <!-- 2. Pago Móvil [F5] -->
-            <div class="bg-white/70 hover:bg-white p-2 rounded-xl border border-white/90 hover:border-blue-300 transition-all flex items-center justify-between shadow-2xs">
-              <div>
-                <span class="font-bold text-slate-800 flex items-center gap-1">⚡ 手机支付 Pago Móvil <span class="text-[10px] text-blue-600 font-mono">[F5]</span></span>
-                <span class="text-xs text-emerald-600 font-mono font-bold">{{ primaryCurrency === 'USD' ? `≈ $${((Number(paymentSplit.pagoMovil) || 0) / (bcvRate || 1)).toFixed(2)}` : `Bs. ${(Number(paymentSplit.pagoMovil) || 0).toFixed(2)}` }}</span>
+            <div 
+              @click="focusPaymentChannel('pagoMovil')"
+              class="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 transition-all duration-200 flex items-center justify-between shadow-2xs cursor-pointer
+                     hover:bg-white hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5
+                     focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 focus-within:bg-blue-50/30 focus-within:shadow-md"
+            >
+              <div class="flex-1">
+                <span class="font-bold text-slate-800 flex items-center gap-1 text-[13px]">⚡ {{ t.pos.payPagoMovil }} <span class="text-[10px] text-blue-600 font-mono">[F5]</span></span>
+                <span class="text-xs text-emerald-600 font-mono font-bold block mt-0.5">{{ primaryCurrency === 'USD' ? `≈ $${((Number(paymentSplit.pagoMovil) || 0) / (bcvRate || 1)).toFixed(2)}` : `Bs. ${(Number(paymentSplit.pagoMovil) || 0).toFixed(2)}` }}</span>
               </div>
-              <div class="flex items-center gap-1">
-                <span class="text-slate-400 font-bold">Bs.</span>
-                <input 
-                  ref="pagoMovilInputRef"
-                  v-model.number="paymentSplit.pagoMovil" 
-                  @keydown="e => { if(e.key === ' ') { e.preventDefault(); handlePaymentKeydown(e, 'pagoMovil'); } else { handlePaymentKeydown(e, 'pagoMovil'); } }"
-                  type="number" step="10" placeholder="0" 
-                  class="w-28 bg-white/90 focus:bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono font-black text-slate-900 outline-none focus:border-blue-500 text-sm no-spinner" 
-                />
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-400 font-bold text-xs">Bs.</span>
+                <div class="w-28 bg-white border border-slate-300 rounded-lg px-2 py-1 shadow-inner focus-within:border-blue-500 transition-colors">
+                  <input 
+                    ref="pagoMovilInputRef"
+                    v-model.number="paymentSplit.pagoMovil" 
+                    @keydown="e => handlePaymentKeydown(e, 'pagoMovil')"
+                    type="number" step="10" placeholder="0" 
+                    class="w-full bg-transparent text-right font-mono font-black text-slate-900 outline-none text-sm no-spinner" 
+                  />
+                </div>
               </div>
             </div>
 
             <!-- 3. Efectivo Bs. [F6] -->
-            <div class="bg-white/70 hover:bg-white p-2 rounded-xl border border-white/90 hover:border-blue-300 transition-all flex items-center justify-between shadow-2xs">
-              <div>
-                <span class="font-bold text-slate-800 flex items-center gap-1">🇻🇪 玻利瓦尔现金 <span class="text-[10px] text-blue-600 font-mono">[F6]</span></span>
-                <span class="text-xs text-emerald-600 font-mono font-bold">{{ primaryCurrency === 'USD' ? `≈ $${((Number(paymentSplit.cashBs) || 0) / (bcvRate || 1)).toFixed(2)}` : `Bs. ${(Number(paymentSplit.cashBs) || 0).toFixed(2)}` }}</span>
+            <div 
+              @click="focusPaymentChannel('cashBs')"
+              class="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 transition-all duration-200 flex items-center justify-between shadow-2xs cursor-pointer
+                     hover:bg-white hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5
+                     focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 focus-within:bg-blue-50/30 focus-within:shadow-md"
+            >
+              <div class="flex-1">
+                <span class="font-bold text-slate-800 flex items-center gap-1 text-[13px]">🇻🇪 {{ t.pos.payCashBs }} <span class="text-[10px] text-blue-600 font-mono">[F6]</span></span>
+                <span class="text-xs text-emerald-600 font-mono font-bold block mt-0.5">{{ primaryCurrency === 'USD' ? `≈ $${((Number(paymentSplit.cashBs) || 0) / (bcvRate || 1)).toFixed(2)}` : `Bs. ${(Number(paymentSplit.cashBs) || 0).toFixed(2)}` }}</span>
               </div>
-              <div class="flex items-center gap-1">
-                <span class="text-slate-400 font-bold">Bs.</span>
-                <input 
-                  ref="cashBsInputRef"
-                  v-model.number="paymentSplit.cashBs" 
-                  @keydown="e => { if(e.key === ' ') { e.preventDefault(); handlePaymentKeydown(e, 'cashBs'); } else { handlePaymentKeydown(e, 'cashBs'); } }"
-                  type="number" step="10" placeholder="0" 
-                  class="w-28 bg-white/90 focus:bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono font-black text-slate-900 outline-none focus:border-blue-500 text-sm no-spinner" 
-                />
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-400 font-bold text-xs">Bs.</span>
+                <div class="w-28 bg-white border border-slate-300 rounded-lg px-2 py-1 shadow-inner focus-within:border-blue-500 transition-colors">
+                  <input 
+                    ref="cashBsInputRef"
+                    v-model.number="paymentSplit.cashBs" 
+                    @keydown="e => handlePaymentKeydown(e, 'cashBs')"
+                    type="number" step="10" placeholder="0" 
+                    class="w-full bg-transparent text-right font-mono font-black text-slate-900 outline-none text-sm no-spinner" 
+                  />
+                </div>
               </div>
             </div>
 
             <!-- 4. Cash USD [F7] -->
-            <div class="bg-white/70 hover:bg-white p-2 rounded-xl border border-white/90 hover:border-blue-300 transition-all flex items-center justify-between shadow-2xs">
-              <div>
-                <span class="font-bold text-slate-800 flex items-center gap-1">💵 美金现金 Cash USD <span class="text-[10px] text-blue-600 font-mono">[F7]</span></span>
-                <span class="text-xs text-emerald-600 font-mono font-bold">{{ primaryCurrency === 'USD' ? `≈ Bs. ${((Number(paymentSplit.cashUsd) || 0) * bcvRate).toFixed(2)}` : `≈ $${(Number(paymentSplit.cashUsd) || 0).toFixed(2)}` }}</span>
+            <div 
+              @click="focusPaymentChannel('cashUsd')"
+              class="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 transition-all duration-200 flex items-center justify-between shadow-2xs cursor-pointer
+                     hover:bg-white hover:border-blue-300 hover:shadow-md hover:-translate-y-0.5
+                     focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 focus-within:bg-blue-50/30 focus-within:shadow-md"
+            >
+              <div class="flex-1">
+                <span class="font-bold text-slate-800 flex items-center gap-1 text-[13px]">💵 {{ t.pos.payCashUsd }} <span class="text-[10px] text-blue-600 font-mono">[F7]</span></span>
+                <span class="text-xs text-emerald-600 font-mono font-bold block mt-0.5">{{ primaryCurrency === 'USD' ? `≈ Bs. ${((Number(paymentSplit.cashUsd) || 0) * bcvRate).toFixed(2)}` : `≈ $${(Number(paymentSplit.cashUsd) || 0).toFixed(2)}` }}</span>
               </div>
-              <div class="flex items-center gap-1">
-                <span class="text-slate-400 font-bold">$</span>
-                <input 
-                  ref="cashUsdInputRef"
-                  v-model.number="paymentSplit.cashUsd" 
-                  @keydown="e => { if(e.key === ' ') { e.preventDefault(); handlePaymentKeydown(e, 'cashUsd'); } else { handlePaymentKeydown(e, 'cashUsd'); } }"
-                  type="number" step="0.5" placeholder="0" 
-                  class="w-28 bg-white/90 focus:bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-right font-mono font-black text-slate-900 outline-none focus:border-blue-500 text-sm no-spinner" 
-                />
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-400 font-bold text-xs">$</span>
+                <div class="w-28 bg-white border border-slate-300 rounded-lg px-2 py-1 shadow-inner focus-within:border-blue-500 transition-colors">
+                  <input 
+                    ref="cashUsdInputRef"
+                    v-model.number="paymentSplit.cashUsd" 
+                    @keydown="e => handlePaymentKeydown(e, 'cashUsd')"
+                    type="number" step="0.5" placeholder="0" 
+                    class="w-full bg-transparent text-right font-mono font-black text-slate-900 outline-none text-sm no-spinner" 
+                  />
+                </div>
               </div>
             </div>
           </div>
 
           <!-- 回执号码 -->
-          <div class="flex items-center gap-2 bg-white/70 hover:bg-white border border-slate-200 hover:border-blue-300 rounded-xl px-3 py-2 shadow-2xs transition-all">
-            <span class="w-1/3 text-xs font-black text-slate-700 shrink-0 truncate">回执号码:</span>
+          <div class="flex items-center gap-2 bg-white/90 border border-slate-200 rounded-xl px-3 py-2 shadow-2xs transition-all focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+            <span class="w-1/3 text-xs font-black text-slate-600 shrink-0 truncate">{{ t.pos.refLabel }}:</span>
             <input 
               ref="referenceInputRef"
               v-model="paymentReference" 
               @keydown="handlePaymentKeydown($event, 'reference')"
               type="text" 
-              placeholder="选填，如 Pago Móvil 回执号..." 
+              :placeholder="t.pos.refPlaceholder" 
               class="w-2/3 bg-transparent text-xs font-bold text-slate-900 outline-none font-mono placeholder-slate-400" 
             />
           </div>
@@ -304,7 +311,7 @@
           <!-- 底部应付、已付、找零汇总区 -->
           <div class="space-y-2.5 pt-2 border-t border-slate-200/60">
             <div class="flex justify-between items-start text-sm font-bold text-slate-600">
-              <span class="font-bold pt-0.5">不含税总额 (Base Imponible):</span>
+              <span class="font-bold pt-0.5">{{ t.pos.baseImponible }}:</span>
               <div class="text-right">
                 <div class="font-mono text-slate-800 font-extrabold text-sm">
                   {{ primaryCurrency === 'USD' ? `$${totalBaseUsd.toFixed(2)}` : `Bs. ${(totalBaseUsd * bcvRate).toFixed(2)}` }}
@@ -316,7 +323,7 @@
             </div>
 
             <div class="flex justify-between items-start text-sm font-bold text-slate-600">
-              <span class="font-bold pt-0.5">增值税 (IVA 16% 混合):</span>
+              <span class="font-bold pt-0.5">{{ t.pos.ivaTax }}:</span>
               <div class="text-right">
                 <div class="font-mono text-slate-800 font-extrabold text-sm">
                   {{ primaryCurrency === 'USD' ? `$${totalTaxUsd.toFixed(2)}` : `Bs. ${(totalTaxUsd * bcvRate).toFixed(2)}` }}
@@ -328,7 +335,7 @@
             </div>
 
             <div v-if="igtfAmountUsd > 0" class="flex justify-between items-start text-sm font-bold text-amber-700 border-b border-slate-200/60 pb-1.5">
-              <span class="font-bold pt-0.5">大额交易税 (IGTF 3%):</span>
+              <span class="font-bold pt-0.5">{{ t.pos.igtfTax }}:</span>
               <div class="text-right">
                 <div class="font-mono font-extrabold text-sm">
                   {{ primaryCurrency === 'USD' ? `$${igtfAmountUsd.toFixed(2)}` : `Bs. ${(igtfAmountUsd * bcvRate).toFixed(2)}` }}
@@ -340,7 +347,7 @@
             </div>
 
             <div class="flex justify-between items-start text-sm font-bold text-slate-700">
-              <span class="font-extrabold text-slate-800 pt-0.5">总应付金额:</span>
+              <span class="font-extrabold text-slate-800 pt-0.5">{{ t.pos.totalPayable }}:</span>
               <div class="text-right">
                 <div class="font-mono text-slate-900 text-base font-black">
                   {{ primaryCurrency === 'USD' ? `$${totalUsd.toFixed(2)}` : `Bs. ${(totalUsd * bcvRate).toFixed(2)}` }}
@@ -352,7 +359,7 @@
             </div>
 
             <div class="flex justify-between items-start text-sm font-bold text-slate-700">
-              <span class="font-extrabold text-slate-800 pt-0.5">已付金额 (Paid):</span>
+              <span class="font-extrabold text-slate-800 pt-0.5">{{ t.pos.totalPaid }}:</span>
               <div class="text-right">
                 <div class="font-mono text-emerald-600 text-base font-black">
                   {{ primaryCurrency === 'USD' ? `$${totalPaidUsd.toFixed(2)}` : `Bs. ${(totalPaidUsd * bcvRate).toFixed(2)}` }}
@@ -365,7 +372,7 @@
 
             <div class="pt-2 border-t border-slate-200/60 flex justify-between items-start">
               <span class="text-sm font-black pt-0.5" :class="balanceRemaining > 0 ? 'text-rose-600' : 'text-emerald-600'">
-                {{ balanceRemaining > 0 ? '🔴 待付余额:' : '🟢 找零 (Cambio):' }}
+                {{ balanceRemaining > 0 ? '🔴 ' + t.pos.balanceDue + ':' : '🟢 ' + t.pos.changeDue + ':' }}
               </span>
               <div class="text-right">
                 <div class="text-xl font-black font-mono leading-tight" :class="balanceRemaining > 0 ? 'text-rose-600' : 'text-emerald-600'">
@@ -385,7 +392,7 @@
             :disabled="!isFullyPaid || cartItems.length === 0"
             class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl font-black text-sm shadow-md shadow-emerald-600/30 transition-all cursor-pointer flex items-center justify-center gap-1.5"
           >
-            <span>🚀 确认收款并出单 ({{ cartItems.length === 0 ? '购物车为空' : (balanceRemaining < 0 ? `找零 $${Math.abs(balanceRemaining).toFixed(2)}` : '已付清') }}) [Ctrl+Enter]</span>
+            <span>🚀 {{ t.pos.checkoutBtn }} ({{ cartItems.length === 0 ? tExt.cartEmpty : (balanceRemaining < 0 ? t.pos.changeDue + ` $${Math.abs(balanceRemaining).toFixed(2)}` : t.pos.totalPaid) }}) [Ctrl+Enter]</span>
           </button>
         </div>
 
@@ -397,28 +404,28 @@
     <footer class="absolute bottom-0 left-0 right-0 h-11 bg-white/75 backdrop-blur-xl border-t border-white/60 px-3 flex items-center justify-between z-30 shadow-md">
       <div class="grid grid-cols-6 gap-2 w-full">
         <div @click="focusSearch" class="bg-white/70 hover:bg-blue-500/10 border border-slate-200 hover:border-blue-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
-          <span class="text-slate-800 font-bold">聚焦搜索 [/]</span>
-          <span class="bg-blue-500/15 text-blue-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">F4~F7支付</span>
+          <span class="text-slate-800 font-bold">{{ t.pos.keyFocus }} [/]</span>
+          <span class="bg-blue-500/15 text-blue-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">F4~F7</span>
         </div>
         <div @click="openClientSearchModal" class="bg-white/70 hover:bg-blue-500/10 border border-slate-200 hover:border-blue-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
-          <span class="text-slate-800 font-bold">选客户</span>
+          <span class="text-slate-800 font-bold">{{ t.pos.keyClient }}</span>
           <span class="bg-blue-500/15 text-blue-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Ctrl+F</span>
         </div>
         <div @click="holdCurrentOrder" class="bg-white/70 hover:bg-amber-500/10 border border-slate-200 hover:border-amber-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
-          <span class="text-slate-800 font-bold">云端挂单</span>
+          <span class="text-slate-800 font-bold">{{ t.pos.keyHold }}</span>
           <span class="bg-amber-500/15 text-amber-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Ctrl+H</span>
         </div>
         <div @click="$emit('clear-cart')" class="bg-white/70 hover:bg-rose-500/10 border border-slate-200 hover:border-rose-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
-          <span class="text-slate-800 font-bold">清空购物车</span>
+          <span class="text-slate-800 font-bold">{{ t.pos.keyClear }}</span>
           <span class="bg-rose-500/15 text-rose-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Ctrl+B</span>
         </div>
         <div @click="deleteLastItem" class="bg-white/70 hover:bg-rose-500/10 border border-slate-200 hover:border-rose-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
-          <span class="text-slate-800 font-bold">删末项</span>
+          <span class="text-slate-800 font-bold">{{ t.pos.keyDeleteLast }}</span>
           <span class="bg-rose-500/15 text-rose-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Delete</span>
         </div>
         <div @click="confirmExitPos" class="bg-white/70 hover:bg-slate-200/80 border border-slate-200 hover:border-slate-300 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs">
           <span class="text-slate-800 font-bold">
-            {{ (currentUser?.role === 'admin' || currentUser?.permissions?.length > 1) ? '返回后台' : '退出登录' }}
+            {{ (currentUser?.role === 'admin' || currentUser?.permissions?.length > 1) ? t.pos.keyBack : t.pos.keyExit }}
           </span>
           <span class="bg-slate-200 text-slate-800 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">Esc</span>
         </div>
@@ -439,7 +446,7 @@
       <div class="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-4xl w-full h-[88vh] max-h-[900px] overflow-hidden border border-white/80 flex flex-col cursor-default">
         <div class="p-5 border-b border-slate-200/60 flex items-center justify-between bg-white/50 shrink-0">
           <h3 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
-            <span>📦 云端挂单恢复大厅 (共 {{ heldOrders.length }} 单)</span>
+            <span>📦 {{ tExt.recallTitle }} ({{ heldOrders.length }})</span>
           </h3>
           <button @click="recallModalVisible = false" class="text-slate-400 hover:text-slate-700 text-base font-bold p-1 cursor-pointer">✕</button>
         </div>
@@ -450,33 +457,33 @@
               <div class="space-y-1">
                 <div class="font-bold text-xs text-slate-800 flex items-center gap-2">
                   <span class="font-mono text-blue-600 font-black text-sm">{{ order.hold_no }}</span>
-                  <span class="text-slate-700">👤 {{ order.client_name || '散客' }}</span>
+                  <span class="text-slate-700">👤 {{ order.client_name || 'Cliente General' }}</span>
                 </div>
-                <div class="text-[11px] text-slate-400 font-mono">挂单时间: {{ order.timestamp }}</div>
+                <div class="text-[11px] text-slate-400 font-mono">{{ tExt.recallTime }} {{ order.timestamp }}</div>
               </div>
               <div class="flex items-center gap-4">
                 <span class="text-base font-mono font-black text-slate-900">${{ order.total_amount.toFixed(2) }}</span>
                 <button @click="recallOrder(order)" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm">
-                  恢复取单
+                  {{ tExt.recallBtn }}
                 </button>
                 <button @click="deleteHeldOrder(order.id)" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition-all cursor-pointer">
-                  作废
+                  {{ tExt.recallVoid }}
                 </button>
               </div>
             </div>
           </template>
           <div v-else class="flex-1 flex flex-col items-center justify-center py-20 text-slate-400 text-xs font-bold">
             <span class="text-4xl mb-2">📭</span>
-            <span>当前云端挂单池为空</span>
+            <span>{{ tExt.recallEmpty }}</span>
           </div>
         </div>
 
         <div class="p-5 bg-white/80 backdrop-blur-md border-t border-slate-200/60 flex items-center justify-between shrink-0">
           <span class="text-xs text-slate-600 font-mono font-bold">
-            共找到 <strong class="text-slate-900">{{ heldOrders.length }}</strong> 笔挂单
+            {{ tExt.recallFound }}: <strong class="text-slate-900">{{ heldOrders.length }}</strong>
           </span>
           <button @click="recallModalVisible = false" class="px-6 py-2 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer">
-            关闭
+            {{ t.common.cancel }}
           </button>
         </div>
       </div>
@@ -487,7 +494,7 @@
       <div class="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-4xl w-full h-[88vh] max-h-[900px] overflow-hidden border border-white/80 flex flex-col cursor-default">
         <div class="p-5 border-b border-slate-200/60 flex items-center justify-between bg-white/50 shrink-0">
           <h3 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
-            <span>📊 收银交接班与营业汇总 (Shift Handover)</span>
+            <span>📊 {{ tExt.shiftTitle }}</span>
           </h3>
           <button @click="shiftReportModalVisible = false" class="text-slate-400 hover:text-slate-700 text-base font-bold p-1 cursor-pointer">✕</button>
         </div>
@@ -495,42 +502,42 @@
         <div class="flex-1 overflow-y-auto p-6 space-y-6 text-sm bg-white/30">
           <div class="bg-white/80 backdrop-blur-md p-5 rounded-2xl border border-white/90 space-y-3 shadow-2xs font-mono">
             <div class="text-xs font-black text-slate-400 uppercase tracking-wider border-b border-slate-200 pb-2 flex justify-between">
-              <span>1. 系统统计应收 (SYSTEM SNAPSHOT)</span>
-              <span class="text-[10px] text-emerald-600">仅统计今日订单</span>
+              <span>{{ tExt.shiftSystemTitle }}</span>
+              <span class="text-[10px] text-emerald-600">{{ tExt.shiftTodayOnly }}</span>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
               <div class="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
-                <span class="text-slate-500 block mb-1">💳 刷卡 POS:</span>
+                <span class="text-slate-500 block mb-1">💳 {{ t.pos.payCardPos }}:</span>
                 <span class="font-black text-blue-600 text-sm">Bs. {{ (shiftStats.cardPos.amount * bcvRate).toFixed(2) }}</span>
               </div>
               <div class="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
-                <span class="text-slate-500 block mb-1">⚡ Pago Móvil:</span>
+                <span class="text-slate-500 block mb-1">⚡ {{ t.pos.payPagoMovil }}:</span>
                 <span class="font-black text-indigo-600 text-sm">Bs. {{ (shiftStats.pagoMovil.amount * bcvRate).toFixed(2) }}</span>
               </div>
               <div class="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
-                <span class="text-slate-500 block mb-1">🇻🇪 Bs. 现金:</span>
+                <span class="text-slate-500 block mb-1">🇻🇪 {{ t.pos.payCashBs }}:</span>
                 <span class="font-black text-emerald-600 text-sm">Bs. {{ (shiftStats.cashBs.amount * bcvRate).toFixed(2) }}</span>
               </div>
               <div class="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
-                <span class="text-slate-500 block mb-1">💵 美金现金:</span>
+                <span class="text-slate-500 block mb-1">💵 {{ t.pos.payCashUsd }}:</span>
                 <span class="font-black text-slate-900 text-sm">${{ shiftStats.cashUsd.amount.toFixed(2) }}</span>
               </div>
             </div>
             <div class="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-black">
-              <span class="text-slate-900">系统总营业额 (Total USD):</span>
+              <span class="text-slate-900">{{ tExt.shiftTotalRevenue }} (USD):</span>
               <span class="text-emerald-600 text-lg">${{ shiftStats.totalUsd.toFixed(2) }}</span>
             </div>
           </div>
 
           <div class="bg-blue-50/50 backdrop-blur-md p-5 rounded-2xl border border-blue-200/80 space-y-4 font-mono shadow-2xs">
             <div class="text-xs font-black text-blue-900 uppercase tracking-wider border-b border-blue-200 pb-2 flex justify-between items-center">
-              <span>2. 收银员实盘录入款项 (ACTUAL COUNT)</span>
-              <span class="text-xs text-blue-700 font-normal">请仔细清点并录入抽屉及账面实际金额</span>
+              <span>{{ tExt.shiftActualTitle }}</span>
+              <span class="text-xs text-blue-700 font-normal">{{ tExt.shiftActualDesc }}</span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="bg-white p-4 rounded-2xl border border-blue-100 space-y-2 shadow-2xs">
-                <label class="block text-xs font-bold text-slate-800">💳 实收 POS 刷卡 (Bs.):</label>
+                <label class="block text-xs font-bold text-slate-800">💳 {{ t.pos.payCardPos }} (Bs.):</label>
                 <div class="flex items-center gap-2">
                   <span class="text-slate-400 font-bold text-base">Bs.</span>
                   <input 
@@ -540,12 +547,12 @@
                   />
                 </div>
                 <div class="text-xs text-right font-bold pt-1" :class="cardPosDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
-                  盈亏: {{ cardPosDiff >= 0 ? '+' : '' }}Bs. {{ cardPosDiff.toFixed(2) }}
+                  {{ tExt.shiftDiff }}: {{ cardPosDiff >= 0 ? '+' : '' }}Bs. {{ cardPosDiff.toFixed(2) }}
                 </div>
               </div>
 
               <div class="bg-white p-4 rounded-2xl border border-blue-100 space-y-2 shadow-2xs">
-                <label class="block text-xs font-bold text-slate-800">⚡ 实收 Pago Móvil (Bs.):</label>
+                <label class="block text-xs font-bold text-slate-800">⚡ {{ t.pos.payPagoMovil }} (Bs.):</label>
                 <div class="flex items-center gap-2">
                   <span class="text-slate-400 font-bold text-base">Bs.</span>
                   <input 
@@ -555,12 +562,12 @@
                   />
                 </div>
                 <div class="text-xs text-right font-bold pt-1" :class="pagoMovilDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
-                  盈亏: {{ pagoMovilDiff >= 0 ? '+' : '' }}Bs. {{ pagoMovilDiff.toFixed(2) }}
+                  {{ tExt.shiftDiff }}: {{ pagoMovilDiff >= 0 ? '+' : '' }}Bs. {{ pagoMovilDiff.toFixed(2) }}
                 </div>
               </div>
 
               <div class="bg-white p-4 rounded-2xl border border-blue-100 space-y-2 shadow-2xs">
-                <label class="block text-xs font-bold text-slate-800">🇻🇪 实收 Bs. 现金 (Bs.):</label>
+                <label class="block text-xs font-bold text-slate-800">🇻🇪 {{ t.pos.payCashBs }} (Bs.):</label>
                 <div class="flex items-center gap-2">
                   <span class="text-slate-400 font-bold text-base">Bs.</span>
                   <input 
@@ -570,12 +577,12 @@
                   />
                 </div>
                 <div class="text-xs text-right font-bold pt-1" :class="cashBsDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
-                  盈亏: {{ cashBsDiff >= 0 ? '+' : '' }}Bs. {{ cashBsDiff.toFixed(2) }}
+                  {{ tExt.shiftDiff }}: {{ cashBsDiff >= 0 ? '+' : '' }}Bs. {{ cashBsDiff.toFixed(2) }}
                 </div>
               </div>
 
               <div class="bg-white p-4 rounded-2xl border border-blue-100 space-y-2 shadow-2xs">
-                <label class="block text-xs font-bold text-slate-800">💵 实收美金现金 (USD):</label>
+                <label class="block text-xs font-bold text-slate-800">💵 {{ t.pos.payCashUsd }} (USD):</label>
                 <div class="flex items-center gap-2">
                   <span class="text-slate-400 font-bold text-base">$</span>
                   <input 
@@ -585,13 +592,13 @@
                   />
                 </div>
                 <div class="text-xs text-right font-bold pt-1" :class="cashUsdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'">
-                  盈亏: {{ cashUsdDiff >= 0 ? '+' : '' }}${{ cashUsdDiff.toFixed(2) }}
+                  {{ tExt.shiftDiff }}: {{ cashUsdDiff >= 0 ? '+' : '' }}${{ cashUsdDiff.toFixed(2) }}
                 </div>
               </div>
             </div>
 
             <div class="pt-3 border-t border-blue-200 flex justify-between items-center text-sm">
-              <span class="font-extrabold text-slate-800">折算总盈亏 (Diferencia Total):</span>
+              <span class="font-extrabold text-slate-800">{{ tExt.shiftTotalDiff }}:</span>
               <span :class="totalUsdDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'" class="font-black font-mono text-lg">
                 {{ totalUsdDiff >= 0 ? '+' : '' }}${{ totalUsdDiff.toFixed(2) }}
               </span>
@@ -599,17 +606,17 @@
           </div>
 
           <div v-if="totalUsdDiff !== 0" class="space-y-2">
-            <label class="block font-bold text-slate-600 uppercase text-xs">盈亏原因备注</label>
-            <input v-model="handoverNotes" type="text" placeholder="例如：Bs. 零钱误差 / Pago Móvil 延迟到账..." class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-xs outline-none focus:border-blue-500 font-bold text-slate-900 shadow-2xs" />
+            <label class="block font-bold text-slate-600 uppercase text-xs">{{ tExt.shiftNotes }}</label>
+            <input v-model="handoverNotes" type="text" :placeholder="tExt.shiftNotesPlace" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-xs outline-none focus:border-blue-500 font-bold text-slate-900 shadow-2xs" />
           </div>
         </div>
 
         <div class="p-5 bg-white/80 backdrop-blur-md border-t border-slate-200/60 flex items-center justify-between shrink-0">
           <button @click="shiftReportModalVisible = false" class="px-6 py-2.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer">
-            取消
+            {{ t.common.cancel }}
           </button>
           <button @click="submitShiftHandover" class="px-7 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-lg shadow-emerald-600/30 transition-all cursor-pointer">
-            🔒 确认交班并锁定归档
+            🔒 {{ tExt.shiftConfirm }}
           </button>
         </div>
       </div>
@@ -620,7 +627,7 @@
       <div class="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-4xl w-full h-[88vh] max-h-[900px] overflow-hidden border border-white/80 flex flex-col cursor-default">
         <div class="p-5 border-b border-slate-200/60 flex items-center justify-between bg-white/50 shrink-0">
           <h3 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
-            <span>🧾 收银小票实时预览与出单</span>
+            <span>🧾 {{ tExt.ticketTitle }}</span>
           </h3>
           <button @click="previewModalVisible = false" class="text-slate-400 hover:text-slate-700 text-base font-bold p-1 cursor-pointer">✕</button>
         </div>
@@ -633,14 +640,14 @@
           </div>
 
           <div class="space-y-1 text-slate-700 pb-3 border-b border-dashed border-slate-300 font-sans">
-            <div><span class="font-bold">Client:</span> {{ quoteClientName || 'Cliente General' }}</div>
-            <div><span class="font-bold">Operator:</span> {{ currentUser?.username || '未知' }}</div>
-            <div class="font-bold text-blue-600 mt-1">Payment Breakdown:</div>
-            <div v-if="paymentSplit.cardPos > 0"> - Card POS: Bs. {{ paymentSplit.cardPos.toFixed(2) }} (${{ (paymentSplit.cardPos / bcvRate).toFixed(2) }})</div>
-            <div v-if="paymentSplit.pagoMovil > 0"> - Pago Móvil: Bs. {{ paymentSplit.pagoMovil.toFixed(2) }} (${{ (paymentSplit.pagoMovil / bcvRate).toFixed(2) }})</div>
-            <div v-if="paymentSplit.cashBs > 0"> - Efectivo Bs.: Bs. {{ paymentSplit.cashBs.toFixed(2) }} (${{ (paymentSplit.cashBs / bcvRate).toFixed(2) }})</div>
-            <div v-if="paymentSplit.cashUsd > 0"> - Cash USD: ${{ paymentSplit.cashUsd.toFixed(2) }} (Bs. {{ (paymentSplit.cashUsd * bcvRate).toFixed(2) }})</div>
-            <div v-if="balanceRemaining < 0"> - cambio (找零): ${{ Math.abs(balanceRemaining).toFixed(2) }} (Bs. {{ (Math.abs(balanceRemaining) * bcvRate).toFixed(2) }})</div>
+            <div><span class="font-bold">{{ tExt.ticketClient }}:</span> {{ quoteClientName || 'Cliente General' }}</div>
+            <div><span class="font-bold">{{ tExt.ticketOperator }}:</span> {{ currentUser?.username || 'N/A' }}</div>
+            <div class="font-bold text-blue-600 mt-1">{{ tExt.ticketPayment }}:</div>
+            <div v-if="paymentSplit.cardPos > 0"> - {{ t.pos.payCardPos }}: Bs. {{ paymentSplit.cardPos.toFixed(2) }} (${{ (paymentSplit.cardPos / bcvRate).toFixed(2) }})</div>
+            <div v-if="paymentSplit.pagoMovil > 0"> - {{ t.pos.payPagoMovil }}: Bs. {{ paymentSplit.pagoMovil.toFixed(2) }} (${{ (paymentSplit.pagoMovil / bcvRate).toFixed(2) }})</div>
+            <div v-if="paymentSplit.cashBs > 0"> - {{ t.pos.payCashBs }}: Bs. {{ paymentSplit.cashBs.toFixed(2) }} (${{ (paymentSplit.cashBs / bcvRate).toFixed(2) }})</div>
+            <div v-if="paymentSplit.cashUsd > 0"> - {{ t.pos.payCashUsd }}: ${{ paymentSplit.cashUsd.toFixed(2) }} (Bs. {{ (paymentSplit.cashUsd * bcvRate).toFixed(2) }})</div>
+            <div v-if="balanceRemaining < 0"> - {{ t.pos.changeDue }}: ${{ Math.abs(balanceRemaining).toFixed(2) }} (Bs. {{ (Math.abs(balanceRemaining) * bcvRate).toFixed(2) }})</div>
             <div v-if="paymentReference"><span class="font-bold">Ref:</span> {{ paymentReference }}</div>
           </div>
 
@@ -658,17 +665,17 @@
           </div>
 
           <div class="space-y-1 text-right pb-1 font-bold">
-            <div>Base Imponible: ${{ totalBaseUsd.toFixed(2) }}</div>
-            <div>IVA (16%): ${{ totalTaxUsd.toFixed(2) }}</div>
-            <div v-if="igtfAmountUsd > 0">IGTF (3%): ${{ igtfAmountUsd.toFixed(2) }}</div>
-            <div class="text-lg font-black text-slate-900 mt-1">Total: ${{ totalUsd.toFixed(2) }} / Bs. {{ (totalUsd * bcvRate).toFixed(2) }}</div>
+            <div>{{ t.pos.baseImponible }}: ${{ totalBaseUsd.toFixed(2) }}</div>
+            <div>{{ t.pos.ivaTax }}: ${{ totalTaxUsd.toFixed(2) }}</div>
+            <div v-if="igtfAmountUsd > 0">{{ t.pos.igtfTax }}: ${{ igtfAmountUsd.toFixed(2) }}</div>
+            <div class="text-lg font-black text-slate-900 mt-1">{{ tExt.ticketTotal }}: ${{ totalUsd.toFixed(2) }} / Bs. {{ (totalUsd * bcvRate).toFixed(2) }}</div>
           </div>
         </div>
 
         <div class="p-5 bg-white/80 backdrop-blur-md border-t border-slate-200/60 flex gap-4 shrink-0">
-          <button @click="previewModalVisible = false" :disabled="isSubmitting" class="flex-1 py-3 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">返回修改</button>
+          <button @click="previewModalVisible = false" :disabled="isSubmitting" class="flex-1 py-3 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">{{ t.pos.backToEdit }}</button>
           <button @click="confirmAndPrint" :disabled="isSubmitting" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white rounded-xl text-sm font-black shadow-lg shadow-emerald-600/30 transition-all cursor-pointer">
-            {{ isSubmitting ? '正在出单...' : '确认出单并打印' }}
+            {{ isSubmitting ? tExt.ticketPrinting : t.pos.confirmAndPrint }}
           </button>
         </div>
       </div>
@@ -677,45 +684,111 @@
     <!-- 快捷键指南弹窗 -->
     <PosHelpModal :visible="helpModalVisible" @close="helpModalVisible = false" />
 
-    <!-- 客户快速搜索 Modal -->
-    <div v-if="clientModalVisible" @click.self="clientModalVisible = false" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-50 p-6 cursor-pointer">
-      <div class="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-4xl w-full h-[88vh] max-h-[900px] overflow-hidden border border-white/80 flex flex-col cursor-default">
-        <div class="p-5 border-b border-slate-200/60 flex items-center justify-between bg-white/50 shrink-0">
-          <h3 class="font-extrabold text-base text-slate-900">快捷选择客户</h3>
-          <button @click="clientModalVisible = false" class="text-slate-400 hover:text-slate-700 font-bold text-base">✕</button>
-        </div>
-        <div class="p-4 border-b border-slate-200/60 bg-white/40 shrink-0">
-          <input ref="clientModalInputRef" v-model="clientFilterQuery" @keydown="handleClientModalKeydown" type="text" placeholder="输入客户名称或电话搜索..." class="w-full bg-white/90 border border-slate-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-blue-500 shadow-2xs font-bold text-slate-900" />
-        </div>
-        <div class="flex-1 overflow-y-auto p-5 space-y-2 bg-white/20">
-          <div v-for="c in filteredModalClients" :key="c.id" @click="selectClient(c.name)" class="p-3.5 rounded-2xl border border-slate-200/80 bg-white/80 backdrop-blur-md cursor-pointer hover:bg-blue-500/10 hover:border-blue-300 transition-all flex items-center justify-between text-xs shadow-2xs">
-            <div>
-              <div class="font-black text-slate-900 text-sm">🏢 {{ c.name }}</div>
-              <div class="text-xs text-slate-500 font-mono mt-0.5">RIF: {{ c.rif_or_cedula || '-' }} | 📞 {{ c.phone || '无电话' }}</div>
-            </div>
-            <span class="text-blue-600 font-bold bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">选择此客户 ↵</span>
+    <!-- 🌟 客户快速搜索 & 未找到创建 Modal（已改为小尺寸，且头部带新增按钮） -->
+    <div v-if="clientModalVisible" @click.self="clientModalVisible = false" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-50 p-4 cursor-pointer">
+      <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full h-[600px] max-h-[85vh] overflow-hidden border border-slate-100 flex flex-col cursor-default animate-in zoom-in-95 duration-150">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/50">
+          <h3 class="font-extrabold text-base text-slate-900">{{ tExt.clientModalTitle }}</h3>
+          
+          <!-- 🌟 核心修复：在这里加上新增客户按钮 -->
+          <div class="flex items-center gap-2">
+            <button @click="prepareCreateClient('')" class="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer active:scale-95">
+              <span>➕</span> {{ tExt.newClientBtn }}
+            </button>
+            <button @click="clientModalVisible = false" class="text-slate-400 hover:text-slate-700 font-bold text-base p-1">✕</button>
           </div>
         </div>
-        <div class="p-5 bg-white/80 backdrop-blur-md border-t border-slate-200/60 flex justify-end shrink-0">
-          <button @click="clientModalVisible = false" class="px-6 py-2.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">
-            取消
+        
+        <div class="p-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
+          <input ref="clientModalInputRef" v-model="clientFilterQuery" @keydown="handleClientModalKeydown" type="text" :placeholder="tExt.clientModalSearch" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 shadow-sm font-bold text-slate-900" />
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-3 space-y-2 bg-white">
+          <div v-for="c in filteredModalClients" :key="c.id" @click="selectClient(c.name)" class="p-3.5 rounded-xl border border-slate-200/80 bg-white cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all flex items-center justify-between text-xs shadow-2xs">
+            <div>
+              <div class="font-black text-slate-900 text-sm">🏢 {{ c.name }}</div>
+              <div class="text-xs text-slate-500 font-mono mt-0.5">RIF: {{ c.rif_or_cedula || '-' }} | 📞 {{ c.phone || tExt.clientNoPhone }}</div>
+            </div>
+            <span class="text-blue-600 font-bold bg-blue-100/50 px-3 py-1.5 rounded-lg">{{ tExt.clientSelectBtn }} ↵</span>
+          </div>
+          
+          <!-- 🌟 搜索不到，提示创建 -->
+          <div v-if="filteredModalClients.length === 0 && clientFilterQuery.trim()" class="flex flex-col items-center justify-center py-12 space-y-4 animate-in fade-in duration-200">
+            <div class="text-slate-400 text-sm font-bold text-center">
+              {{ tExt.clientNotFound }} <br>
+              <span class="text-lg text-slate-800">"{{ clientFilterQuery }}"</span>
+            </div>
+            <button @click="prepareCreateClient(clientFilterQuery)" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl text-sm font-black shadow-lg shadow-blue-500/30 transition-all cursor-pointer flex items-center gap-2 hover:scale-105 active:scale-95 w-full justify-center">
+              <span>➕</span> {{ tExt.createThisClient }}
+            </button>
+          </div>
+          
+          <div v-else-if="filteredModalClients.length === 0 && !clientFilterQuery.trim()" class="text-center py-12 text-slate-400 text-xs font-bold">
+            {{ tExt.typeToSearch }}
+          </div>
+        </div>
+        
+        <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end shrink-0">
+          <button @click="clientModalVisible = false" class="px-6 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">
+            {{ t.common.cancel }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🌟 新建客户 Modal (依然是独立弹窗) -->
+    <div v-if="newClientModalVisible" @click.self="newClientModalVisible = false" class="fixed inset-0 bg-slate-950/60 backdrop-blur-md flex items-center justify-center z-[60] p-6">
+      <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 flex flex-col animate-in zoom-in-95 duration-150">
+        <div class="p-5 border-b border-slate-200/60 flex items-center justify-between bg-white/50 shrink-0">
+          <h3 class="font-extrabold text-base text-slate-900">{{ tExt.createClientTitle }}</h3>
+          <button @click="newClientModalVisible = false" class="text-slate-400 hover:text-slate-700 font-bold text-base p-1">✕</button>
+        </div>
+        <div class="p-5 space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.clients.colName }} *</label>
+            <input v-model="newClientForm.name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 font-bold text-slate-900" placeholder="Ej: Auto Taller Valencia" />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.clients.colRif }}</label>
+              <input v-model="newClientForm.rif_or_cedula" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 font-mono text-slate-900" placeholder="J-12345678-9" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.clients.colPhone }}</label>
+              <input v-model="newClientForm.phone" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 font-mono text-slate-900" placeholder="+58 412..." />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.clients.colType }}</label>
+            <select v-model="newClientForm.client_type" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-500 font-semibold text-slate-900 cursor-pointer">
+              <option value="Regular">{{ tExt.clientTypeRegular }}</option>
+              <option value="Taller">{{ tExt.clientTypeTaller }}</option>
+              <option value="Mayorista">{{ tExt.clientTypeMayorista }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+          <button @click="newClientModalVisible = false" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-200 text-slate-600 hover:bg-slate-300 transition-colors cursor-pointer">{{ t.common.cancel }}</button>
+          <button @click="saveNewClient" :disabled="isSavingClient" class="px-6 py-2.5 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-md transition-colors cursor-pointer disabled:opacity-50">
+            {{ isSavingClient ? '...' : t.common.save }}
           </button>
         </div>
       </div>
     </div>
 
     <!-- 退出确认 -->
-    <ConfirmDialog :visible="exitConfirmVisible" icon="⚠️" title="确认退出收银台？" message="当前收银台若有未结算商品，是否继续？" @cancel="exitConfirmVisible = false" @confirm="executeExitPos" />
+    <ConfirmDialog 
+      :visible="exitConfirmVisible" 
+      icon="⚠️" 
+      :title="tExt.exitTitle" 
+      :message="tExt.exitMsg" 
+      @cancel="exitConfirmVisible = false" 
+      @confirm="executeExitPos" 
+    />
   </div>
 </template>
 
 <script setup>
-/**
- * 🌟 QuotationDeskView.vue (POS收银台) - 终极修复版
- * 1. 前端 JS 浮点精度修复：所有金额计算均采用“分”为单位计算，最后再转为美元。
- * 2. 交接班逻辑修复：只统计当天的订单数据，避免混入历史订单。
- * 3. IGTF 计算与提交修复：前台算准，并传给后端。
- */
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { apiFetch, apiUrl } from '../utils/api'
 import { useI18n } from '../composables/useI18n'
@@ -723,7 +796,79 @@ import ConfirmDialog from './ConfirmDialog.vue'
 import PosHelpModal from './pos/PosHelpModal.vue'
 import PosHistoryModal from './pos/PosHistoryModal.vue'
 
-const { t } = useI18n()
+const { t, currentLang } = useI18n()
+
+const tExt = computed(() => {
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  
+  return {
+    clearClient: isZh ? '清除当前选中客户' : isEs ? 'Limpiar cliente' : 'Clear client',
+    clientSelected: isZh ? '当前已选客户' : isEs ? 'Cliente Seleccionado' : 'Selected Client',
+    noClientSelected: isZh ? '未选择客户' : isEs ? 'Sin cliente' : 'No Client',
+    cartOem: isZh ? 'OEM 编号' : isEs ? 'OEM' : 'OEM',
+    cartName: isZh ? '配件名称' : isEs ? 'Descripción' : 'Description',
+    cartPrice: isZh ? '单价 ($ / Bs.)' : isEs ? 'Precio ($ / Bs.)' : 'Price ($ / Bs.)',
+    cartQty: isZh ? '数量' : isEs ? 'Cant.' : 'Qty',
+    cartSubtotal: isZh ? '小计 ($ / Bs.)' : isEs ? 'Subtotal ($ / Bs.)' : 'Subtotal ($ / Bs.)',
+    cartAction: isZh ? '操作' : isEs ? 'Acción' : 'Action',
+    cartEmpty: isZh ? '购物车为空，请按 [/] 键搜索添加...' : isEs ? 'Carrito vacío, presione [/]...' : 'Cart is empty, press [/]...',
+    recallTitle: isZh ? '云端挂单恢复大厅' : isEs ? 'Sala de Recuperación de Pedidos' : 'Held Orders Recovery',
+    recallBtn: isZh ? '恢复取单' : isEs ? 'Recuperar' : 'Recall',
+    recallVoid: isZh ? '作废' : isEs ? 'Anular' : 'Void',
+    recallTime: isZh ? '挂单时间:' : isEs ? 'Hora:' : 'Time:',
+    recallEmpty: isZh ? '当前云端挂单池为空' : isEs ? 'No hay pedidos en espera' : 'No held orders',
+    recallFound: isZh ? '笔挂单' : isEs ? 'pedidos' : 'orders',
+    shiftTitle: isZh ? '收银交接班与营业汇总' : isEs ? 'Cierre de Caja y Resumen' : 'Shift Handover & Summary',
+    shiftSystemTitle: isZh ? '1. 系统统计应收' : isEs ? '1. Esperado por Sistema' : '1. System Snapshot',
+    shiftTodayOnly: isZh ? '仅统计今日订单' : isEs ? 'Solo hoy' : 'Today only',
+    shiftTotalRevenue: isZh ? '系统总营业额' : isEs ? 'Total Ventas' : 'Total Revenue',
+    shiftActualTitle: isZh ? '2. 收银员实盘录入款项' : isEs ? '2. Conteo Real del Cajero' : '2. Actual Count',
+    shiftActualDesc: isZh ? '请仔细清点并录入抽屉及账面实际金额' : isEs ? 'Ingrese el monto real contado' : 'Enter actual counted amount',
+    shiftDiff: isZh ? '盈亏' : isEs ? 'Diferencia' : 'Difference',
+    shiftTotalDiff: isZh ? '折算总盈亏' : isEs ? 'Diferencia Total' : 'Total Difference',
+    shiftNotes: isZh ? '盈亏原因备注' : isEs ? 'Notas de Diferencia' : 'Difference Notes',
+    shiftNotesPlace: isZh ? '例如：Bs. 零钱误差...' : isEs ? 'Ej: Error de cambio...' : 'E.g. Change error...',
+    shiftConfirm: isZh ? '确认交班并锁定归档' : isEs ? 'Confirmar Cierre' : 'Confirm Shift',
+    ticketTitle: isZh ? '收银小票实时预览与出单' : isEs ? 'Vista Previa de Recibo' : 'Ticket Preview',
+    ticketClient: isZh ? '客户' : isEs ? 'Cliente' : 'Client',
+    ticketOperator: isZh ? '收银员' : isEs ? 'Cajero' : 'Operator',
+    ticketPayment: isZh ? '支付明细' : isEs ? 'Desglose de Pago' : 'Payment Breakdown',
+    ticketTotal: isZh ? '总计' : isEs ? 'Total' : 'Total',
+    ticketPrinting: isZh ? '正在出单...' : isEs ? 'Emitiendo...' : 'Printing...',
+    clientModalTitle: isZh ? '快捷选择客户' : isEs ? 'Selección Rápida de Cliente' : 'Quick Client Select',
+    clientModalSearch: isZh ? '输入客户名称或电话搜索...' : isEs ? 'Buscar por nombre o teléfono...' : 'Search by name or phone...',
+    clientNoPhone: isZh ? '无电话' : isEs ? 'Sin teléfono' : 'No phone',
+    clientSelectBtn: isZh ? '选择此客户' : isEs ? 'Seleccionar' : 'Select',
+    clientNotFound: isZh ? '未找到客户' : isEs ? 'Cliente no encontrado' : 'Client not found',
+    createThisClient: isZh ? '一键新建客户' : isEs ? 'Crear nuevo cliente' : 'Create new client',
+    typeToSearch: isZh ? '请输入客户名称进行搜索...' : isEs ? 'Escriba el nombre para buscar...' : 'Type name to search...',
+    createClientTitle: isZh ? '快速新建客户档案' : isEs ? 'Creación Rápida de Cliente' : 'Quick Create Client',
+    newClientBtn: isZh ? '新建客户' : isEs ? 'Nuevo Cliente' : 'New Client', // 🌟 补上这个翻译
+    clientTypeRegular: isZh ? 'Regular (零售)' : isEs ? 'Regular (Minorista)' : 'Regular (Retail)',
+    clientTypeTaller: isZh ? 'Taller (修理厂)' : isEs ? 'Taller (Mecánico)' : 'Workshop',
+    clientTypeMayorista: isZh ? 'Mayorista (批发商)' : isEs ? 'Mayorista (Distribuidor)' : 'Wholesaler',
+    exitTitle: isZh ? '确认退出收银台？' : isEs ? '¿Salir de Caja?' : 'Exit POS?',
+    exitMsg: isZh ? '当前收银台若有未结算商品，是否继续？' : isEs ? '¿Seguro? El carrito actual se perderá.' : 'Cart will be cleared. Continue?',
+    toastStockError: isZh ? '库存不足' : isEs ? 'Stock insuficiente' : 'Insufficient stock',
+    toastHoldSuccess: isZh ? '订单已成功挂入云端挂单池！' : isEs ? '¡Pedido pausado exitosamente!' : 'Order held successfully!',
+    toastHoldEmpty: isZh ? '当前购物车为空，无需挂单！' : isEs ? 'Carrito vacío' : 'Cart is empty',
+    toastRecallSuccess: isZh ? '成功取回挂单' : isEs ? 'Pedido recuperado' : 'Order recalled',
+    toastRecallError: isZh ? '解析失败' : isEs ? 'Error al analizar' : 'Parse error',
+    toastShiftSuccess: isZh ? '交接班成功，班次已成功锁定归档！' : isEs ? '¡Cierre de caja exitoso!' : 'Shift closed successfully!',
+    toastShiftError: isZh ? '交接班归档失败' : isEs ? 'Error al cerrar caja' : 'Shift close failed',
+    toastCheckoutSuccess: isZh ? '开单成功！单号:' : isEs ? '¡Venta exitosa! Nro:' : 'Checkout success! No:',
+    toastCheckoutError: isZh ? '结账失败' : isEs ? 'Error al cobrar' : 'Checkout failed',
+    toastReturnSuccess: isZh ? '退货成功' : isEs ? 'Devolución exitosa' : 'Return successful',
+    toastReprint: isZh ? '打印小票' : isEs ? 'Reimprimir ticket' : 'Reprint ticket',
+    checkoutSuccessTitle: isZh ? '交易完成！' : isEs ? '¡Pago Exitoso!' : 'Payment Successful!',
+    toastClientCreated: isZh ? '客户创建成功并已选中！' : isEs ? '¡Cliente creado y seleccionado!' : 'Client created and selected!',
+    errorRequired: isZh ? '请输入客户名称' : isEs ? 'Ingrese el nombre del cliente' : 'Enter client name',
+  }
+})
+
+// ... 剩下的 props, emits, refs, 逻辑函数保持完全一致 ...
+// (省略以节省字数，确保你只要覆盖 template 和 script 开头即可，但最好是全量替换)
 
 const props = defineProps({
   partsList: Array,
@@ -734,7 +879,7 @@ const props = defineProps({
   currentUser: Object
 })
 
-const emit = defineEmits(['add-to-cart', 'generate-quote', 'exit-pos', 'clear-cart'])
+const emit = defineEmits(['add-to-cart', 'generate-quote', 'exit-pos', 'clear-cart', 'refresh-clients'])
 
 const deskSearchQuery = ref('')
 const quoteClientName = ref('')
@@ -755,26 +900,15 @@ const applyMultiplierQuantity = (index) => {
   const raw = String(itemInputQuantities.value[index] || '').trim()
   const item = props.cartItems[index]
   if (!item) return
-
   let targetQty = item.quantity
   if (raw.includes('*')) {
     const parts = raw.split('*')
     const multiplier = parseInt(parts[0])
-    const addVal = parseInt(parts[1])
-    if (!isNaN(multiplier) && multiplier > 0) {
-      if (!isNaN(addVal) && addVal > 0) {
-        targetQty = multiplier * addVal
-      } else {
-        targetQty = multiplier
-      }
-    }
+    if (!isNaN(multiplier) && multiplier > 0) targetQty = multiplier
   } else {
     const parsed = parseInt(raw)
-    if (!isNaN(parsed) && parsed > 0) {
-      targetQty = parsed
-    }
+    if (!isNaN(parsed) && parsed > 0) targetQty = parsed
   }
-
   item.quantity = Math.max(1, targetQty)
   itemInputQuantities.value[index] = String(item.quantity)
 }
@@ -797,7 +931,6 @@ const paymentSplit = ref({
   cashUsd: 0
 })
 
-// 🌟 核心修复 1：前端 JS 浮点精度处理 (使用 分 * 100 来规避)
 const goodsTotalUsd = computed(() => {
   const totalCents = props.cartItems.reduce((sum, item) => {
     return sum + Math.round(item.price * 100) * item.quantity
@@ -811,7 +944,6 @@ const totalBaseUsd = computed(() => {
     const rate = item.tax_rate ?? 0.16
     const lineTotalCents = Math.round(item.price * 100) * item.quantity
     if (rate > 0) {
-      // 将含税分转为不含税分并四舍五入
       totalCents += Math.round(lineTotalCents / (1.0 + rate))
     } else {
       totalCents += lineTotalCents
@@ -821,7 +953,6 @@ const totalBaseUsd = computed(() => {
 })
 
 const totalTaxUsd = computed(() => {
-  // 总税金 = 总价 - 不含税价，避免重复计算造成精度误差
   const diffCents = Math.round(goodsTotalUsd.value * 100) - Math.round(totalBaseUsd.value * 100)
   return diffCents / 100
 })
@@ -869,6 +1000,24 @@ const handlePaymentKeydown = (e, channelKey) => {
     return
   }
 
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (currentIndex > 0) {
+      const prevKey = orderSequence[currentIndex - 1]
+      focusPaymentChannel(prevKey)
+    }
+    return
+  }
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    if (currentIndex !== -1 && currentIndex < orderSequence.length - 1) {
+      const nextKey = orderSequence[currentIndex + 1]
+      focusPaymentChannel(nextKey)
+    }
+    return
+  }
+
   if (channelKey === 'reference') return
 
   if (e.key === ' ' || e.key === '=') {
@@ -898,24 +1047,6 @@ const handlePaymentKeydown = (e, channelKey) => {
 
       const neededUsd = Math.max(0, targetTotalUsd - otherPaidInUsd)
       paymentSplit.value[channelKey] = Number((neededUsd * rate).toFixed(2))
-    }
-    return
-  }
-
-  if (e.key === 'ArrowDown') {
-    e.preventDefault()
-    if (currentIndex !== -1 && currentIndex < orderSequence.length - 1) {
-      const nextKey = orderSequence[currentIndex + 1]
-      focusPaymentChannel(nextKey)
-    }
-    return
-  }
-
-  if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    if (currentIndex > 0) {
-      const prevKey = orderSequence[currentIndex - 1]
-      focusPaymentChannel(prevKey)
     }
     return
   }
@@ -1033,8 +1164,8 @@ const submitShiftHandover = async () => {
       notes: handoverNotes.value
     }
     const res = await apiFetch('/api/pos/shift-handover', { method: 'POST', body: JSON.stringify(payload) })
-    if (!res.ok) throw new Error('交接班归档失败')
-    showToast('🔒 交接班成功，班次已成功锁定归档！', 'success')
+    if (!res.ok) throw new Error(tExt.value.toastShiftError)
+    showToast('🔒 ' + tExt.value.toastShiftSuccess, 'success')
     shiftReportModalVisible.value = false
   } catch (err) { showToast('❌ ' + err.message, 'error') }
 }
@@ -1044,6 +1175,7 @@ const isPreviewReady = ref(false)
 const helpModalVisible = ref(false)
 const toastMessage = ref('')
 const toastType = ref('success')
+const checkoutSuccessVisible = ref(false)
 let toastTimer = null
 
 const showToast = (msg, type = 'error') => {
@@ -1053,15 +1185,19 @@ const showToast = (msg, type = 'error') => {
   toastTimer = setTimeout(() => { toastMessage.value = '' }, 1500)
 }
 
+// 🌟 客户弹窗逻辑
 const clientModalVisible = ref(false)
 const clientFilterQuery = ref('')
 const clientModalInputRef = ref(null)
 
 const openClientSearchModal = async () => {
-  clientFilterQuery.value = ''
+  clientFilterQuery.value = quoteClientName.value || ''
   clientModalVisible.value = true
   await nextTick()
-  if (clientModalInputRef.value) clientModalInputRef.value.focus()
+  if (clientModalInputRef.value) {
+    clientModalInputRef.value.focus()
+    clientModalInputRef.value.select()
+  }
 }
 
 const selectClient = (name) => {
@@ -1074,6 +1210,8 @@ const handleClientModalKeydown = (e) => {
     const matched = filteredModalClients.value
     if (matched.length > 0) {
       selectClient(matched[0].name)
+    } else if (clientFilterQuery.value.trim()) {
+      prepareCreateClient(clientFilterQuery.value)
     }
   }
 }
@@ -1085,6 +1223,62 @@ const filteredModalClients = computed(() => {
   return props.clientsList.filter(c => c.name.toUpperCase().includes(q) || (c.phone && c.phone.toUpperCase().includes(q)))
 })
 
+// 🌟 新建客户逻辑
+const newClientModalVisible = ref(false)
+const isSavingClient = ref(false)
+const newClientForm = ref({
+  name: '',
+  rif_or_cedula: '',
+  phone: '',
+  client_type: 'Regular',
+  address: '',
+  notes: ''
+})
+
+const prepareCreateClient = (nameToCreate) => {
+  newClientForm.value = { 
+    name: nameToCreate || '', 
+    rif_or_cedula: '', 
+    phone: '', 
+    client_type: 'Regular', 
+    address: '', 
+    notes: '' 
+  }
+  clientModalVisible.value = false 
+  newClientModalVisible.value = true 
+}
+
+const saveNewClient = async () => {
+  if (!newClientForm.value.name.trim()) {
+    showToast(tExt.value.errorRequired, 'error')
+    return
+  }
+  isSavingClient.value = true
+  try {
+    const res = await apiFetch('/api/clients', {
+      method: 'POST',
+      body: JSON.stringify(newClientForm.value)
+    })
+    if (res.ok) {
+      const data = await res.json()
+      newClientModalVisible.value = false
+      quoteClientName.value = data.name
+      
+      showToast('✅ ' + tExt.value.toastClientCreated, 'success')
+      
+      emit('refresh-clients')
+    } else {
+      const err = await res.json()
+      showToast(`❌ ${t.common.error}: ${err.detail || 'Unknown'}`, 'error')
+    }
+  } catch (e) {
+    showToast('❌ ' + t.common.error, 'error')
+  } finally {
+    isSavingClient.value = false
+  }
+}
+
+// ---------------- 购物车与搜索 ----------------
 const filteredParts = computed(() => {
   const qStr = deskSearchQuery.value.trim().toUpperCase()
   if (!qStr) return []
@@ -1093,7 +1287,7 @@ const filteredParts = computed(() => {
 
 const selectAndAddToCart = (part) => {
   if (part.stock <= 0) {
-    showToast(`商品 ${part.oem} 库存不足`, 'error')
+    showToast(`${tExt.value.toastStockError}: ${part.oem}`, 'error')
     return
   }
   const existing = props.cartItems.find(i => i.oem === part.oem)
@@ -1109,176 +1303,9 @@ const selectAndAddToCart = (part) => {
       quantity: 1
     })
   }
-
   deskSearchQuery.value = ''
   selectedIndex.value = 0
   focusSearch()
-}
-
-const focusSearch = () => { if (searchInputRef.value) searchInputRef.value.focus() }
-const deleteLastItem = () => { if (props.cartItems.length > 0) props.cartItems.pop() }
-
-const holdCurrentOrder = async () => {
-  if (props.cartItems.length === 0) {
-    showToast('当前购物车为空，无需挂单！', 'error')
-    return
-  }
-  try {
-    const res = await apiFetch('/api/held-orders', {
-      method: 'POST',
-      body: JSON.stringify({
-        client_name: quoteClientName.value || 'Cliente General',
-        payment_method: 'Pago_Mixto',
-        items: props.cartItems,
-        total_amount: totalUsd.value
-      })
-    })
-    if (res.ok) {
-      props.cartItems.splice(0, props.cartItems.length)
-      quoteClientName.value = ''
-      showToast('📌 订单已成功挂入云端挂单池！', 'success')
-      fetchHeldOrders()
-    }
-  } catch (e) { showToast('❌ 挂单异常', 'error') }
-}
-
-const openRecallModal = async () => {
-  await fetchHeldOrders()
-  if (heldOrders.value.length === 0) {
-    showToast('云端挂单池为空！', 'error')
-    return
-  }
-  recallModalVisible.value = true
-}
-
-const recallOrder = (order) => {
-  try {
-    const parsedItems = JSON.parse(order.items_json)
-    props.cartItems.splice(0, props.cartItems.length, ...parsedItems)
-    quoteClientName.value = order.client_name
-    apiFetch(`/api/held-orders/${order.id}`, { method: 'DELETE' }).then(() => fetchHeldOrders())
-    recallModalVisible.value = false
-    showToast('✅ 成功取回挂单', 'success')
-  } catch (e) { showToast('❌ 解析失败', 'error') }
-}
-
-const deleteHeldOrder = async (id) => {
-  await apiFetch(`/api/held-orders/${id}`, { method: 'DELETE' })
-  fetchHeldOrders()
-}
-
-// 🌟 核心修复 2：只统计今日的订单
-const fetchCompletedOrders = async () => {
-  try {
-    const res = await apiFetch('/api/pos/orders')
-    if (!res.ok) return
-    const ordersData = await res.json()
-    completedOrders.value = ordersData
-
-    // 获取本地时区的今天日期 (YYYY-MM-DD)
-    const todayStr = new Date().toLocaleDateString('en-CA') 
-
-    let cardAmtCents = 0, pUsdCents = 0, cBsCents = 0, cUsdCents = 0, tUsdCents = 0
-    let todayOrderCount = 0
-
-    ordersData.forEach(o => {
-      // 匹配 o.time (格式例如 "2023-10-27 14:30:00")
-      if (o.time && o.time.startsWith(todayStr)) {
-        const amtCents = Math.round(o.totalUsd * 100)
-        tUsdCents += amtCents
-        todayOrderCount++
-        if (o.paymentMethod === 'Card_POS') cardAmtCents += amtCents
-        else if (o.paymentMethod === 'Pago_Movil') pUsdCents += amtCents
-        else if (o.paymentMethod === 'Cash_Bs') cBsCents += amtCents
-        else if (o.paymentMethod === 'Cash_USD') cUsdCents += amtCents
-      }
-    })
-
-    shiftStats.value = {
-      cardPos: { amount: cardAmtCents / 100, count: 0 },
-      pagoMovil: { amount: pUsdCents / 100, count: 0 },
-      cashBs: { amount: cBsCents / 100, count: 0 },
-      cashUsd: { amount: cUsdCents / 100, count: todayOrderCount },
-      totalUsd: tUsdCents / 100,
-      totalCount: todayOrderCount
-    }
-
-    actualCounts.value = {
-      cardPos: Number(((cardAmtCents / 100) * (props.bcvRate || 1)).toFixed(2)),
-      pagoMovil: Number(((pUsdCents / 100) * (props.bcvRate || 1)).toFixed(2)),
-      cashBs: Number(((cBsCents / 100) * (props.bcvRate || 1)).toFixed(2)),
-      cashUsd: cUsdCents / 100
-    }
-  } catch (e) { console.error(e) }
-}
-
-const openHistoryModal = async () => { await fetchCompletedOrders(); historyModalVisible.value = true }
-const openShiftReportModal = async () => { await fetchCompletedOrders(); shiftReportModalVisible.value = true }
-const reprintOrderTicket = (order) => { showToast(`🖨️ 打印小票 #${order.orderId}`, 'success') }
-const processReturnOrder = async (dbId) => {
-  await apiFetch(`/api/pos/orders/${dbId}/refund`, { method: 'POST' })
-  showToast('🔄 退货成功', 'success')
-  fetchCompletedOrders()
-}
-
-const confirmExitPos = () => { exitConfirmVisible.value = true }
-const executeExitPos = () => { exitConfirmVisible.value = false; emit('exit-pos') }
-
-const openPreviewModal = () => { 
-  if (props.cartItems.length === 0 || !isFullyPaid.value || isSubmitting.value) return
-  previewModalVisible.value = true
-  isPreviewReady.value = false
-  setTimeout(() => {
-    isPreviewReady.value = true
-  }, 300)
-}
-
-const isSubmitting = ref(false)
-
-const confirmAndPrint = async () => {
-  if (isSubmitting.value) return 
-  isSubmitting.value = true
-
-  try {
-    let dominantMethod = 'Cash_USD'
-    const split = paymentSplit.value
-    if ((split.cardPos || 0) > 0) dominantMethod = 'Card_POS'
-    if ((split.pagoMovil || 0) > 0) dominantMethod = 'Pago_Movil'
-    if ((split.cashBs || 0) > 0) dominantMethod = 'Cash_Bs'
-    if ((split.cashUsd || 0) > 0) dominantMethod = 'Cash_USD'
-
-    const activeChannelsCount = Object.values(split).filter(v => Number(v) > 0).length
-    if (activeChannelsCount > 1) {
-      dominantMethod = 'Pago_Mixto'
-    }
-
-    const payload = {
-      client_name: quoteClientName.value || "Cliente General",
-      payment_method: dominantMethod,
-      payment_reference: paymentReference.value,
-      bcv_rate: props.bcvRate,
-      // 🌟 将前端计算好的 IGTF 金额传给后端
-      igtf_amount: igtfAmountUsd.value,
-      items: props.cartItems.map(i => ({ oem: i.oem, name: i.name, brand: i.brand || "GENERAL", quantity: i.quantity, price: i.price }))
-    }
-
-    const res = await apiFetch('/api/pos/orders', { method: 'POST', body: JSON.stringify(payload) })
-    if (!res.ok) throw new Error('结账失败')
-    const data = await res.json()
-    
-    previewModalVisible.value = false
-    showToast(`✅ 开单成功！单号: ${data.order_no}`, 'success')
-    paymentReference.value = ''
-    quoteClientName.value = ''
-    emit('generate-quote')
-    fetchCompletedOrders()
-  } catch (err) { 
-    showToast(err.message || '结账失败', 'error') 
-  } finally {
-    setTimeout(() => {
-      isSubmitting.value = false
-    }, 1000)
-  }
 }
 
 const handleSearchKeydown = (e) => {
@@ -1325,13 +1352,180 @@ const handleSearchKeydown = (e) => {
   }
 }
 
+const focusSearch = () => { if (searchInputRef.value) searchInputRef.value.focus() }
+const deleteLastItem = () => { if (props.cartItems.length > 0) props.cartItems.pop() }
+
+const holdCurrentOrder = async () => {
+  if (props.cartItems.length === 0) {
+    showToast('📌 ' + tExt.value.toastHoldEmpty, 'error')
+    return
+  }
+  try {
+    const res = await apiFetch('/api/held-orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        client_name: quoteClientName.value || 'Cliente General',
+        payment_method: 'Pago_Mixto',
+        items: props.cartItems,
+        total_amount: totalUsd.value
+      })
+    })
+    if (res.ok) {
+      props.cartItems.splice(0, props.cartItems.length)
+      quoteClientName.value = ''
+      showToast('📌 ' + tExt.value.toastHoldSuccess, 'success')
+      fetchHeldOrders()
+    }
+  } catch (e) { showToast('❌ ' + tExt.value.toastHoldEmpty, 'error') }
+}
+
+const openRecallModal = async () => {
+  await fetchHeldOrders()
+  if (heldOrders.value.length === 0) {
+    showToast('❌ ' + tExt.value.recallEmpty, 'error')
+    return
+  }
+  recallModalVisible.value = true
+}
+
+const recallOrder = (order) => {
+  try {
+    const parsedItems = JSON.parse(order.items_json)
+    props.cartItems.splice(0, props.cartItems.length, ...parsedItems)
+    quoteClientName.value = order.client_name
+    apiFetch(`/api/held-orders/${order.id}`, { method: 'DELETE' }).then(() => fetchHeldOrders())
+    recallModalVisible.value = false
+    showToast('✅ ' + tExt.value.toastRecallSuccess, 'success')
+  } catch (e) { showToast('❌ ' + tExt.value.toastRecallError, 'error') }
+}
+
+const deleteHeldOrder = async (id) => {
+  await apiFetch(`/api/held-orders/${id}`, { method: 'DELETE' })
+  fetchHeldOrders()
+}
+
+const fetchCompletedOrders = async () => {
+  try {
+    const res = await apiFetch('/api/pos/orders')
+    if (!res.ok) return
+    const ordersData = await res.json()
+    completedOrders.value = ordersData
+
+    const todayStr = new Date().toLocaleDateString('en-CA') 
+
+    let cardAmtCents = 0, pUsdCents = 0, cBsCents = 0, cUsdCents = 0, tUsdCents = 0
+    let todayOrderCount = 0
+
+    ordersData.forEach(o => {
+      if (o.time && o.time.startsWith(todayStr)) {
+        const amtCents = Math.round(o.totalUsd * 100)
+        tUsdCents += amtCents
+        todayOrderCount++
+        if (o.paymentMethod === 'Card_POS') cardAmtCents += amtCents
+        else if (o.paymentMethod === 'Pago_Movil') pUsdCents += amtCents
+        else if (o.paymentMethod === 'Cash_Bs') cBsCents += amtCents
+        else if (o.paymentMethod === 'Cash_USD') cUsdCents += amtCents
+      }
+    })
+
+    shiftStats.value = {
+      cardPos: { amount: cardAmtCents / 100, count: 0 },
+      pagoMovil: { amount: pUsdCents / 100, count: 0 },
+      cashBs: { amount: cBsCents / 100, count: 0 },
+      cashUsd: { amount: cUsdCents / 100, count: todayOrderCount },
+      totalUsd: tUsdCents / 100,
+      totalCount: todayOrderCount
+    }
+
+    actualCounts.value = {
+      cardPos: Number(((cardAmtCents / 100) * (props.bcvRate || 1)).toFixed(2)),
+      pagoMovil: Number(((pUsdCents / 100) * (props.bcvRate || 1)).toFixed(2)),
+      cashBs: Number(((cBsCents / 100) * (props.bcvRate || 1)).toFixed(2)),
+      cashUsd: cUsdCents / 100
+    }
+  } catch (e) { console.error(e) }
+}
+
+const openHistoryModal = async () => { await fetchCompletedOrders(); historyModalVisible.value = true }
+const openShiftReportModal = async () => { await fetchCompletedOrders(); shiftReportModalVisible.value = true }
+const reprintOrderTicket = (order) => { showToast(`🖨️ ${tExt.value.toastReprint} #${order.orderId}`, 'success') }
+const processReturnOrder = async (dbId) => {
+  await apiFetch(`/api/pos/orders/${dbId}/refund`, { method: 'POST' })
+  showToast('🔄 ' + tExt.value.toastReturnSuccess, 'success')
+  fetchCompletedOrders()
+}
+
+const confirmExitPos = () => { exitConfirmVisible.value = true }
+const executeExitPos = () => { exitConfirmVisible.value = false; emit('exit-pos') }
+
+const openPreviewModal = () => { 
+  if (props.cartItems.length === 0 || !isFullyPaid.value || isSubmitting.value) return
+  previewModalVisible.value = true
+  isPreviewReady.value = false
+  setTimeout(() => {
+    isPreviewReady.value = true
+  }, 300)
+}
+
+const isSubmitting = ref(false)
+
+const confirmAndPrint = async () => {
+  if (isSubmitting.value) return 
+  isSubmitting.value = true
+
+  try {
+    let dominantMethod = 'Cash_USD'
+    const split = paymentSplit.value
+    if ((split.cardPos || 0) > 0) dominantMethod = 'Card_POS'
+    if ((split.pagoMovil || 0) > 0) dominantMethod = 'Pago_Movil'
+    if ((split.cashBs || 0) > 0) dominantMethod = 'Cash_Bs'
+    if ((split.cashUsd || 0) > 0) dominantMethod = 'Cash_USD'
+
+    const activeChannelsCount = Object.values(split).filter(v => Number(v) > 0).length
+    if (activeChannelsCount > 1) {
+      dominantMethod = 'Pago_Mixto'
+    }
+
+    const payload = {
+      client_name: quoteClientName.value || "Cliente General",
+      payment_method: dominantMethod,
+      payment_reference: paymentReference.value,
+      bcv_rate: props.bcvRate,
+      igtf_amount: igtfAmountUsd.value,
+      items: props.cartItems.map(i => ({ oem: i.oem, name: i.name, brand: i.brand || "GENERAL", quantity: i.quantity, price: i.price }))
+    }
+
+    const res = await apiFetch('/api/pos/orders', { method: 'POST', body: JSON.stringify(payload) })
+    if (!res.ok) throw new Error(tExt.value.toastCheckoutError)
+    const data = await res.json()
+    
+    previewModalVisible.value = false
+    checkoutSuccessVisible.value = true
+    setTimeout(() => { checkoutSuccessVisible.value = false }, 1500)
+
+    showToast(`✅ ${tExt.value.toastCheckoutSuccess} ${data.order_no}`, 'success')
+    paymentReference.value = ''
+    quoteClientName.value = ''
+    emit('generate-quote')
+    fetchCompletedOrders()
+  } catch (err) { 
+    showToast(err.message || tExt.value.toastCheckoutError, 'error') 
+  } finally {
+    setTimeout(() => {
+      isSubmitting.value = false
+    }, 1000)
+  }
+}
+
 const handleGlobalKeydown = (e) => {
-  if (previewModalVisible.value) {
+  if (previewModalVisible.value || newClientModalVisible.value) {
     if (e.key === 'Enter') { 
       e.preventDefault() 
       e.stopPropagation() 
-      if (isPreviewReady.value && !isSubmitting.value) { 
+      if (previewModalVisible.value && isPreviewReady.value && !isSubmitting.value) { 
         confirmAndPrint() 
+      } else if (newClientModalVisible.value) {
+        saveNewClient()
       }
       return 
     }
@@ -1339,6 +1533,7 @@ const handleGlobalKeydown = (e) => {
       e.preventDefault() 
       e.stopPropagation()
       previewModalVisible.value = false 
+      newClientModalVisible.value = false
       return 
     }
     return
@@ -1468,5 +1663,14 @@ input.no-spinner::-webkit-inner-spin-button {
 }
 input[type=number].no-spinner {
   -moz-appearance: textfield;
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.5); opacity: 0; }
+  70% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop-in {
+  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 </style>

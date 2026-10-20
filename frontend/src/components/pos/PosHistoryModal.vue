@@ -1,246 +1,116 @@
 <!-- src/components/pos/PosHistoryModal.vue -->
 <template>
-  <div v-if="visible" @click.self="$emit('close')" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-50 p-6 cursor-pointer">
-    <div class="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-4xl w-full h-[88vh] max-h-[900px] overflow-hidden border border-white/80 flex flex-col cursor-default">
+  <div v-if="visible" @click.self="$emit('close')" class="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-50 p-6 cursor-pointer">
+    <div class="bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-5xl w-full h-[88vh] max-h-[900px] overflow-hidden border border-white/80 flex flex-col cursor-default">
       
-      <!-- 顶部标题栏 -->
+      <!-- 头部 -->
       <div class="p-5 border-b border-slate-200/60 flex items-center justify-between bg-white/50 shrink-0">
         <h3 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
-          <span>📜 {{ t.posHistoryTitle || '最近销售历史与退换货管理' }}</span>
+          <span>📜 {{ tExt.title }}</span>
         </h3>
         <button @click="$emit('close')" class="text-slate-400 hover:text-slate-700 text-base font-bold p-1 cursor-pointer">✕</button>
       </div>
 
-      <!-- 🔍 搜索与日期筛选栏 -->
-      <div class="p-4 border-b border-slate-200/60 bg-white/40 flex flex-col sm:flex-row gap-2.5 items-center shrink-0">
-        <div class="flex-1 relative w-full">
-          <input 
-            v-model="searchQuery" 
-            type="text" 
-            :placeholder="t.posSearchOrderPlaceholder || '输入订单编号 / 客户名称搜索...'" 
-            class="w-full bg-white/90 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 outline-none focus:border-blue-500 font-mono shadow-2xs font-bold"
-          />
-        </div>
-
-        <div class="flex items-center gap-2 w-full sm:w-auto">
-          <!-- 日期选择框 -->
-          <input 
-            v-model="selectedDate" 
-            type="date" 
-            class="bg-white/90 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 font-mono shadow-2xs cursor-pointer font-bold"
-          />
-
-          <!-- 快捷：今日按钮 -->
-          <button 
-            @click="setTodayFilter"
-            :class="isTodaySelected ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white/90 text-slate-700 border-slate-200 hover:bg-slate-100'"
-            class="px-3 py-2 border rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs"
-          >
-            📅 今日
-          </button>
-
-          <!-- 快捷：查看全部按钮 -->
-          <button 
-            @click="showAllHistory"
-            :class="!selectedDate && !searchQuery ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white/90 text-slate-700 border-slate-200 hover:bg-slate-100'"
-            class="px-3 py-2 border rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-2xs"
-          >
-            🌐 全部历史
-          </button>
+      <!-- 筛选区 -->
+      <div class="p-4 border-b border-slate-200/60 bg-white/40 shrink-0 flex flex-wrap gap-4 items-center">
+        <input v-model="searchQuery" type="text" :placeholder="tExt.searchPlaceholder" class="flex-1 min-w-[200px] bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 font-bold text-slate-900" />
+        
+        <div class="flex items-center gap-2">
+          <input type="date" v-model="filterDate" class="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs outline-none focus:border-blue-500 font-mono font-bold text-slate-700" />
+          <button @click="filterDate = todayStr" class="bg-blue-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer">{{ tExt.todayBtn }}</button>
+          <button @click="filterDate = ''" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer">{{ tExt.allBtn }}</button>
         </div>
       </div>
 
-      <!-- 订单列表区 -->
-      <div class="flex-1 overflow-y-auto p-5 space-y-3 bg-white/20 flex flex-col">
-        <template v-if="filteredOrders.length > 0">
-          <div
-            v-for="order in filteredOrders"
-            :key="order.dbId || order.id"
-            class="p-4 rounded-2xl border border-slate-200/80 bg-white/80 backdrop-blur-md hover:bg-white transition-all flex flex-col gap-3 shrink-0 shadow-2xs"
-          >
-            <div class="flex items-center justify-between border-b border-slate-200/60 pb-2">
-              <div>
-                <span class="font-mono font-black text-blue-600 text-xs mr-3">{{ t.posOrderNo || '单号' }}: {{ order.orderId || order.order_no }}</span>
-                <span class="text-xs text-slate-600 font-bold">{{ t.posClient || '客户' }}: {{ order.clientName || order.client_name || '散客' }}</span>
-                <span v-if="order.status === 'REFUNDED'" class="ml-2 bg-rose-100 text-rose-700 text-[10px] px-2 py-0.5 rounded font-black">已退货</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <span class="text-xs text-slate-400 font-mono">{{ order.time || order.created_at }}</span>
-                <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">{{ order.paymentMethod || order.payment_method }}</span>
-              </div>
+      <!-- 列表区 -->
+      <div class="flex-1 overflow-y-auto p-5 bg-white/20 space-y-3">
+        <div v-for="order in filteredOrders" :key="order.dbId" class="bg-white/90 p-4 rounded-2xl border border-slate-200/80 hover:bg-white transition-all flex flex-wrap items-center justify-between gap-4 shadow-2xs">
+          <div class="space-y-1">
+            <div class="font-black text-sm text-slate-900 flex items-center gap-2">
+              <span class="text-blue-600 font-mono">{{ order.orderId }}</span>
+              <span>👤 {{ order.clientName }}</span>
             </div>
-
-            <!-- 订单内商品列表 -->
-            <div class="space-y-1">
-              <div v-for="item in order.items" :key="item.oem" class="flex justify-between text-xs text-slate-700 font-medium">
-                <span>{{ item.name }} (OEM: {{ item.oem }}) x {{ item.quantity }}</span>
-                <span class="font-mono font-bold">${{ (item.price * item.quantity).toFixed(2) }}</span>
-              </div>
+            <div class="text-xs text-slate-500 font-mono">{{ order.time }}</div>
+          </div>
+          
+          <div class="flex items-center gap-6">
+            <div class="text-right">
+              <div class="text-sm font-black text-emerald-600 font-mono">$ {{ Number(order.totalUsd).toFixed(2) }}</div>
+              <div class="text-[10px] text-slate-400 font-bold uppercase">{{ order.paymentMethod }}</div>
             </div>
-
-            <!-- 🌟 税务明细拆分展示 (Base Imponible + IVA + IGTF) -->
-            <div class="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/60 space-y-1 text-xs font-mono text-slate-600">
-              <div class="flex justify-between">
-                <span>不含税总额 (Base Imponible):</span>
-                <span class="font-bold">${{ (order.baseAmountUsd || order.base_amount_usd || 0).toFixed(2) }} (Bs. {{ (((order.baseAmountUsd || order.base_amount_usd || 0)) * (order.bcvRate || order.bcv_rate || 1)).toFixed(2) }})</span>
-              </div>
-              <div class="flex justify-between">
-                <span>增值税 (IVA 16%):</span>
-                <span class="font-bold">${{ (order.taxAmountUsd || order.tax_amount_usd || 0).toFixed(2) }} (Bs. {{ (((order.taxAmountUsd || order.tax_amount_usd || 0)) * (order.bcvRate || order.bcv_rate || 1)).toFixed(2) }})</span>
-              </div>
-              <div v-if="(order.igtfAmountUsd || order.igtf_amount_usd || 0) > 0" class="flex justify-between text-amber-700">
-                <span>大额交易税 (IGTF 3%):</span>
-                <span class="font-bold">${{ (order.igtfAmountUsd || order.igtf_amount_usd || 0).toFixed(2) }} (Bs. {{ (((order.igtfAmountUsd || order.igtf_amount_usd || 0)) * (order.bcvRate || order.bcv_rate || 1)).toFixed(2) }})</span>
-              </div>
-            </div>
-
-            <div class="flex items-center justify-between pt-2 border-t border-slate-200/40">
-              <span class="text-xs font-black text-slate-900">
-                {{ t.posTotal || '总计' }}: ${{ (order.totalUsd || order.total_usd || 0).toFixed(2) }} (Bs. {{ ((order.totalUsd || order.total_usd || 0) * (order.bcvRate || order.bcv_rate || 1)).toFixed(2) }})
-              </span>
-              
-              <!-- 操作按钮组 -->
-              <div class="flex gap-2">
-                <button
-                  @click="$emit('reprint', order)"
-                  class="px-3 py-1.5 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
-                >
-                  <span>🖨️</span> {{ t.posReprintTicket || '补打小票' }}
-                </button>
-                
-                <button
-                  @click="downloadPdf(order.orderId || order.order_no)"
-                  class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                >
-                  <span>📥</span> PDF
-                </button>
-
-                <button
-                  v-if="order.status !== 'REFUNDED'"
-                  @click="$emit('return', order.dbId || order.id)"
-                  class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
-                >
-                  <span>🔄</span> {{ t.posRequestReturn || '申请退货/退款' }}
-                </button>
-              </div>
+            <div class="flex items-center gap-2">
+              <button @click="$emit('reprint', order)" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold transition-colors">{{ tExt.btnReprint }}</button>
+              <button @click="confirmReturn(order.dbId)" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-bold transition-colors">{{ tExt.btnReturn }}</button>
             </div>
           </div>
-        </template>
+        </div>
 
-        <!-- 暂无数据时的优雅占位 -->
-        <div v-else class="flex-1 flex flex-col items-center justify-center py-20 text-slate-400 text-xs font-bold">
-          <span class="text-4xl mb-2">📭</span>
-          <span>{{ selectedDate ? `📅 ${selectedDate} 暂无历史销售记录` : (t.posNoHistory || '暂无符合条件的销售订单记录') }}</span>
+        <div v-if="filteredOrders.length === 0" class="flex flex-col items-center justify-center py-20 text-slate-400">
+          <span class="text-5xl mb-3">📭</span>
+          <span class="text-sm font-bold">{{ filterDate ? `${filterDate} ${tExt.emptyDateMsg}` : tExt.emptyAllMsg }}</span>
         </div>
       </div>
 
-      <!-- 底部统计与关闭栏 -->
-      <div class="p-5 bg-white/80 backdrop-blur-md border-t border-slate-200/60 flex items-center justify-between shrink-0">
-        <span class="text-xs text-slate-600 font-mono font-bold">
-          共找到 <strong class="text-slate-900">{{ filteredOrders.length }}</strong> 笔订单
-        </span>
-        <button @click="$emit('close')" class="px-6 py-2 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer">
-          {{ t.btnCancel || '关闭' }}
-        </button>
+      <!-- 底部 -->
+      <div class="p-5 bg-white/80 border-t border-slate-200/60 flex items-center justify-between shrink-0">
+        <span class="text-xs text-slate-500 font-bold">{{ tExt.found }} <strong class="text-slate-900">{{ filteredOrders.length }}</strong> {{ tExt.orders }}</span>
+        <button @click="$emit('close')" class="px-6 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer">{{ tExt.btnClose }}</button>
       </div>
+
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from '../../composables/useI18n'
-import { apiFetch } from '../../utils/api'
-
-const { t } = useI18n()
 
 const props = defineProps({
-  visible: { type: Boolean, default: false },
-  orders: { type: Array, default: () => [] }
+  visible: Boolean,
+  orders: Array
+})
+const emit = defineEmits(['close', 'reprint', 'return'])
+
+const { currentLang } = useI18n()
+
+const tExt = computed(() => {
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  return {
+    title: isZh ? '最近销售历史与退换货管理' : isEs ? 'Historial Reciente y Devoluciones' : 'Recent Sales & Returns',
+    searchPlaceholder: isZh ? '输入订单编号 / 客户名称搜索...' : isEs ? 'Buscar por Nro. de Orden / Cliente...' : 'Search by Order No. / Client...',
+    todayBtn: isZh ? '今日' : isEs ? 'Hoy' : 'Today',
+    allBtn: isZh ? '全部历史' : isEs ? 'Todo el Historial' : 'All History',
+    btnReprint: isZh ? '补打小票' : isEs ? 'Reimprimir' : 'Reprint',
+    btnReturn: isZh ? '申请退货/退款' : isEs ? 'Devolver' : 'Return',
+    emptyDateMsg: isZh ? '暂无历史销售记录' : isEs ? 'Sin registros de ventas' : 'No sales records found',
+    emptyAllMsg: isZh ? '暂无所有历史记录' : isEs ? 'No hay historial' : 'No history found',
+    found: isZh ? '共找到' : isEs ? 'Encontrados' : 'Found',
+    orders: isZh ? '笔订单' : isEs ? 'pedidos' : 'orders',
+    btnClose: isZh ? '关闭' : isEs ? 'Cerrar' : 'Close',
+    confirmReturnMsg: isZh ? '确认执行退货处理？该操作会自动将商品库存回滚至仓库。' : isEs ? '¿Confirmar devolución? El inventario se restaurará automáticamente.' : 'Confirm return? Inventory will be restored automatically.'
+  }
 })
 
-defineEmits(['close', 'reprint', 'return'])
-
-const getTodayString = () => {
-  const d = new Date()
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-const parseToLocalDateStr = (timeStr) => {
-  if (!timeStr) return ''
-  let cleanStr = timeStr.replace(/\//g, '-')
-  if (cleanStr.includes(' ') || cleanStr.includes('T')) {
-    const isoStr = cleanStr.includes('T') ? cleanStr : cleanStr.replace(' ', 'T')
-    const d = new Date(isoStr)
-    if (!isNaN(d.getTime())) {
-      const venezuelaTime = new Date(d.getTime() - 4 * 3600 * 1000)
-      const year = venezuelaTime.getFullYear()
-      const month = String(venezuelaTime.getMonth() + 1).padStart(2, '0')
-      const day = String(venezuelaTime.getDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
-    }
-  }
-  return cleanStr.substring(0, 10)
-}
-
+const todayStr = new Date().toLocaleDateString('en-CA')
 const searchQuery = ref('')
-const selectedDate = ref(getTodayString())
-
-const isTodaySelected = computed(() => selectedDate.value === getTodayString())
-
-const setTodayFilter = () => {
-  selectedDate.value = getTodayString()
-  searchQuery.value = ''
-}
-
-const showAllHistory = () => {
-  selectedDate.value = ''
-  searchQuery.value = ''
-}
-
-watch(() => props.visible, (newVal) => {
-  if (newVal) {
-    selectedDate.value = getTodayString()
-    searchQuery.value = ''
-  }
-})
+const filterDate = ref(todayStr)
 
 const filteredOrders = computed(() => {
-  if (!props.orders) return []
-  return props.orders.filter(order => {
-    const orderNo = (order.orderId || order.order_no || '').toLowerCase()
-    const clientName = (order.clientName || order.client_name || '').toLowerCase()
-    const query = searchQuery.value.toLowerCase().trim()
-    
-    const matchesQuery = !query || orderNo.includes(query) || clientName.includes(query)
-    
-    if (!selectedDate.value) return matchesQuery
-
-    const orderLocalDate = parseToLocalDateStr(order.time || order.created_at)
-    
-    return matchesQuery && (orderLocalDate === selectedDate.value)
-  })
+  let result = props.orders
+  if (searchQuery.value) {
+    const q = searchQuery.value.toUpperCase()
+    result = result.filter(o => (o.orderId && o.orderId.toUpperCase().includes(q)) || (o.clientName && o.clientName.toUpperCase().includes(q)))
+  }
+  if (filterDate.value) {
+    result = result.filter(o => o.time && o.time.startsWith(filterDate.value))
+  }
+  return result
 })
 
-const downloadPdf = async (orderNo) => {
-  try {
-    const res = await apiFetch(`/api/quotation/pdf/download?quotation_no=${orderNo}`)
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error(err.detail || '下载 PDF 失败')
-    }
-    const blob = await res.blob()
-    const blobUrl = window.URL.createObjectURL(blob)
-    window.open(blobUrl, '_blank')
-    setTimeout(() => {
-      window.URL.revokeObjectURL(blobUrl)
-    }, 10000)
-  } catch (error) {
-    console.error('PDF 下载异常:', error)
-    alert(`❌ 无法生成订单 PDF: ${error.message}`)
+const confirmReturn = (dbId) => {
+  if (confirm(tExt.value.confirmReturnMsg)) {
+    emit('return', dbId)
   }
 }
 </script>

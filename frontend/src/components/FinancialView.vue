@@ -5,38 +5,38 @@
     <!-- 顶部利润核心指标卡片 (双币种总览) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
       <div class="bg-white/75 backdrop-blur-xl p-6 rounded-2xl border border-white/80 shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-white/90 space-y-2">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">总营业收入 (Revenue)</p>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">{{ tExt.revenue }}</p>
         <h3 class="text-2xl font-black text-blue-600 font-mono">$ {{ analytics.total_revenue_usd.toFixed(2) }}</h3>
         <p class="text-xs text-slate-400 font-mono">Bs. {{ (analytics.total_revenue_usd * bcvRate).toFixed(2) }}</p>
       </div>
 
       <div class="bg-white/75 backdrop-blur-xl p-6 rounded-2xl border border-white/80 shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-white/90 space-y-2">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">总进货成本 (Cost)</p>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">{{ tExt.cost }}</p>
         <h3 class="text-2xl font-black text-slate-700 font-mono">$ {{ analytics.total_cost_usd.toFixed(2) }}</h3>
         <p class="text-xs text-slate-400 font-mono">Bs. {{ (analytics.total_cost_usd * bcvRate).toFixed(2) }}</p>
       </div>
 
       <div class="bg-white/75 backdrop-blur-xl p-6 rounded-2xl border border-white/80 shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-white/90 space-y-2">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">毛利润 (Gross Profit)</p>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">{{ tExt.grossProfit }}</p>
         <h3 class="text-2xl font-black text-emerald-600 font-mono">$ {{ analytics.gross_profit_usd.toFixed(2) }}</h3>
         <p class="text-xs text-emerald-500 font-mono font-bold">Bs. {{ (analytics.gross_profit_usd * bcvRate).toFixed(2) }}</p>
       </div>
 
       <div class="bg-white/75 backdrop-blur-xl p-6 rounded-2xl border border-white/80 shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-white/90 space-y-2">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">综合毛利率 (Margin)</p>
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">{{ tExt.profitMargin }}</p>
         <h3 class="text-2xl font-black text-purple-600 font-mono">{{ analytics.profit_margin.toFixed(1) }}%</h3>
-        <p class="text-xs text-slate-400 font-semibold">稳定盈利状态</p>
+        <p class="text-xs text-slate-400 font-semibold">{{ tExt.stableProfit }}</p>
       </div>
     </div>
 
     <!-- 🌟 今日收银对账分类（毛玻璃质感汇总看板） -->
     <div class="bg-white/75 backdrop-blur-xl rounded-2xl border border-white/80 shadow-xl p-6 space-y-4 transition-all duration-300">
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between flex-wrap gap-3">
         <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
-          💳 今日收银对账分类 (Daily Cashier Reconciliation)
+          💳 {{ tExt.dailyReconciliation }}
         </h3>
         <span class="text-xs bg-blue-500/10 text-blue-700 border border-blue-200/60 px-3 py-1 rounded-xl font-mono font-bold shadow-2xs">
-          BCV 汇率基准: {{ bcvRate }}
+          {{ tExt.bcvBase }}: {{ bcvRate }}
         </span>
       </div>
 
@@ -44,51 +44,51 @@
         <!-- 1. Card POS -->
         <div class="bg-white/70 hover:bg-white backdrop-blur-md border border-white/90 hover:border-blue-300 rounded-2xl p-4 space-y-1 shadow-2xs transition-all duration-200 hover:scale-[1.02]">
           <div class="flex items-center justify-between text-xs font-bold text-slate-500">
-            <span>💳 刷卡 POS</span>
-            <span class="text-blue-600 font-mono">{{ paymentBreakdown.cardPos.count }} 笔</span>
+            <span>💳 {{ t.pos.payCardPos }}</span>
+            <span class="text-blue-600 font-mono">{{ paymentBreakdown.cardPos.count }} {{ tExt.unit }}</span>
           </div>
           <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentBreakdown.cardPos.totalUSD.toFixed(2) }}</div>
-          <div class="text-xs text-slate-400 font-mono">占比: {{ paymentBreakdown.cardPos.percentage }}%</div>
+          <div class="text-xs text-slate-400 font-mono">{{ tExt.ratio }}: {{ paymentBreakdown.cardPos.percentage }}%</div>
         </div>
 
         <!-- 2. Pago Móvil -->
         <div class="bg-white/70 hover:bg-white backdrop-blur-md border border-white/90 hover:border-blue-300 rounded-2xl p-4 space-y-1 shadow-2xs transition-all duration-200 hover:scale-[1.02]">
           <div class="flex items-center justify-between text-xs font-bold text-slate-500">
-            <span>⚡ Pago Móvil</span>
-            <span class="text-indigo-600 font-mono">{{ paymentBreakdown.pagoMovil.count }} 笔</span>
+            <span>⚡ {{ t.pos.payPagoMovil }}</span>
+            <span class="text-indigo-600 font-mono">{{ paymentBreakdown.pagoMovil.count }} {{ tExt.unit }}</span>
           </div>
           <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentBreakdown.pagoMovil.totalUSD.toFixed(2) }}</div>
-          <div class="text-xs text-slate-400 font-mono">占比: {{ paymentBreakdown.pagoMovil.percentage }}%</div>
+          <div class="text-xs text-slate-400 font-mono">{{ tExt.ratio }}: {{ paymentBreakdown.pagoMovil.percentage }}%</div>
         </div>
 
         <!-- 3. Cash Bs -->
         <div class="bg-white/70 hover:bg-white backdrop-blur-md border border-white/90 hover:border-blue-300 rounded-2xl p-4 space-y-1 shadow-2xs transition-all duration-200 hover:scale-[1.02]">
           <div class="flex items-center justify-between text-xs font-bold text-slate-500">
-            <span>🇻🇪 Bs. 现金</span>
-            <span class="text-emerald-600 font-mono">{{ paymentBreakdown.cashBs.count }} 笔</span>
+            <span>🇻🇪 {{ t.pos.payCashBs }}</span>
+            <span class="text-emerald-600 font-mono">{{ paymentBreakdown.cashBs.count }} {{ tExt.unit }}</span>
           </div>
           <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentBreakdown.cashBs.totalUSD.toFixed(2) }}</div>
-          <div class="text-xs text-slate-400 font-mono">占比: {{ paymentBreakdown.cashBs.percentage }}%</div>
+          <div class="text-xs text-slate-400 font-mono">{{ tExt.ratio }}: {{ paymentBreakdown.cashBs.percentage }}%</div>
         </div>
 
         <!-- 4. Cash USD -->
         <div class="bg-white/70 hover:bg-white backdrop-blur-md border border-white/90 hover:border-blue-300 rounded-2xl p-4 space-y-1 shadow-2xs transition-all duration-200 hover:scale-[1.02]">
           <div class="flex items-center justify-between text-xs font-bold text-slate-500">
-            <span>💵 美金现金</span>
-            <span class="text-emerald-600 font-mono">{{ paymentBreakdown.cashUSD.count }} 笔</span>
+            <span>💵 {{ t.pos.payCashUsd }}</span>
+            <span class="text-emerald-600 font-mono">{{ paymentBreakdown.cashUSD.count }} {{ tExt.unit }}</span>
           </div>
           <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentBreakdown.cashUSD.totalUSD.toFixed(2) }}</div>
-          <div class="text-xs text-slate-400 font-mono">占比: {{ paymentBreakdown.cashUSD.percentage }}%</div>
+          <div class="text-xs text-slate-400 font-mono">{{ tExt.ratio }}: {{ paymentBreakdown.cashUSD.percentage }}%</div>
         </div>
 
         <!-- 5. Pago Mixto (组合支付) -->
         <div class="bg-white/70 hover:bg-white backdrop-blur-md border border-white/90 hover:border-blue-300 rounded-2xl p-4 space-y-1 shadow-2xs transition-all duration-200 hover:scale-[1.02]">
           <div class="flex items-center justify-between text-xs font-bold text-slate-500">
-            <span>🔄 组合支付</span>
-            <span class="text-purple-600 font-mono">{{ paymentBreakdown.pagoMixto.count }} 笔</span>
+            <span>🔄 {{ tExt.mixedPay }}</span>
+            <span class="text-purple-600 font-mono">{{ paymentBreakdown.pagoMixto.count }} {{ tExt.unit }}</span>
           </div>
           <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentBreakdown.pagoMixto.totalUSD.toFixed(2) }}</div>
-          <div class="text-xs text-slate-400 font-mono">占比: {{ paymentBreakdown.pagoMixto.percentage }}%</div>
+          <div class="text-xs text-slate-400 font-mono">{{ tExt.ratio }}: {{ paymentBreakdown.pagoMixto.percentage }}%</div>
         </div>
       </div>
     </div>
@@ -97,8 +97,8 @@
     <div class="bg-white/75 backdrop-blur-xl rounded-2xl border border-white/80 shadow-xl overflow-hidden transition-all duration-300">
       <div class="p-6 border-b border-slate-200/60 flex items-center justify-between bg-white/40 backdrop-blur-md">
         <div>
-          <h3 class="font-bold text-slate-800 text-base">📈 多币种每日利润对账流水 (Multi-Currency Profit Audit Trail)</h3>
-          <p class="text-xs text-slate-400 mt-0.5 font-medium">自动换算每日各笔开单在美元与玻利瓦尔双币种下的真实毛利贡献</p>
+          <h3 class="font-bold text-slate-800 text-base">📈 {{ tExt.auditTitle }}</h3>
+          <p class="text-xs text-slate-400 mt-0.5 font-medium">{{ tExt.auditSubtitle }}</p>
         </div>
       </div>
 
@@ -106,13 +106,13 @@
         <table class="w-full text-left border-collapse min-w-[850px]">
           <thead>
             <tr class="bg-white/60 backdrop-blur-md border-b border-slate-200/60 text-xs font-black text-slate-600 uppercase tracking-wider">
-              <th class="py-3.5 px-6">单据编号</th>
-              <th class="py-3.5 px-6">交易时间</th>
-              <th class="py-3.5 px-6">支付方式</th>
-              <th class="py-3.5 px-6">营业额 (USD)</th>
-              <th class="py-3.5 px-6">折算收入 (VES)</th>
-              <th class="py-3.5 px-6">进货成本 (USD)</th>
-              <th class="py-3.5 px-6">真实毛利 (USD / Bs.)</th>
+              <th class="py-3.5 px-6">{{ tExt.orderNo }}</th>
+              <th class="py-3.5 px-6">{{ tExt.time }}</th>
+              <th class="py-3.5 px-6">{{ tExt.payMethod }}</th>
+              <th class="py-3.5 px-6">{{ tExt.revenueUsd }}</th>
+              <th class="py-3.5 px-6">{{ tExt.revenueVes }}</th>
+              <th class="py-3.5 px-6">{{ tExt.costUsd }}</th>
+              <th class="py-3.5 px-6">{{ tExt.realProfit }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200/60 text-sm font-medium">
@@ -135,7 +135,7 @@
               </td>
             </tr>
             <tr v-if="dailyAuditList.length === 0">
-              <td colspan="7" class="py-16 text-center text-slate-400 text-xs font-bold">暂无近期开单对账流水数据</td>
+              <td colspan="7" class="py-16 text-center text-slate-400 text-xs font-bold">{{ tExt.noData }}</td>
             </tr>
           </tbody>
         </table>
@@ -146,11 +146,39 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useI18n } from '../composables/useI18n'
 import { apiFetch } from '../utils/api'
 
-const { t } = useI18n()
+const { t, currentLang } = useI18n()
+
+// 🌟 扩展翻译字典
+const tExt = computed(() => {
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  return {
+    revenue: isZh ? '总营业收入 (Revenue)' : isEs ? 'Ingresos Totales (Revenue)' : 'Total Revenue',
+    cost: isZh ? '总进货成本 (Cost)' : isEs ? 'Costo Total (Cost)' : 'Total Cost',
+    grossProfit: isZh ? '毛利润 (Gross Profit)' : isEs ? 'Ganancia Bruta (Gross Profit)' : 'Gross Profit',
+    profitMargin: isZh ? '综合毛利率 (Margin)' : isEs ? 'Margen de Ganancia (Margin)' : 'Profit Margin',
+    stableProfit: isZh ? '稳定盈利状态' : isEs ? 'Estado Rentable' : 'Stable Profit',
+    dailyReconciliation: isZh ? '今日收银对账分类' : isEs ? 'Conciliación Diaria de Caja' : 'Daily Cashier Reconciliation',
+    bcvBase: isZh ? 'BCV 汇率基准' : isEs ? 'Tasa Base BCV' : 'BCV Rate Base',
+    mixedPay: isZh ? '组合支付' : isEs ? 'Pago Mixto' : 'Mixed Payment',
+    unit: isZh ? '笔' : isEs ? 'trans.' : 'txns',
+    ratio: isZh ? '占比' : isEs ? 'Porcentaje' : 'Ratio',
+    auditTitle: isZh ? '多币种每日利润对账流水' : isEs ? 'Auditoría Diaria de Ganancias' : 'Daily Profit Audit Trail',
+    auditSubtitle: isZh ? '自动换算每日各笔开单在美元与玻利瓦尔双币种下的真实毛利贡献' : isEs ? 'Conversión automática de ganancias reales en USD y Bs.' : 'Automatic calculation of real profit in USD and Bs.',
+    orderNo: isZh ? '单据编号' : isEs ? 'Nro. Orden' : 'Order No.',
+    time: isZh ? '交易时间' : isEs ? 'Hora' : 'Time',
+    payMethod: isZh ? '支付方式' : isEs ? 'Método de Pago' : 'Payment Method',
+    revenueUsd: isZh ? '营业额 (USD)' : isEs ? 'Ingresos (USD)' : 'Revenue (USD)',
+    revenueVes: isZh ? '折算收入 (VES)' : isEs ? 'Ingresos (VES)' : 'Revenue (VES)',
+    costUsd: isZh ? '进货成本 (USD)' : isEs ? 'Costo (USD)' : 'Cost (USD)',
+    realProfit: isZh ? '真实毛利 (USD / Bs.)' : isEs ? 'Ganancia Real' : 'Real Profit',
+    noData: isZh ? '暂无近期开单对账流水数据' : isEs ? 'Sin datos recientes' : 'No recent data'
+  }
+})
 
 const bcvRate = ref(36.50)
 const analytics = ref({
@@ -221,7 +249,7 @@ const fetchFinancialData = async () => {
 
         return {
           id: order.orderId || order.dbId || order.id,
-          date: order.time || order.created_at || '刚刚',
+          date: order.time || order.created_at || 'Just now',
           payment_method: method,
           revenue_usd: rev,
           cost_usd: cost,

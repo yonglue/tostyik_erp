@@ -12,7 +12,7 @@
             :value="searchQuery"
             @input="$emit('update:searchQuery',$event.target.value)"
             type="text"
-            :placeholder="t.searchPlaceholder || '搜索配件名称或 OEM 编号...'"
+            :placeholder="t.inventory.searchPlaceholder"
             class="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-blue-500 focus:bg-white transition-all"
           />
         </div>
@@ -24,7 +24,7 @@
             @change="$emit('update:selectedBrand',$event.target.value)"
             class="bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 rounded-xl px-4 py-2.5 pr-8 outline-none focus:border-blue-500 focus:bg-white transition-all cursor-pointer appearance-none"
           >
-            <option value="ALL">🏷️ 全部品牌 (All Brands)</option>
+            <option value="ALL">🏷️ {{ tExt.allBrands }}</option>
             <option v-for="b in brandsList.filter(item => item !== 'ALL')" :key="b" :value="b">
               {{ b }}
             </option>
@@ -38,7 +38,7 @@
             v-model="selectedCategory" 
             class="bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 rounded-xl px-4 py-2.5 pr-8 outline-none focus:border-blue-500 focus:bg-white transition-all cursor-pointer appearance-none"
           >
-            <option value="ALL">📂 全部分类 (All Categories)</option>
+            <option value="ALL">📂 {{ tExt.allCategories }}</option>
             <option v-for="cat in categoriesList.filter(item => item !== 'ALL')" :key="cat" :value="cat">
               {{ cat }}
             </option>
@@ -54,7 +54,7 @@
           @click="openBatchDeleteModal" 
           class="flex items-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/80 px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
         >
-          <span>🗑️ 批量删除 (已选 {{ selectedIds.length }} 项)</span>
+          <span>🗑️ {{ tExt.batchDelete }} ({{ tExt.batchSelected }} {{ selectedIds.length }})</span>
         </button>
 
         <button
@@ -62,7 +62,7 @@
           class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md shadow-blue-500/25 transition-all cursor-pointer"
         >
           <Plus :size="16" />
-          <span>{{ t.addPartBtn || '新增配件' }}</span>
+          <span>{{ t.inventory.addBtn }}</span>
         </button>
       </div>
     </div>
@@ -81,16 +81,16 @@
                   class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" 
                 />
               </th>
-              <th class="py-3.5 px-4">实物多图</th>
-              <th class="py-3.5 px-4">{{ t.colOem || 'OEM 编号' }}</th>
-              <th class="py-3.5 px-4">{{ t.colName || '配件名称' }}</th>
-              <th class="py-3.5 px-4">📍 货架库位</th>
-              <th class="py-3.5 px-4">{{ t.colCategory || '分类' }}</th>
-              <th class="py-3.5 px-4">{{ t.colBrand || '品牌' }}</th>
-              <th class="py-3.5 px-4">税率类型 (SENIAT)</th>
-              <th class="py-3.5 px-4">{{ t.colStock || '库存' }}</th>
-              <th class="py-3.5 px-4">{{ t.colPriceUsd || '售价 (USD)' }}</th>
-              <th class="py-3.5 px-4 text-center">操作</th>
+              <th class="py-3.5 px-4">{{ t.inventory.colImage }}</th>
+              <th class="py-3.5 px-4">{{ t.inventory.colOem }}</th>
+              <th class="py-3.5 px-4">{{ t.inventory.colName }}</th>
+              <th class="py-3.5 px-4">📍 {{ t.inventory.colBin }}</th>
+              <th class="py-3.5 px-4">{{ t.inventory.colCategory }}</th>
+              <th class="py-3.5 px-4">{{ t.inventory.colBrand }}</th>
+              <th class="py-3.5 px-4">{{ t.inventory.taxRate }} (SENIAT)</th>
+              <th class="py-3.5 px-4">{{ t.inventory.colStock }}</th>
+              <th class="py-3.5 px-4">{{ t.inventory.colPriceUsd }}</th>
+              <th class="py-3.5 px-4 text-center">{{ t.common.actions }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 text-sm">
@@ -141,7 +141,7 @@
               </td>
 
               <td class="py-4 px-4 text-slate-600">
-                <span class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-xs font-semibold">{{ item.category || '未分类' }}</span>
+                <span class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-xs font-semibold">{{ item.category || tExt.uncategorized }}</span>
               </td>
               <td class="py-4 px-4 text-slate-600">
                 <span class="bg-slate-100 px-2.5 py-1 rounded-md text-xs font-medium">{{ item.brand }}</span>
@@ -150,7 +150,7 @@
               <!-- 🌟 SENIAT 税率类型标签 -->
               <td class="py-4 px-4">
                 <span :class="item.tax_rate === 0.16 ? 'bg-amber-50 text-amber-700 border-amber-200/60' : (item.tax_rate === 0.08 ? 'bg-indigo-50 text-indigo-700 border-indigo-200/60' : 'bg-slate-100 text-slate-600 border-slate-200')" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border">
-                  {{ item.tax_rate === 0.16 ? '16% 标准 IVA' : (item.tax_rate === 0.08 ? '8% 减免 IVA' : '0% 免税 Exento') }}
+                  {{ item.tax_rate === 0.16 ? t.inventory.tax16 : (item.tax_rate === 0.08 ? t.inventory.tax8 : t.inventory.tax0) }}
                 </span>
               </td>
 
@@ -160,16 +160,16 @@
               <td class="py-4 px-4 text-center" @click.stop>
                 <div class="inline-flex items-center justify-center gap-2">
                   <button @click="openEditModal(item)" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer">
-                    编辑
+                    {{ t.common.edit }}
                   </button>
                   <button @click="$emit('delete-part', item)" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer">
-                    删除
+                    {{ t.common.delete }}
                   </button>
                 </div>
               </td>
             </tr>
             <tr v-if="filteredParts.length === 0">
-              <td colspan="11" class="py-12 text-center text-slate-400 text-xs">没有找到符合条件的商品档案</td>
+              <td colspan="11" class="py-12 text-center text-slate-400 text-xs">{{ tExt.emptyParts }}</td>
             </tr>
           </tbody>
         </table>
@@ -178,13 +178,13 @@
       <!-- 分页与指定页码跳转栏 -->
       <div v-if="totalPages > 1" class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4 text-xs">
         <span class="text-slate-500 font-medium">
-          显示第 <strong class="text-slate-800">{{ (currentPage - 1) * pageSize + 1 }}</strong> 到 <strong class="text-slate-800">{{ Math.min(currentPage * pageSize, filteredParts.length) }}</strong> 条，共 <strong class="text-slate-800">{{ filteredParts.length }}</strong> 个商品
+          {{ tExt.showing }} <strong class="text-slate-800">{{ (currentPage - 1) * pageSize + 1 }}</strong> {{ tExt.to }} <strong class="text-slate-800">{{ Math.min(currentPage * pageSize, filteredParts.length) }}</strong> {{ tExt.of }} <strong class="text-slate-800">{{ filteredParts.length }}</strong> {{ tExt.products }}
         </span>
         
         <div class="flex items-center gap-3">
           <!-- 🌟 指定页码直接跳转输入框 -->
           <div class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2 py-1 shadow-2xs">
-            <span class="text-slate-400 text-[11px]">跳转到</span>
+            <span class="text-slate-400 text-[11px]">{{ tExt.jumpTo }}</span>
             <input 
               type="number" 
               min="1" 
@@ -193,12 +193,12 @@
               @keyup.enter="handleJumpPage"
               class="w-12 text-center font-mono font-bold text-blue-600 bg-slate-50 rounded-lg py-1 outline-none border border-slate-200 focus:border-blue-500 text-xs" 
             />
-            <span class="text-slate-400 text-[11px]">/ {{ totalPages }} 页</span>
+            <span class="text-slate-400 text-[11px]">/ {{ totalPages }} {{ tExt.page }}</span>
             <button 
               @click="handleJumpPage" 
               class="bg-blue-50 hover:bg-blue-100 text-blue-600 px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer text-[11px]"
             >
-              跳转
+              {{ tExt.jumpBtn }}
             </button>
           </div>
 
@@ -209,7 +209,7 @@
               :disabled="currentPage === 1"
               class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors cursor-pointer"
             >
-              上一页
+              {{ tExt.prevPage }}
             </button>
             <span class="px-3 py-1 font-mono font-bold text-slate-700">
               {{ currentPage }} / {{ totalPages }}
@@ -219,7 +219,7 @@
               :disabled="currentPage === totalPages"
               class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 transition-colors cursor-pointer"
             >
-              下一页
+              {{ tExt.nextPage }}
             </button>
           </div>
         </div>
@@ -236,7 +236,7 @@
         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
           <div class="flex items-center gap-2">
             <span class="text-xl">✏️</span>
-            <h3 class="font-bold text-slate-800 text-base">编辑配件档案 (SKU #{{ editingPart.id }})</h3>
+            <h3 class="font-bold text-slate-800 text-base">{{ tExt.editTitle }} (SKU #{{ editingPart.id }})</h3>
           </div>
           <button @click="editModalVisible = false" class="text-slate-400 hover:text-slate-700 text-lg font-bold cursor-pointer">✕</button>
         </div>
@@ -244,75 +244,75 @@
         <form @submit.prevent="saveEditedPart" class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">OEM 编号</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colOem }}</label>
               <input v-model="editingPart.oem" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono font-bold outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">配件名称</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colName }}</label>
               <input v-model="editingPart.name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium outline-none focus:border-blue-500" />
             </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">配件分类</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colCategory }}</label>
               <input v-model="editingPart.category" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">适配品牌</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colBrand }}</label>
               <input v-model="editingPart.brand" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500" />
             </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">库存数量</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colStock }}</label>
               <input v-model.number="editingPart.stock" type="number" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">零售价格 (USD)</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colPriceUsd }}</label>
               <input v-model.number="editingPart.price" type="number" step="0.5" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
             </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">🌟 SENIAT 税率类型属性 (IVA)</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">🌟 {{ t.inventory.taxRate }} (IVA)</label>
               <select v-model.number="editingPart.tax_rate" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold outline-none focus:border-blue-500 cursor-pointer">
-                <option :value="0.16">16% 标准增值税 (Alicuota General)</option>
-                <option :value="0.08">8% 减免增值税 (Alicuota Reducida)</option>
-                <option :value="0.0">0% 免税 (Exento)</option>
+                <option :value="0.16">{{ t.inventory.tax16 }}</option>
+                <option :value="0.08">{{ t.inventory.tax8 }}</option>
+                <option :value="0.0">{{ t.inventory.tax0 }}</option>
               </select>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">货架库位 (Bin Location)</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colBin }}</label>
               <input v-model="editingPart.bin_location" type="text" placeholder="Estante A-1" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono outline-none focus:border-blue-500" />
             </div>
           </div>
 
           <div>
             <label class="block text-xs font-semibold text-slate-500 mb-1">
-              🔗 交叉适配编号与备注 (Cross-References / Notes)
+              🔗 {{ tExt.crossRef }}
             </label>
             <textarea 
               v-model="editingPart.cross_references" 
               rows="3" 
-              placeholder="例如: WIX: 51348 / Donaldson: P550020..." 
+              placeholder="WIX: 51348 / Donaldson: P550020..." 
               class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs outline-none focus:border-blue-500 font-mono leading-relaxed resize-none"
             ></textarea>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1">更新实物多图 (可选)</label>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">{{ tExt.updateImages }}</label>
             <input type="file" @change="handleEditFileChange" accept="image/*" multiple class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-200 rounded-xl p-1.5" />
           </div>
 
           <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
             <button type="button" @click="editModalVisible = false" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">
-              取消 (ESC)
+              {{ t.common.cancel }} (ESC)
             </button>
             <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer">
-              保存修改 (Enter)
+              {{ tExt.saveChanges }} (Enter)
             </button>
           </div>
         </form>
@@ -323,10 +323,10 @@
     <ConfirmDialog
       :visible="batchDeleteModalVisible"
       overlay-class="bg-slate-900/40"
-      title="确认批量删除商品"
-      :message="`确定要批量删除选中的 ${selectedIds.length} 个商品档案吗？删除后不可恢复。`"
-      cancel-text="取消"
-      confirm-text="确认删除"
+      :title="tExt.batchDeleteTitle"
+      :message="tExt.batchDeleteMsg"
+      :cancel-text="t.common.cancel"
+      :confirm-text="t.common.delete"
       @cancel="batchDeleteModalVisible = false"
       @confirm="confirmBatchDelete"
     />
@@ -351,8 +351,37 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:searchQuery', 'update:selectedBrand', 'open-add-modal', 'open-gallery', 'delete-part', 'refresh-data'])
-const { t } = useI18n()
+const { t, currentLang } = useI18n()
 const { showSuccessModal } = useNotifications()
+
+// 🌟 扩展翻译字典
+const tExt = computed(() => {
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  return {
+    allBrands: isZh ? '全部品牌' : isEs ? 'Todas las Marcas' : 'All Brands',
+    allCategories: isZh ? '全部分类' : isEs ? 'Todas las Categorías' : 'All Categories',
+    uncategorized: isZh ? '未分类' : isEs ? 'Sin categoría' : 'Uncategorized',
+    batchDelete: isZh ? '批量删除' : isEs ? 'Eliminar Lote' : 'Batch Delete',
+    batchSelected: isZh ? '已选' : isEs ? 'seleccionados' : 'selected',
+    emptyParts: isZh ? '没有找到符合条件的商品档案' : isEs ? 'No se encontraron repuestos' : 'No parts found',
+    showing: isZh ? '显示第' : isEs ? 'Mostrando' : 'Showing',
+    to: isZh ? '到' : isEs ? 'a' : 'to',
+    of: isZh ? '条，共' : isEs ? 'de' : 'of',
+    products: isZh ? '个商品' : isEs ? 'productos' : 'items',
+    jumpTo: isZh ? '跳转到' : isEs ? 'Ir a' : 'Go to',
+    page: isZh ? '页' : isEs ? 'Página' : 'Page',
+    jumpBtn: isZh ? '跳转' : isEs ? 'Ir' : 'Go',
+    prevPage: isZh ? '上一页' : isEs ? 'Anterior' : 'Prev',
+    nextPage: isZh ? '下一页' : isEs ? 'Siguiente' : 'Next',
+    editTitle: isZh ? '编辑配件档案' : isEs ? 'Editar Repuesto' : 'Edit Part',
+    crossRef: isZh ? '交叉适配编号与备注' : isEs ? 'Referencias Cruzadas / Notas' : 'Cross-References / Notes',
+    updateImages: isZh ? '更新实物多图 (可选)' : isEs ? 'Actualizar fotos (Opcional)' : 'Update photos (Optional)',
+    saveChanges: isZh ? '保存修改' : isEs ? 'Guardar Cambios' : 'Save Changes',
+    batchDeleteTitle: isZh ? '确认批量删除商品' : isEs ? 'Confirmar Eliminación en Lote' : 'Confirm Batch Delete',
+    batchDeleteMsg: isZh ? `确定要批量删除选中的 ${selectedIds.value.length} 个商品档案吗？删除后不可恢复。` : isEs ? `¿Eliminar ${selectedIds.value.length} repuestos seleccionados? No se puede deshacer.` : `Delete ${selectedIds.value.length} selected parts? Cannot be undone.`,
+  }
+})
 
 const pageSize = 8
 const currentPage = ref(1)
@@ -365,7 +394,7 @@ const selectedCategory = ref('ALL')
 const categoriesList = computed(() => {
   return [
     'ALL',
-    ...Array.from(new Set(props.partsList.map(p => p.category || '未分类')))
+    ...Array.from(new Set(props.partsList.map(p => p.category || tExt.value.uncategorized)))
   ]
 })
 
@@ -401,7 +430,7 @@ const filteredParts = computed(() => {
 
   return props.partsList.filter(i => {
     const matchBrand = props.selectedBrand === 'ALL' || i.brand === props.selectedBrand
-    const itemCat = i.category || '未分类'
+    const itemCat = i.category || tExt.value.uncategorized
     const matchCategory = selectedCategory.value === 'ALL' || itemCat === selectedCategory.value
 
     if (!query) return matchBrand && matchCategory
@@ -434,7 +463,6 @@ const paginatedParts = computed(() => {
   return filteredParts.value.slice(start, start + pageSize)
 })
 
-// 🌟 处理指定页码跳转逻辑
 const handleJumpPage = () => {
   let target = parseInt(jumpPageInput.value)
   if (isNaN(target)) return
@@ -450,7 +478,6 @@ watch([() => props.searchQuery, () => props.selectedBrand, selectedCategory], ()
   selectedIds.value = []
 })
 
-// 同步当前页码到跳转输入框
 watch(currentPage, (val) => {
   jumpPageInput.value = val
 })
@@ -462,10 +489,10 @@ const isAllSelected = computed(() => {
 
 const toggleSelectAll = (e) => {
   if (e.target.checked) {
-    const currentIds = paginatedParts.value.map(i => item.id)
+    const currentIds = paginatedParts.value.map(i => i.id)
     selectedIds.value = Array.from(new Set([...selectedIds.value, ...currentIds]))
   } else {
-    const currentIds = paginatedParts.value.map(i => item.id)
+    const currentIds = paginatedParts.value.map(i => i.id)
     selectedIds.value = selectedIds.value.filter(id => !currentIds.includes(id))
   }
 }
@@ -490,11 +517,11 @@ const confirmBatchDelete = async () => {
     }
     batchDeleteModalVisible.value = false
     selectedIds.value = []
-    showSuccessModal('🗑️ 批量删除成功！')
+    showSuccessModal('🗑️ ' + t.value.common.success)
     emit('refresh-data')
   } catch (e) {
     batchDeleteModalVisible.value = false
-    showSuccessModal('❌ 批量删除出现异常')
+    showSuccessModal('❌ ' + t.value.common.error)
   }
 }
 
@@ -519,7 +546,7 @@ const saveEditedPart = async () => {
     formData.append('oem', editingPart.value.oem)
     formData.append('name', editingPart.value.name)
     formData.append('brand', editingPart.value.brand || 'GENERAL')
-    formData.append('category', editingPart.value.category || '未分类')
+    formData.append('category', editingPart.value.category || tExt.value.uncategorized)
     formData.append('stock', editingPart.value.stock ?? 0)
     formData.append('price', editingPart.value.price ?? 0.0)
     formData.append('tax_rate', editingPart.value.tax_rate ?? 0.16)
@@ -535,15 +562,15 @@ const saveEditedPart = async () => {
 
     if (res.ok) {
       editModalVisible.value = false
-      showSuccessModal('✨ 商品档案更新成功！')
+      showSuccessModal('✨ ' + t.value.common.success)
       emit('refresh-data')
     } else {
       const err = await res.json()
-      showSuccessModal(`❌ 更新失败: ${err.detail || '未知错误'}`)
+      showSuccessModal(`❌ ${t.value.common.error}: ${err.detail || 'Unknown'}`)
     }
   } catch (e) {
     console.error(e)
-    showSuccessModal('❌ 服务器连接异常！')
+    showSuccessModal('❌ ' + t.value.common.error)
   }
 }
 

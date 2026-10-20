@@ -1,20 +1,14 @@
-"""报价单 PDF 生成（ReportLab）。
-
-从 main.py 的 `/api/quotations/generate` 中抽离，原文逻辑与排版逐行保留，
-仅把 `payload` 依赖改为显式入参。
-"""
-
 """报价单：列表 / 删除 / 生成（含开单出库 + PDF）/ 下载最新 PDF。"""
 
 import json
 import os
 from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP # 🌟 引入 Decimal 处理金额
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select, update
-from jose import jwt, JWTError
 
 from app.config import PUBLIC_BASE_URL, UPLOAD_DIR
 from app.database import get_session
@@ -26,20 +20,7 @@ from app.services.bcv import get_official_rate
 from app.services.numbering import make_quotation_no
 from app.services.quotation_pdf import build_quotation_pdf, normalize_lang
 
-# 🌟 必须显式声明 router，否则主应用引入时会报 AttributeError
 router = APIRouter(tags=["报价单"])
-
-
-# 辅助函数：安全获取 JWT 密钥
-def _get_jwt_secret():
-    secret_file = ".jwt_secret"
-    if os.path.exists(secret_file):
-        try:
-            with open(secret_file, "r") as f:
-                return f.read().strip()
-        except Exception:
-            pass
-    return os.getenv("TK_JWT_SECRET", "tostiyk-default-secret-key-2026")
 
 
 @router.get("/api/quotations", response_model=List[QuotationRecord])
@@ -71,9 +52,17 @@ def generate_and_save_quotation(
     session: Session = Depends(get_session),
 ):
     bcv_rate = get_official_rate()
+    
+    # 🌟 核心修复 1：使用 Decimal 计算总价，防止精度丢失
+    total_usd_dec = Decimal("0.00")
+    for item in payload.items:
+        # 将商品单价转为 Decimal，乘以数量，并四舍五入到两位小数
+        line_total = (Decimal(str(item.price)) * item.quantity).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total_usd_dec += line_total
+    
+    total_usd = float(total_usd_dec) # 入库暂存 float
+    total_bs = float((total_usd_dec * Decimal(str(bcv_rate))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
-    total_usd = sum(item.price * item.quantity for item in payload.items)
-    total_bs = total_usd * bcv_rate
     quotation_no = make_quotation_no()
     items_snapshot = [item.model_dump() for item in payload.items]
 
@@ -84,8 +73,6 @@ def generate_and_save_quotation(
         client_obj = Client(name=client_name, client_type="Regular", debt=0.0)
         session.add(client_obj)
         session.flush()
-
-    stock_logs: list[tuple[str, str, int, int]] = []
 
     for item in payload.items:
         if item.quantity <= 0:
@@ -98,9 +85,7 @@ def generate_and_save_quotation(
         if not part:
             raise HTTPException(status_code=404, detail=f"商品 {item.oem} 不存在或已被删除！")
 
-        old_stock = part.stock
-        new_stock = old_stock - item.quantity
-
+        # 原子扣减库存
         result = session.exec(
             update(AutoPart)
             .where(AutoPart.oem == item.oem, AutoPart.stock >= item.quantity)
@@ -110,15 +95,13 @@ def generate_and_save_quotation(
             session.rollback()
             raise HTTPException(status_code=400, detail=f"商品 {part.name} 库存不足，无法成交出库！")
 
-        stock_logs.append((part.name, item.oem, old_stock, new_stock))
-
         tx = InventoryTransaction(
             part_oem=item.oem,
             part_name=item.name,
             type="OUT",
             quantity=item.quantity,
-            unit_price=item.price,
-            total_amount=item.quantity * item.price,
+            unit_price=float(Decimal(str(item.price)).quantize(Decimal("0.01"))),
+            total_amount=float((Decimal(str(item.price)) * item.quantity).quantize(Decimal("0.01"))),
             customer_or_supplier=client_name,
         )
         session.add(tx)
@@ -126,9 +109,11 @@ def generate_and_save_quotation(
     pay_method = str(payload.payment_method).lower()
     is_fiado = any(keyword in pay_method for keyword in ["fiado", "debt", "赊账", "挂账", "credit"])
 
-    if client_obj and (is_fiado or payload.payment_method in ["Fiado_Debt", "Fiado", "赊账", "挂账", "Debt"]):
-        projected_debt = client_obj.debt + total_usd
-        if projected_debt > client_obj.credit_limit:
+    if client_obj and is_fiado:
+        # 挂账逻辑同上，使用 Decimal 计算，避免浮点误差导致额度判断出错
+        projected_debt = Decimal(str(client_obj.debt)) + total_usd_dec
+        
+        if projected_debt > Decimal(str(client_obj.credit_limit)):
             session.rollback()
             raise HTTPException(
                 status_code=400,
@@ -148,14 +133,7 @@ def generate_and_save_quotation(
         )
         if claimed.rowcount == 0:
             session.rollback()
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"⚠️ 信用额度超限警报！该客户当前欠款 ${client_obj.debt:.2f}，"
-                    f"本次挂账 ${total_usd:.2f} 会超出信用额度上限 "
-                    f"(${client_obj.credit_limit:.2f})，拒绝挂账！"
-                ),
-            )
+            raise HTTPException(status_code=400, detail="信用额度超限，并发冲突导致挂账失败！")
 
     lang = normalize_lang(getattr(payload, "lang", "es"))
 
@@ -187,24 +165,27 @@ def generate_and_save_quotation(
     return {
         "status": "success",
         "quotation_no": quotation_no,
-        "pdf_url": f"{PUBLIC_BASE_URL}/api/quotation/pdf/download?t={int(datetime.now().timestamp())}",
+        "pdf_url": f"{PUBLIC_BASE_URL}/api/quotation/pdf/download?quotation_no={quotation_no}",
     }
 
 
-@router.get("/api/quotation/pdf/download")
+# 🌟 核心修复 2：加上 RequirePermission 权限拦截，只有能进 POS 的人才能下 PDF
+@router.get("/api/quotation/pdf/download", dependencies=[Depends(RequirePermission("pos:access"))])
 def download_existing_pdf(
     request: Request,
     quotation_no: Optional[str] = None, 
     order_no: Optional[str] = None,
-    token: Optional[str] = Query(None),
     session: Session = Depends(get_session)
 ):
-    """PDF 下载路由：直接响应并生成 PDF，免去严格的 401 拦截，确保前端能一键顺畅下载。"""
+    """PDF 下载路由：直接响应并生成 PDF。"""
     
     target_no = quotation_no or order_no
     
+    # 🌟 核心修复 3：拦截路径穿越漏洞（Path Traversal），严禁包含特殊字符
+    if target_no and any(bad_char in target_no for bad_char in ["/", "\\", "..", ":"]):
+        raise HTTPException(status_code=400, detail="非法的单号格式")
+
     if target_no:
-        # 通用商品属性适配器（完美兼容 QuotationRecord 和 OrderItem，绝不改动排版）
         class PdfItemAdapter:
             def __init__(self, oem, name, quantity, price):
                 self.oem = oem
@@ -213,7 +194,6 @@ def download_existing_pdf(
                 self.price = price
                 self.brand = ""
 
-        # 1. 尝试在 QuotationRecord（报价单表）中查找
         record = session.exec(select(QuotationRecord).where(QuotationRecord.quotation_no == target_no)).first()
         if record:
             pdf_path = os.path.join(UPLOAD_DIR, f"quotation_{target_no}.pdf")
@@ -241,7 +221,6 @@ def download_existing_pdf(
             if os.path.exists(pdf_path):
                 return FileResponse(pdf_path, media_type="application/pdf", filename=f"Quotation_{target_no}.pdf")
 
-        # 2. 尝试在 Order（POS 销售订单表）中查找
         from app.models import Order
         order = session.exec(select(Order).where(Order.order_no == target_no)).first()
         if order:
@@ -269,7 +248,7 @@ def download_existing_pdf(
             if os.path.exists(pdf_path):
                 return FileResponse(pdf_path, media_type="application/pdf", filename=f"Order_{target_no}.pdf")
 
-    # 3. 降级兜底：返回最新生成的一个 PDF
+    # 降级兜底
     files = [f for f in os.listdir(UPLOAD_DIR) if f.startswith("quotation_") and f.endswith(".pdf")]
     if files:
         files.sort(key=lambda x: os.path.getmtime(os.path.join(UPLOAD_DIR, x)), reverse=True)

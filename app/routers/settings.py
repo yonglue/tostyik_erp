@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select, text
 
 from app.config import DB_PATH
-from app.database import get_session
+from app.database import get_session, engine # 🌟 引入 engine 用于 VACUUM
 from app.deps import Actor, get_current_actor, RequirePermission
 from app.services.audit import log_action
 
@@ -47,8 +47,11 @@ class SystemSettingsPayload(BaseModel):
 
 
 @router.get("/api/settings")
-def get_system_settings():
-    """获取当前系统抬头配置（公开读取，免鉴权）。"""
+def get_system_settings(
+    # 🌟 修复：虽然是公司抬头，但也不应该让未登录的匿名用户随便抓取
+    actor: Actor = Depends(get_current_actor) 
+):
+    """获取当前系统抬头配置（需要登录）。"""
     return load_settings()
 
 
@@ -77,10 +80,11 @@ def cleanup_database(
     session: Session = Depends(get_session),
     actor: Actor = Depends(RequirePermission("db:maintenance"))
 ):
-    """数据清理与一键归档：执行 SQLite 空间回收与垃圾日志清理（需要 db:maintenance 权限）。"""
+    """数据清理与一键归档（需要 db:maintenance 权限）。"""
     try:
-        session.exec(text("VACUUM;"))
-        session.commit()
+        # 🌟 核心修复：VACUUM 不能在常规事务中运行，必须使用 AUTOCOMMIT 模式独立连接执行
+        with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+            conn.execute(text("VACUUM;"))
 
         log_action(
             session=session,
@@ -91,5 +95,4 @@ def cleanup_database(
         )
         return {"status": "success", "message": "数据库清理与空间优化（VACUUM）已成功完成！"}
     except Exception as e:
-        session.rollback()
         raise HTTPException(status_code=500, detail=f"数据库清理失败: {str(e)}")

@@ -45,7 +45,8 @@
         >
           <component :is="item.icon" :size="18" class="shrink-0" />
           <span class="truncate leading-tight text-left">
-            {{ item.key === 'settings' ? '系统设置' : (t[item.labelKey] || item.defaultLabel) }}
+            <!-- 🌟 核心修复：优先使用 labelKey 去字典里找，如果没有，再用 key 找 -->
+            {{ t.menu[item.labelKey || item.key] }}
           </span>
         </button>
 
@@ -65,10 +66,6 @@
 </template>
 
 <script setup>
-/**
- * 🌟 Sidebar.vue 侧边栏
- * 优化：移除了手动读取 LocalStorage 的逻辑，直接与 useAuth 的响应式状态绑定，确保权限变更时菜单实时刷新。
- */
 import { computed } from 'vue'
 import { useI18n } from '../composables/useI18n'
 import { useAuth } from '../composables/useAuth'
@@ -96,7 +93,6 @@ const props = defineProps({
 const emit = defineEmits(['update:activeTab', 'update:mobileMenuOpen', 'menu-click'])
 
 const { t } = useI18n()
-// 🌟 核心：使用响应式状态获取当前用户
 const { currentUserObj } = useAuth()
 
 const handleMenuClick = (key) => {
@@ -108,47 +104,46 @@ const handleMenuClick = (key) => {
 const groupedMenuItems = computed(() => {
   const groups = [
     {
-      title: t.value.groupCore || '核心概览',
+      title: t.value.menu.groupCore,
       items: [
-        { key: 'dashboard', labelKey: 'menuDashboard', icon: LayoutDashboard },
-        { key: 'financial', labelKey: 'menuFinancial', icon: TrendingUp, requiredPerm: 'financial:view' },
+        { key: 'dashboard', icon: LayoutDashboard },
+        { key: 'financial', icon: TrendingUp, requiredPerm: 'financial:view' },
       ]
     },
     {
-      title: t.value.groupWarehouse || '仓储与商品',
+      title: t.value.menu.groupWarehouse,
       items: [
-        { key: 'parts', labelKey: 'menuParts', icon: Package, requiredPerm: 'parts:view' },
+        { key: 'parts', icon: Package, requiredPerm: 'parts:view' },
       ]
     },
     {
-      title: t.value.groupSales || '销售与业务',
+      title: t.value.menu.groupSales,
       items: [
-        { key: 'clients', labelKey: 'menuClients', icon: Users, requiredPerm: 'clients:view' },
-        { key: 'procurement', labelKey: 'menuProcurement', icon: ShoppingCart, requiredPerm: 'procurement:view' },
-        { key: 'transactions', labelKey: 'menuTrans', icon: History, requiredPerm: 'transactions:history' },
-        { key: 'desk', labelKey: 'menuDesk', icon: Calculator, requiredPerm: 'pos:access' },
-        { key: 'cash_register', labelKey: 'menuCashRegister', icon: Calculator, requiredPerm: 'shift:report' },
+        { key: 'clients', icon: Users, requiredPerm: 'clients:view' },
+        { key: 'procurement', icon: ShoppingCart, requiredPerm: 'procurement:view' },
+        { key: 'transactions', icon: History, requiredPerm: 'transactions:history' },
+        { key: 'desk', icon: Calculator, requiredPerm: 'pos:access' },
+        // 🌟 修复：加上 labelKey: 'cashRegister'
+        { key: 'cash_register', labelKey: 'cashRegister', icon: FileText, requiredPerm: 'shift:report' },
       ]
     },
     {
-      title: t.value.groupSystem || '系统与管理',
+      title: t.value.menu.groupSystem,
       items: [
-        { key: 'staff', labelKey: 'menuStaff', icon: ShieldCheck, requiredPerm: 'users:manage' },
-        { key: 'audit_logs', labelKey: 'menuAuditLogs', icon: ShieldAlert, requiredPerm: 'users:manage' },
-        { key: 'settings', labelKey: 'menuSettings', icon: Settings, requiredPerm: 'settings:manage' },
+        { key: 'staff', icon: ShieldCheck, requiredPerm: 'users:manage' },
+        // 🌟 修复：加上 labelKey: 'auditLogs'
+        { key: 'audit_logs', labelKey: 'auditLogs', icon: ShieldAlert, requiredPerm: 'users:manage' },
+        { key: 'backup', icon: Database, requiredPerm: 'settings:manage' },
       ]
     }
   ]
 
-  // 🌟 使用 currentUserObj.value 获取最新数据，避免使用 LocalStorage 导致响应式失效
   const role = currentUserObj.value?.role || 'staff'
   const userPerms = currentUserObj.value?.permissions || []
 
   return groups.map(group => {
     const filteredItems = group.items.filter(item => {
-      // 超管放行所有
       if (role === 'super_admin' || role === 'admin' || userPerms.includes('*')) return true
-      // 普通员工校验权限
       if (item.requiredPerm) {
         return userPerms.includes(item.requiredPerm)
       }

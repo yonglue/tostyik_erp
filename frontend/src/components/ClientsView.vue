@@ -10,7 +10,7 @@
               :value="clientSearchQuery"
               @input="$emit('update:clientSearchQuery',$event.target.value)"
               type="text"
-              :placeholder="t.clientSearchPlaceholder"
+              :placeholder="t.clients.searchPlaceholder"
               class="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-blue-500 focus:bg-white transition-all"
             />
           </div>
@@ -23,7 +23,7 @@
             @click="batchDeleteModalVisible = true" 
             class="flex items-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/80 px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
           >
-            <span>🗑️ 批量删除 (已选 {{ selectedIds.length }} 项)</span>
+            <span>🗑️ {{ tExt.batchDelete }} ({{ tExt.batchSelected }} {{ selectedIds.length }})</span>
           </button>
 
           <button
@@ -31,14 +31,14 @@
             class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md transition-all"
           >
             <FileSpreadsheet :size="16" />
-            <span>{{ t.exportClientsBtn }}</span>
+            <span>{{ tExt.exportClients }}</span>
           </button>
           <button
             @click="$emit('open-add-client')"
             class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md shadow-blue-500/25 transition-all"
           >
             <Plus :size="16" />
-            <span>{{ t.addClientBtn }}</span>
+            <span>{{ t.clients.addBtn }}</span>
           </button>
         </div>
       </div>
@@ -56,19 +56,19 @@
                   class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" 
                 />
               </th>
-              <th class="py-3.5 px-6">{{ t.clientColName }}</th>
-              <th class="py-3.5 px-6">{{ t.clientColType }}</th>
-              <th class="py-3.5 px-6">{{ t.clientColPhone }}</th>
-              <th class="py-3.5 px-6">{{ t.clientColAddress }}</th>
-              <th class="py-3.5 px-6">{{ t.clientColRif }}</th>
-              <th class="py-3.5 px-6">{{ t.clientColDebt }}</th>
-              <th class="py-3.5 px-6 text-center">Actions</th>
+              <th class="py-3.5 px-6">{{ t.clients.colName }}</th>
+              <th class="py-3.5 px-6">{{ t.clients.colType }}</th>
+              <th class="py-3.5 px-6">{{ t.clients.colPhone }}</th>
+              <th class="py-3.5 px-6">{{ t.clients.colAddress }}</th>
+              <th class="py-3.5 px-6">{{ t.clients.colRif }}</th>
+              <th class="py-3.5 px-6">{{ t.clients.colDebt }}</th>
+              <th class="py-3.5 px-6 text-center">{{ t.common.actions }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 text-sm">
             <tr v-if="filteredClients.length === 0">
               <td colspan="8" class="text-center py-12 text-slate-400 text-xs">
-                {{ t.noClientsFound }}
+                {{ t.clients.empty }}
               </td>
             </tr>
             <tr v-for="c in filteredClients" :key="c.id" class="hover:bg-slate-50/50 transition-colors">
@@ -94,7 +94,7 @@
               <td class="py-4 px-6 font-bold text-rose-600">$ {{ (c.debt || 0).toFixed(2) }}</td>
               <td class="py-4 px-6 text-center space-x-2">
                 <button @click="$emit('delete-client', c)" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer">
-                  {{ t.btnDelete }}
+                  {{ t.common.delete }}
                 </button>
               </td>
             </tr>
@@ -107,10 +107,10 @@
     <ConfirmDialog
       :visible="batchDeleteModalVisible"
       overlay-class="bg-slate-900/40"
-      title="确认批量删除客户"
-      :message="`确定要批量删除选中的 ${selectedIds.length} 个客户档案吗？删除后不可恢复。`"
-      cancel-text="取消"
-      confirm-text="确认删除"
+      :title="tExt.batchDeleteTitle"
+      :message="tExt.batchDeleteMsg"
+      :cancel-text="t.common.cancel"
+      :confirm-text="t.common.delete"
       @cancel="batchDeleteModalVisible = false"
       @confirm="confirmBatchDelete"
     />
@@ -131,8 +131,21 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:clientSearchQuery', 'open-add-client', 'export-clients', 'delete-client', 'refresh-data'])
-const { t } = useI18n()
+const { t, currentLang } = useI18n()
 const { showSuccessModal } = useNotifications()
+
+// 🌟 扩展翻译字典
+const tExt = computed(() => {
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  return {
+    exportClients: isZh ? '导出客户' : isEs ? 'Exportar Clientes' : 'Export Clients',
+    batchDelete: isZh ? '批量删除' : isEs ? 'Eliminar Lote' : 'Batch Delete',
+    batchSelected: isZh ? '已选' : isEs ? 'seleccionados' : 'selected',
+    batchDeleteTitle: isZh ? '确认批量删除客户' : isEs ? 'Confirmar Eliminación de Clientes' : 'Confirm Batch Delete',
+    batchDeleteMsg: isZh ? `确定要批量删除选中的 ${selectedIds.value.length} 个客户档案吗？删除后不可恢复。` : isEs ? `¿Eliminar ${selectedIds.value.length} clientes seleccionados? No se puede deshacer.` : `Delete ${selectedIds.value.length} selected clients? Cannot be undone.`,
+  }
+})
 
 const selectedIds = ref([])
 const batchDeleteModalVisible = ref(false)
@@ -173,11 +186,11 @@ const confirmBatchDelete = async () => {
     }
     batchDeleteModalVisible.value = false
     selectedIds.value = []
-    showSuccessModal('🗑️ 批量删除客户成功！')
+    showSuccessModal('🗑️ ' + t.value.common.success)
     emit('refresh-data')
   } catch (e) {
     batchDeleteModalVisible.value = false
-    showSuccessModal('❌ 批量删除出现异常')
+    showSuccessModal('❌ ' + t.value.common.error)
   }
 }
 </script>

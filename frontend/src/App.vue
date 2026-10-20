@@ -57,8 +57,9 @@
                 </div>
               </div>
 
+              <!-- 🌟 修复：t.logoutBtn 改为 t.common.logout -->
               <button @click="handleLogout" class="px-4 py-2 bg-white/70 hover:bg-rose-500/15 border border-slate-200/80 hover:border-rose-300 text-rose-600 rounded-2xl text-xs font-bold shadow-2xs transition-all duration-200 cursor-pointer backdrop-blur-md hover:scale-[1.02]">
-                {{ t.logoutBtn }}
+                {{ t.common.logout }}
               </button>
             </div>
           </div>
@@ -106,7 +107,6 @@
             @open-tx-modal="txDialogVisible = true"
             @delete-tx="openDeleteTxModal"
           />
-          <!-- 🌟 修改：退出 POS 事件绑定到 handleExitPos -->
           <QuotationDeskView 
             v-else-if="activeTab === 'desk' && hasPermission('pos:access')"
             :partsList="partsList"
@@ -121,7 +121,7 @@
             @clear-cart="cartItems = []"
           />
           <BackupView 
-            v-else-if="activeTab === 'settings' && hasPermission('settings:manage')"
+            v-else-if="activeTab === 'backup' && hasPermission('settings:manage')"
             @export-parts="exportPartsExcel"
             @import-parts="handleImportParts"
             @export-clients="exportClientsExcel"
@@ -133,13 +133,13 @@
               ✨
             </div>
             <div class="space-y-1">
-              <h3 class="font-bold text-lg text-slate-900">欢迎登录，{{ currentUserObj.username }}</h3>
+              <h3 class="font-bold text-lg text-slate-900">{{ tExt.welcomeUser }}，{{ currentUserObj.username }}</h3>
               <p class="text-xs text-slate-500">
-                当前账号（<strong class="uppercase text-blue-600">{{ currentUserObj.role }}</strong>）未授权访问此页面，系统已为您匹配专属工作台。
+                {{ tExt.noPermissionMsg1 }}<strong class="uppercase text-blue-600">{{ currentUserObj.role }}</strong>{{ tExt.noPermissionMsg2 }}
               </p>
             </div>
             <button @click="activeTab = getDefaultAllowedTab()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer">
-              进入我的可用工作台
+              {{ tExt.goToWorkspace }}
             </button>
           </div>
         </main>
@@ -157,7 +157,7 @@
         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
           <div class="flex items-center gap-2">
             <span class="text-xl">➕</span>
-            <h3 class="font-bold text-slate-800 text-base">{{ t.dialogAddPartTitle || '录入新汽配档案与多图相册' }}</h3>
+            <h3 class="font-bold text-slate-800 text-base">{{ tExt.dialogAddPartTitle }}</h3>
           </div>
           <button @click="dialogVisible = false" class="text-slate-400 hover:text-slate-700 text-lg font-bold cursor-pointer">✕</button>
         </div>
@@ -165,73 +165,73 @@
         <form @submit.prevent="handleAddPart" class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">OEM 编号</label>
-              <input v-model="newPart.oem" type="text" placeholder="例如: 17801-74060" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono font-bold outline-none focus:border-blue-500" />
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colOem }}</label>
+              <input v-model="newPart.oem" type="text" :placeholder="tExt.placeholderOem" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono font-bold outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">配件名称</label>
-              <input v-model="newPart.name" type="text" placeholder="例如: 空气滤清器" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium outline-none focus:border-blue-500" />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">配件分类</label>
-              <input v-model="newPart.category" type="text" placeholder="滤清器 / 悬挂系统" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500" />
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">适配品牌</label>
-              <input v-model="newPart.brand" type="text" placeholder="Toyota / Mack / GENERAL" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500" />
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colName }}</label>
+              <input v-model="newPart.name" type="text" :placeholder="tExt.placeholderName" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-medium outline-none focus:border-blue-500" />
             </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">库存数量</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colCategory }}</label>
+              <input v-model="newPart.category" type="text" :placeholder="tExt.placeholderCategory" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colBrand }}</label>
+              <input v-model="newPart.brand" type="text" :placeholder="tExt.placeholderBrand" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs outline-none focus:border-blue-500" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colStock }}</label>
               <input v-model.number="newPart.stock" type="number" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">零售价格 (USD)</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colPriceUsd }}</label>
               <input v-model.number="newPart.price" type="number" step="0.5" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
             </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">🌟 SENIAT 税率类型属性 (IVA)</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">🌟 {{ t.inventory.taxRate }} (IVA)</label>
               <select v-model.number="newPart.tax_rate" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold outline-none focus:border-blue-500 cursor-pointer">
-                <option :value="0.16">16% 标准增值税 (Alicuota General)</option>
-                <option :value="0.08">8% 减免增值税 (Alicuota Reducida)</option>
-                <option :value="0.0">0% 免税 (Exento)</option>
+                <option :value="0.16">{{ t.inventory.tax16 }}</option>
+                <option :value="0.08">{{ t.inventory.tax8 }}</option>
+                <option :value="0.0">{{ t.inventory.tax0 }}</option>
               </select>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">货架库位 (Bin Location)</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colBin }}</label>
               <input v-model="newPart.bin_location" type="text" placeholder="Estante A-1" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono outline-none focus:border-blue-500" />
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1">🔗 交叉适配编号与备注 (Cross-References / Notes)</label>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">🔗 {{ tExt.labelCrossRef }}</label>
             <textarea 
               v-model="newPart.cross_references" 
               rows="3" 
-              placeholder="例如: WIX: 51348 / Donaldson: P550020..." 
+              :placeholder="tExt.placeholderCrossRef" 
               class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs outline-none focus:border-blue-500 font-mono leading-relaxed resize-none"
             ></textarea>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1">配件实物照片 (最多可选 5 张)</label>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">{{ tExt.labelImages }}</label>
             <input type="file" @change="handleFileChange" accept="image/*" multiple class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-200 rounded-xl p-1.5" />
           </div>
 
           <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
             <button type="button" @click="dialogVisible = false" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">
-              取消 (ESC)
+              {{ t.common.cancel }} (ESC)
             </button>
             <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer">
-              确定保存 (Enter)
+              {{ t.common.save }} (Enter)
             </button>
           </div>
         </form>
@@ -241,41 +241,41 @@
     <div v-if="clientDialogVisible" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
         <div class="px-6 py-5 border-b border-slate-100">
-          <h3 class="font-bold text-base text-slate-800">{{ t.dialogAddClientTitle }}</h3>
+          <h3 class="font-bold text-base text-slate-800">{{ t.clients.addBtn }}</h3>
         </div>
         <div class="p-6 space-y-4">
           <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clientColName }}</label>
-            <input v-model="newClient.name" type="text" placeholder="例如: Auto Taller Valencia C.A." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
+            <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clients.colName }}</label>
+            <input v-model="newClient.name" type="text" :placeholder="tExt.placeholderClientName" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clientColType }}</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clients.colType }}</label>
               <select v-model="newClient.client_type" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 cursor-pointer">
-                <option value="Regular">Regular (零售)</option>
-                <option value="Taller">Taller (修理厂)</option>
-                <option value="Mayorista">Mayorista (批发商)</option>
+                <option value="Regular">{{ tExt.optRegular }}</option>
+                <option value="Taller">{{ tExt.optTaller }}</option>
+                <option value="Mayorista">{{ tExt.optMayorista }}</option>
               </select>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clientColPhone }}</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clients.colPhone }}</label>
               <input v-model="newClient.phone" type="text" placeholder="+58 412..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
             </div>
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clientColAddress }}</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clients.colAddress }}</label>
               <input v-model="newClient.address" type="text" placeholder="Caracas / Valencia" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clientColRif }}</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clients.colRif }}</label>
               <input v-model="newClient.rif_or_cedula" type="text" placeholder="J-31234567-8" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
             </div>
           </div>
         </div>
         <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-          <button @click="clientDialogVisible = false" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-200/60 transition-colors">{{ t.btnCancel }}</button>
-          <button @click="handleAddClient" class="px-5 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-md">{{ t.btnSave }}</button>
+          <button @click="clientDialogVisible = false" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-200/60 transition-colors">{{ t.common.cancel }}</button>
+          <button @click="handleAddClient" class="px-5 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-md">{{ t.common.save }}</button>
         </div>
       </div>
     </div>
@@ -286,8 +286,8 @@
           <div class="w-12 h-12 rounded-xl bg-amber-500 mx-auto flex items-center justify-center text-white shadow-lg shadow-amber-500/30">
             🔒
           </div>
-          <h3 class="font-bold text-base text-slate-900">安全密钥验证</h3>
-          <p class="text-xs text-slate-400">请输入系统最高安全密钥 (Security PIN) 以重置管理员密码</p>
+          <h3 class="font-bold text-base text-slate-900">{{ tExt.resetPinTitle }}</h3>
+          <p class="text-xs text-slate-400">{{ tExt.resetPinDesc }}</p>
         </div>
 
         <div>
@@ -295,7 +295,7 @@
             v-model="resetPinInput" 
             @keyup.enter="submitResetPassword" 
             type="password" 
-            placeholder="输入 Security PIN..." 
+            :placeholder="tExt.resetPinPlace" 
             class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500 font-mono text-center tracking-widest"
             autofocus
           />
@@ -303,10 +303,10 @@
 
         <div class="flex gap-3 pt-1">
           <button @click="resetModalVisible = false" class="flex-1 px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
-            取消
+            {{ t.common.cancel }}
           </button>
           <button @click="submitResetPassword" class="flex-1 px-4 py-2.5 rounded-xl text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 shadow-md transition-colors">
-            确认重置
+            {{ tExt.btnConfirmReset }}
           </button>
         </div>
       </div>
@@ -324,10 +324,10 @@
     <ConfirmDialog
       :visible="deleteModalVisible"
       overlay-class="bg-slate-900/40"
-      :title="t.deleteModalTitle"
-      :message="t.deleteConfirm"
-      :cancel-text="t.btnCancel"
-      :confirm-text="t.btnDelete"
+      :title="tExt.confirmDeleteQuote"
+      :message="tExt.confirmDeleteQuoteMsg"
+      :cancel-text="t.common.cancel"
+      :confirm-text="t.common.delete"
       @cancel="deleteModalVisible = false"
       @confirm="confirmDeleteQuotation"
     />
@@ -335,9 +335,9 @@
     <ConfirmDialog
       :visible="deletePartModalVisible"
       overlay-class="bg-slate-900/40"
-      title="确认删除商品"
-      :cancel-text="t.btnCancel"
-      :confirm-text="t.btnDelete"
+      :title="tExt.confirmDeletePart"
+      :cancel-text="t.common.cancel"
+      :confirm-text="t.common.delete"
       @cancel="deletePartModalVisible = false"
       @confirm="confirmDeletePart"
     />
@@ -345,9 +345,9 @@
     <ConfirmDialog
       :visible="deleteClientModalVisible"
       overlay-class="bg-slate-900/40"
-      :title="t.deleteClientModalTitle"
-      :cancel-text="t.btnCancel"
-      :confirm-text="t.btnDelete"
+      :title="tExt.confirmDeleteClient"
+      :cancel-text="t.common.cancel"
+      :confirm-text="t.common.delete"
       @cancel="deleteClientModalVisible = false"
       @confirm="confirmDeleteClient"
     />
@@ -355,10 +355,10 @@
     <ConfirmDialog
       :visible="deleteTxModalVisible"
       overlay-class="bg-slate-900/40"
-      title="确认删除流水单据"
-      message="删除后将自动还原对应的商品库存数量。"
-      :cancel-text="t.btnCancel"
-      :confirm-text="t.btnDelete"
+      :title="tExt.confirmDeleteTxTitle"
+      :message="tExt.confirmDeleteTxMsg"
+      :cancel-text="t.common.cancel"
+      :confirm-text="t.common.delete"
       @cancel="deleteTxModalVisible = false"
       @confirm="confirmDeleteTx"
     />
@@ -374,12 +374,6 @@
 </template>
 
 <script setup>
-/**
- * 🌟 App.vue 全局核心装配
- * 1. 负责登录状态控制与路由跳转（基于 activeTab 状态）。
- * 2. 负责全局数据拉取注入。
- * 3. 修复了纯收银员退出 POS 死循环的问题。
- */
 import StaffManagementView from './components/StaffManagementView.vue'
 import CashRegisterView from './components/CashRegisterView.vue'
 import { ref, computed, defineAsyncComponent, onMounted, onUnmounted, watch} from 'vue'
@@ -410,6 +404,45 @@ import { useClock } from './composables/useClock'
 import { useGallery } from './composables/useGallery'
 
 const { t, currentLang } = useI18n()
+
+const tExt = computed(() => {
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  return {
+    welcomeUser: isZh ? '欢迎登录' : isEs ? 'Bienvenido' : 'Welcome',
+    noPermissionMsg1: isZh ? '当前账号（' : isEs ? 'La cuenta (' : 'Account (',
+    noPermissionMsg2: isZh ? '）未授权访问此页面，系统已为您匹配专属工作台。' : isEs ? ') no tiene permiso de acceso. Redirigiendo a su área de trabajo.' : ') is not authorized to access this page. Redirecting to your workspace.',
+    goToWorkspace: isZh ? '进入我的可用工作台' : isEs ? 'Ir a mi área de trabajo' : 'Go to my workspace',
+    dialogAddPartTitle: isZh ? '录入新汽配档案与多图相册' : isEs ? 'Registrar Nuevo Repuesto' : 'Register New Part',
+    placeholderOem: isZh ? '例如: 17801-74060' : isEs ? 'Ej: 17801-74060' : 'E.g. 17801-74060',
+    placeholderName: isZh ? '例如: 空气滤清器' : isEs ? 'Ej: Filtro de aire' : 'E.g. Air filter',
+    placeholderCategory: isZh ? '滤清器 / 悬挂系统' : isEs ? 'Filtros / Suspensión' : 'Filters / Suspension',
+    placeholderBrand: isZh ? 'Toyota / Mack / GENERAL' : isEs ? 'Toyota / Mack / GENERAL' : 'Toyota / Mack / GENERAL',
+    labelCrossRef: isZh ? '交叉适配编号与备注' : isEs ? 'Referencias Cruzadas / Notas' : 'Cross-References / Notes',
+    placeholderCrossRef: isZh ? '例如: WIX: 51348 / Donaldson: P550020...' : isEs ? 'Ej: WIX: 51348 / Donaldson: P550020...' : 'E.g. WIX: 51348 / Donaldson: P550020...',
+    labelImages: isZh ? '配件实物照片 (最多可选 5 张)' : isEs ? 'Fotos del repuesto (Máx. 5)' : 'Part photos (Up to 5)',
+    placeholderClientName: isZh ? '例如: Auto Taller Valencia C.A.' : isEs ? 'Ej: Auto Taller Valencia C.A.' : 'E.g. Auto Taller Valencia C.A.',
+    optRegular: isZh ? 'Regular (零售)' : isEs ? 'Regular (Minorista)' : 'Regular (Retail)',
+    optTaller: isZh ? 'Taller (修理厂)' : isEs ? 'Taller (Mecánico)' : 'Workshop (Mechanic)',
+    optMayorista: isZh ? 'Mayorista (批发商)' : isEs ? 'Mayorista (Distribuidor)' : 'Wholesaler',
+    resetPinTitle: isZh ? '安全密钥验证' : isEs ? 'Verificación de PIN' : 'Security PIN Verification',
+    resetPinDesc: isZh ? '请输入系统最高安全密钥 (Security PIN) 以重置管理员密码' : isEs ? 'Ingrese el PIN de seguridad para restablecer la contraseña del administrador' : 'Enter the Security PIN to reset the admin password',
+    resetPinPlace: isZh ? '输入 Security PIN...' : isEs ? 'Ingresar PIN...' : 'Enter PIN...',
+    btnConfirmReset: isZh ? '确认重置' : isEs ? 'Confirmar' : 'Confirm Reset',
+    confirmDeleteQuote: isZh ? '确认删除报价单' : isEs ? 'Confirmar eliminación de cotización' : 'Confirm Quotation Deletion',
+    confirmDeleteQuoteMsg: isZh ? '确定要永久删除这条历史报价单吗？' : isEs ? '¿Eliminar permanentemente esta cotización?' : 'Permanently delete this quotation?',
+    confirmDeletePart: isZh ? '确认删除商品' : isEs ? 'Confirmar eliminación de repuesto' : 'Confirm Part Deletion',
+    confirmDeleteClient: isZh ? '确认删除客户' : isEs ? 'Confirmar eliminación de cliente' : 'Confirm Client Deletion',
+    confirmDeleteTxTitle: isZh ? '确认删除流水单据' : isEs ? 'Confirmar eliminación de transacción' : 'Confirm Transaction Deletion',
+    confirmDeleteTxMsg: isZh ? '删除后将自动还原对应的商品库存数量。' : isEs ? 'Se restaurará automáticamente el inventario.' : 'Inventory stock will be automatically restored.',
+    toastPosExit: isZh ? '当前仅有收银权限，已安全退出系统。' : isEs ? 'Solo tiene permisos de caja. Cerrando sesión de forma segura.' : 'Only POS permissions. Logging out safely.',
+    toastClientDeleted: isZh ? '客户档案已成功删除！' : isEs ? '¡Cliente eliminado con éxito!' : 'Client deleted successfully!',
+    toastPartAdded: isZh ? '新汽配商品已成功录入数据库！' : isEs ? '¡Repuesto registrado con éxito!' : 'Part added successfully!',
+    toastClientAdded: isZh ? '新客户档案创建成功！' : isEs ? '¡Cliente creado con éxito!' : 'Client created successfully!',
+    toastErrorUnknown: isZh ? '未知错误' : isEs ? 'Error desconocido' : 'Unknown error',
+    toastServerError: isZh ? '服务器连接异常！' : isEs ? '¡Error de conexión al servidor!' : 'Server connection error!',
+  }
+})
 
 const {
   successModalVisible, successModalMessage, isErrorMessage,
@@ -461,7 +494,7 @@ const handleExitPos = () => {
 
   if (!hasBackendAccess) {
     // 纯收银员，直接登出
-    showSuccessModal('当前仅有收银权限，已安全退出系统。')
+    showSuccessModal(tExt.value.toastPosExit)
     setTimeout(() => { handleLogout() }, 1500)
   } else {
     // 有后台权限，回退到他有权限的页面
@@ -476,21 +509,16 @@ const checkAndSwitchTab = (tab) => {
 const mobileMenuOpen = ref(false)
 const activeTab = ref(getDefaultAllowedTab())
 
-// 🌟 核心修复：监听登录状态与用户信息变化
 watch(isLoggedIn, (newVal) => {
   if (newVal) {
-    // 登录成功时，重新计算应进入的页面
     activeTab.value = getDefaultAllowedTab()
   } else {
-    // 登出时，重置状态，防止污染下一个登录的用户
     activeTab.value = 'dashboard' 
   }
 })
 
-// 防止由于 currentUserObj 数据更新滞后导致的页面计算错误
 watch(currentUserObj, (newUser) => {
   if (isLoggedIn.value && newUser && newUser.username) {
-    // 如果当前页面没权限（或者刚登录），强制切到有权限的页面
     const defaultTab = getDefaultAllowedTab()
     if (defaultTab !== 'dashboard' || !newUser.permissions || newUser.permissions.length === 0) {
        activeTab.value = defaultTab
@@ -587,10 +615,6 @@ const handleImportParts = async (e) => {
   if (res.ok) { fetchParts(); fetchDashboardStats(); }
 }
 
-const generateAndArchiveQuote = async () => {
-  fetchQuotations(); fetchParts(); fetchTransactions(); fetchDashboardStats(); fetchClients();
-}
-
 const openDeleteModal = (q) => { targetQuote.value = q; deleteModalVisible.value = true }
 const confirmDeleteQuotation = async () => {
   if (!targetQuote.value) return
@@ -612,16 +636,16 @@ const confirmDeleteClient = async () => {
       deleteClientModalVisible.value = false
       targetClient.value = null
       fetchClients()
-      showSuccessModal('🗑️ 客户档案已成功删除！')
+      showSuccessModal('🗑️ ' + tExt.value.toastClientDeleted)
     } else {
       const err = await res.json()
       deleteClientModalVisible.value = false
-      showSuccessModal(`❌ 删除失败: ${err.detail || '未知错误'}`)
+      showSuccessModal(`❌ ${t.common.error}: ${err.detail || tExt.value.toastErrorUnknown}`)
     }
   } catch (e) {
     console.error(e)
     deleteClientModalVisible.value = false
-    showSuccessModal('❌ 服务器连接异常！')
+    showSuccessModal('❌ ' + tExt.value.toastServerError)
   }
 }
 
@@ -636,7 +660,7 @@ const handleAddPart = async () => {
   formData.append('oem', newPart.value.oem || '')
   formData.append('name', newPart.value.name || '')
   formData.append('brand', newPart.value.brand || 'GENERAL')
-  formData.append('category', newPart.value.category || '未分类')
+  formData.append('category', newPart.value.category || 'Uncategorized')
   formData.append('stock', newPart.value.stock ?? 0)
   formData.append('price', newPart.value.price ?? 0.0)
   formData.append('tax_rate', newPart.value.tax_rate ?? 0.16)
@@ -656,15 +680,15 @@ const handleAddPart = async () => {
       newPart.value = { oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, tax_rate: 0.16, bin_location: 'Estante A-1', cross_references: '' }
       selectedFiles.value = []
       fetchParts(); fetchDashboardStats();
-      showSuccessModal('新汽配商品已成功录入数据库！')
+      showSuccessModal('✨ ' + tExt.value.toastPartAdded)
     } else {
       const err = await res.json()
       const errorMsg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail)
-      showSuccessModal(`❌ 添加失败: ${errorMsg}`)
+      showSuccessModal(`❌ ${t.common.error}: ${errorMsg}`)
     }
   } catch (e) {
     console.error(e)
-    showSuccessModal('❌ 服务器连接异常！')
+    showSuccessModal('❌ ' + tExt.value.toastServerError)
   }
 }
 
@@ -679,7 +703,7 @@ const handleAddClient = async () => {
     clientDialogVisible.value = false
     newClient.value = { name: '', phone: '', address: '', rif_or_cedula: '', client_type: 'Regular', notes: '' }
     fetchClients()
-    showSuccessModal('新客户档案创建成功！')
+    showSuccessModal('✨ ' + tExt.value.toastClientAdded)
   }
 }
 
