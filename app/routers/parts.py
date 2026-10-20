@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from app.config import UPLOAD_DIR
 from app.database import get_session
-from app.deps import Actor, get_current_actor, RequirePermission # 🌟 引入细粒度权限
+from app.deps import Actor, get_current_actor, RequirePermission
 from app.models import AutoPart
 from app.services.audit import log_action
 
@@ -48,14 +48,12 @@ def _save_uploaded_files(files: List[UploadFile]) -> List[str]:
         if ext not in ALLOWED_EXTENSIONS:
             raise HTTPException(status_code=400, detail=f"不支持的文件格式: {file.filename}")
         
-        # 为了防止同名覆盖，可以在这里加个 uuid，目前保持原逻辑
         file_path = os.path.join(UPLOAD_DIR, file.filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         image_paths.append(f"/uploads/{file.filename}")
     return image_paths
 
-# 🌟 加锁：只能看库存的人才能查
 @router.get("/api/parts", response_model=List[AutoPart])
 def get_parts(
     session: Session = Depends(get_session),
@@ -64,7 +62,6 @@ def get_parts(
     return session.exec(select(AutoPart)).all()
 
 
-# 🌟 加锁：必须拥有管理库存权限
 @router.post("/api/parts")
 def create_part(
     oem: str = Form(...),
@@ -72,10 +69,11 @@ def create_part(
     brand: str = Form(...),
     category: str = Form(...),
     stock: int = Form(...),
-    price: str = Form(...), # 🌟 使用 str 接收，内部转 Decimal 防精度丢失
+    price: str = Form(...),
+    cost_price: str = Form(default="0.00"), # 🌟 新增：进货价
     tax_rate: str = Form(...),  
     cross_references: str = Form(default=""),
-    bin_location: str = Form(default="Estante A-1"), # 补充缺失的字段
+    bin_location: str = Form(default="Estante A-1"),
     files: List[UploadFile] = File(default=[]),
     actor: Actor = Depends(RequirePermission("parts:manage")),
     session: Session = Depends(get_session),
@@ -85,6 +83,7 @@ def create_part(
     
     # 🌟 精度处理
     d_price = Decimal(price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    d_cost_price = Decimal(cost_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) # 🌟 新增
     d_tax_rate = Decimal(tax_rate)
 
     new_part = AutoPart(
@@ -94,6 +93,7 @@ def create_part(
         category=category,
         stock=stock,
         price=float(d_price),
+        cost_price=float(d_cost_price), # 🌟 新增
         tax_rate=float(d_tax_rate),
         cross_references=cross_references,
         bin_location=bin_location,
@@ -114,13 +114,12 @@ def create_part(
         username=actor.username,
         role=actor.role,
         action="CREATE_PART",
-        details=f"新增了配件商品: {name} (OEM: {oem}, 税率: {tax_rate}, 库存: {stock}, 价格: ${price})",
+        details=f"新增了配件商品: {name} (OEM: {oem}, 税率: {tax_rate}, 库存: {stock}, 售价: ${price}, 进货价: ${cost_price})",
     )
 
     return {"status": "success", "message": "Part created successfully"}
 
 
-# 🌟 加锁：必须拥有管理库存权限
 @router.put("/api/parts/{part_id}")
 def update_part(
     part_id: int,
@@ -130,6 +129,7 @@ def update_part(
     category: str = Form(...),
     stock: int = Form(...),
     price: str = Form(...),
+    cost_price: str = Form(default="0.00"), # 🌟 新增
     tax_rate: str = Form(...),
     bin_location: str = Form(default="Estante A-1"),
     cross_references: str = Form(default=""),
@@ -148,6 +148,7 @@ def update_part(
     _ensure_unique_oem_brand(session, oem, brand, exclude_id=part_id)
 
     d_price = Decimal(price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    d_cost_price = Decimal(cost_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) # 🌟 新增
     d_tax_rate = Decimal(tax_rate)
 
     part.oem = oem
@@ -156,6 +157,7 @@ def update_part(
     part.category = category
     part.stock = stock
     part.price = float(d_price)
+    part.cost_price = float(d_cost_price) # 🌟 新增
     part.tax_rate = float(d_tax_rate)
     part.bin_location = bin_location
     part.cross_references = cross_references
@@ -175,13 +177,12 @@ def update_part(
         username=actor.username,
         role=actor.role,
         action="UPDATE_PART",
-        details=f"更新了配件商品档案: {name} (OEM: {oem}, 税率: {tax_rate}, 库存: {stock}, 价格: ${price})",
+        details=f"更新了配件商品档案: {name} (OEM: {oem}, 税率: {tax_rate}, 库存: {stock}, 售价: ${price}, 进货价: ${cost_price})",
     )
 
     return {"status": "success", "message": "Part updated successfully"}
 
 
-# 🌟 加锁：必须拥有管理库存权限
 @router.delete("/api/parts/{part_id}")
 def delete_part(
     part_id: int,
@@ -207,7 +208,6 @@ def delete_part(
     return {"status": "success", "message": "Part deleted"}
 
 
-# 🌟 加锁：只需查看权限
 @router.get("/api/parts/search")
 def search_parts(
     q: str = Query(...), 
@@ -245,7 +245,6 @@ def search_parts(
     return matched_parts
 
 
-# 🌟 加锁：需要采购权限
 @router.get("/api/procurement/suggestions")
 def get_procurement_suggestions(
     brand: Optional[str] = None,
@@ -282,7 +281,7 @@ def get_procurement_suggestions(
 
     return suggestions
 
-# 🌟 加锁：需要导入权限
+
 @router.post("/api/import/parts")
 async def import_parts(
     file: UploadFile = File(...),
@@ -316,6 +315,7 @@ async def import_parts(
         '分类': 'category', '商品分类': 'category',
         '库存': 'stock', '数量': 'stock',
         '价格': 'price', '单价': 'price', '零售价': 'price',
+        '进货价': 'cost_price', '成本': 'cost_price', 'cost': 'cost_price', # 🌟 新增映射
         '货架': 'bin_location', '库位': 'bin_location', '货架位': 'bin_location'
     }
     df = df.rename(columns=col_mapping)
@@ -347,10 +347,11 @@ async def import_parts(
                 stock = 0
 
             try:
-                # 🌟 统一转换为 Decimal 处理后存入
                 price = float(Decimal(str(row.get('price', 0.0))).quantize(Decimal("0.01")))
+                cost_price = float(Decimal(str(row.get('cost_price', 0.0))).quantize(Decimal("0.01"))) # 🌟 新增解析
             except Exception:
                 price = 0.0
+                cost_price = 0.0 # 🌟 新增解析
 
             existing = session.exec(select(AutoPart).where(AutoPart.oem == oem)).first()
             if existing:
@@ -359,6 +360,7 @@ async def import_parts(
                 existing.category = category
                 existing.stock = stock
                 existing.price = price
+                existing.cost_price = cost_price # 🌟 新增更新
                 existing.bin_location = bin_location
                 session.add(existing)
             else:
@@ -369,6 +371,7 @@ async def import_parts(
                     category=category,
                     stock=stock,
                     price=price,
+                    cost_price=cost_price, # 🌟 新增插入
                     bin_location=bin_location,
                     cross_references="",
                     image_url=""

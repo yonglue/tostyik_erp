@@ -70,7 +70,8 @@
     <!-- 🌟 合并后的主商品表格 -->
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse min-w-[950px]">
+        <!-- 🌟 增加了最小宽度以容纳新列 -->
+        <table class="w-full text-left border-collapse min-w-[1150px]">
           <thead>
             <tr class="bg-slate-50/75 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <th class="py-3.5 px-4 w-12 text-center">
@@ -89,7 +90,12 @@
               <th class="py-3.5 px-4">{{ t.inventory.colBrand }}</th>
               <th class="py-3.5 px-4">{{ t.inventory.taxRate }} (SENIAT)</th>
               <th class="py-3.5 px-4">{{ t.inventory.colStock }}</th>
-              <th class="py-3.5 px-4">{{ t.inventory.colPriceUsd }}</th>
+              
+              <!-- 🌟 新增：售价与进货价表头 -->
+              <th class="py-3.5 px-4">售价 (USD)</th>
+              <th class="py-3.5 px-4 text-amber-600">进货价 (USD)</th>
+              <th class="py-3.5 px-4 text-emerald-600">毛利 (Profit)</th>
+              
               <th class="py-3.5 px-4 text-center">{{ t.common.actions }}</th>
             </tr>
           </thead>
@@ -155,7 +161,19 @@
               </td>
 
               <td class="py-4 px-4 font-bold" :class="item.stock <= 5 ? 'text-rose-600' : 'text-slate-800'">{{ item.stock }}</td>
+              
+              <!-- 🌟 售价 -->
               <td class="py-4 px-4 font-bold text-blue-600">$ {{ Number(item.price || 0).toFixed(2) }}</td>
+              
+              <!-- 🌟 新增：进货价 -->
+              <td class="py-4 px-4 font-bold text-amber-600">$ {{ Number(item.cost_price || 0).toFixed(2) }}</td>
+
+              <!-- 🌟 新增：毛利计算 -->
+              <td class="py-4 px-4 font-black">
+                <span :class="(item.price - (item.cost_price || 0)) > 0 ? 'text-emerald-600' : 'text-rose-500'">
+                  $ {{ Number((item.price || 0) - (item.cost_price || 0)).toFixed(2) }}
+                </span>
+              </td>
 
               <td class="py-4 px-4 text-center" @click.stop>
                 <div class="inline-flex items-center justify-center gap-2">
@@ -169,7 +187,8 @@
               </td>
             </tr>
             <tr v-if="filteredParts.length === 0">
-              <td colspan="11" class="py-12 text-center text-slate-400 text-xs">{{ tExt.emptyParts }}</td>
+              <!-- 🌟 修改 colspan 为 13 以匹配新列数 -->
+              <td colspan="13" class="py-12 text-center text-slate-400 text-xs">{{ tExt.emptyParts }}</td>
             </tr>
           </tbody>
         </table>
@@ -264,14 +283,19 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- 🌟 修改为三列网格，加入进货价输入框 -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colStock }}</label>
               <input v-model.number="editingPart.stock" type="number" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colPriceUsd }}</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">售价 ($)</label>
               <input v-model.number="editingPart.price" type="number" step="0.5" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-amber-600 mb-1">进货价 ($)</label>
+              <input v-model.number="editingPart.cost_price" type="number" step="0.5" min="0" class="w-full bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono text-amber-900 outline-none focus:border-amber-500" />
             </div>
           </div>
 
@@ -399,6 +423,7 @@ const categoriesList = computed(() => {
 })
 
 const editModalVisible = ref(false)
+// 🌟 增加 cost_price 初始值
 const editingPart = ref({ 
   id: null, 
   oem: '', 
@@ -407,6 +432,7 @@ const editingPart = ref({
   category: '', 
   stock: 0, 
   price: 0, 
+  cost_price: 0,
   tax_rate: 0.16,
   bin_location: 'Estante A-1',
   cross_references: '' 
@@ -528,6 +554,7 @@ const confirmBatchDelete = async () => {
 const openEditModal = (item) => {
   editingPart.value = { 
     ...item, 
+    cost_price: item.cost_price ?? 0, // 🌟 载入时带上进货价
     tax_rate: item.tax_rate ?? 0.16,
     bin_location: item.bin_location || 'Estante A-1',
     cross_references: item.cross_references || ''
@@ -549,6 +576,7 @@ const saveEditedPart = async () => {
     formData.append('category', editingPart.value.category || tExt.value.uncategorized)
     formData.append('stock', editingPart.value.stock ?? 0)
     formData.append('price', editingPart.value.price ?? 0.0)
+    formData.append('cost_price', editingPart.value.cost_price ?? 0.0) // 🌟 提交时带上进货价
     formData.append('tax_rate', editingPart.value.tax_rate ?? 0.16)
     formData.append('bin_location', editingPart.value.bin_location || 'Estante A-1')
     formData.append('cross_references', editingPart.value.cross_references || '')
