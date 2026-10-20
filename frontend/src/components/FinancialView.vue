@@ -2,6 +2,17 @@
 <template>
   <div class="space-y-6">
     
+    <!-- 🌟 顶部标题与导出按钮 -->
+    <div class="flex items-center justify-between">
+      <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">📊 财务利润中心</h2>
+      <button 
+        @click="exportProfitReport"
+        class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer hover:scale-105"
+      >
+        📥 一键导出利润报表
+      </button>
+    </div>
+
     <!-- 顶部核心指标卡片 -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
       <!-- 1. 总营收 -->
@@ -181,8 +192,8 @@ const bcvRate = ref(36.50)
 const analytics = ref({
   total_revenue_usd: 0.00,
   total_cost_usd: 0.00,
-  total_expenses_usd: 0.00, // 🌟 新增
-  net_profit_usd: 0.00      // 🌟 新增
+  total_expenses_usd: 0.00,
+  net_profit_usd: 0.00
 })
 
 const paymentBreakdown = ref({
@@ -204,7 +215,7 @@ const fetchFinancialData = async () => {
       bcvRate.value = rateData.rate || 36.50
     }
 
-    // 2. 获取 POS 订单流水（用于计算真实营收和成本）
+    // 2. 获取 POS 订单流水
     let totalRevenue = 0
     let totalCost = 0
     
@@ -223,7 +234,7 @@ const fetchFinancialData = async () => {
       dailyAuditList.value = activeOrders.map(order => {
         const rev = Number(order.totalUsd || 0)
         
-        // 🌟 核心：从订单明细中计算真实总成本
+        // 从订单明细中计算真实总成本
         let orderCost = 0
         if (order.items && order.items.length > 0) {
           order.items.forEach(item => {
@@ -271,7 +282,6 @@ const fetchFinancialData = async () => {
     if (expRes.ok) {
       const expenses = await expRes.json()
       expenses.forEach(e => {
-        // 统一折算为美元计算
         const usdVal = e.currency === 'USD' ? Number(e.amount) : Number(e.amount) / Number(e.exchange_rate || 1)
         totalExpenses += usdVal
       })
@@ -282,12 +292,63 @@ const fetchFinancialData = async () => {
       total_revenue_usd: totalRevenue,
       total_cost_usd: totalCost,
       total_expenses_usd: totalExpenses,
-      net_profit_usd: totalRevenue - totalCost - totalExpenses // 🌟 净利润公式
+      net_profit_usd: totalRevenue - totalCost - totalExpenses
     }
 
   } catch (e) {
     console.error("加载财务对账数据失败:", e)
   }
+}
+
+// 🌟 核心功能：一键导出 CSV (Excel) 利润报表
+const exportProfitReport = () => {
+  const now = new Date()
+  const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`
+  
+  // 使用 Excel 的 \uFEFF BOM 头防止中文乱码
+  let csvContent = "\uFEFF"
+
+  // 1. 报表头
+  csvContent += "TOSTIKYK ERP - 财务利润综合报表\n"
+  csvContent += `导出时间,${now.toLocaleString()}\n`
+  csvContent += `当前 BCV 汇率,${bcvRate.value}\n\n`
+
+  // 2. 核心概览
+  csvContent += "【核心财务指标 (USD / VES)】\n"
+  csvContent += `总营业收入,$ ${analytics.value.total_revenue_usd.toFixed(2)},Bs. ${(analytics.value.total_revenue_usd * bcvRate.value).toFixed(2)}\n`
+  csvContent += `总进货成本,$ ${analytics.value.total_cost_usd.toFixed(2)},Bs. ${(analytics.value.total_cost_usd * bcvRate.value).toFixed(2)}\n`
+  csvContent += `日常开支总额,$ ${analytics.value.total_expenses_usd.toFixed(2)},Bs. ${(analytics.value.total_expenses_usd * bcvRate.value).toFixed(2)}\n`
+  csvContent += `净利润 (Net Profit),$ ${analytics.value.net_profit_usd.toFixed(2)},Bs. ${(analytics.value.net_profit_usd * bcvRate.value).toFixed(2)}\n\n`
+
+  // 3. 支付方式拆解
+  csvContent += "【收银对账分类】\n"
+  csvContent += `支付方式,笔数,折算营收(USD),占比\n`
+  csvContent += `刷卡 POS,${paymentBreakdown.value.cardPos.count},$ ${paymentBreakdown.value.cardPos.totalUSD.toFixed(2)},${paymentBreakdown.value.cardPos.percentage}%\n`
+  csvContent += `手机支付 Pago Móvil,${paymentBreakdown.value.pagoMovil.count},$ ${paymentBreakdown.value.pagoMovil.totalUSD.toFixed(2)},${paymentBreakdown.value.pagoMovil.percentage}%\n`
+  csvContent += `玻利瓦尔现金,${paymentBreakdown.value.cashBs.count},$ ${paymentBreakdown.value.cashBs.totalUSD.toFixed(2)},${paymentBreakdown.value.cashBs.percentage}%\n`
+  csvContent += `美金现金,${paymentBreakdown.value.cashUSD.count},$ ${paymentBreakdown.value.cashUSD.totalUSD.toFixed(2)},${paymentBreakdown.value.cashUSD.percentage}%\n`
+  csvContent += `组合支付,${paymentBreakdown.value.pagoMixto.count},$ ${paymentBreakdown.value.pagoMixto.totalUSD.toFixed(2)},${paymentBreakdown.value.pagoMixto.percentage}%\n\n`
+
+  // 4. 每日流水明细
+  csvContent += "【每日利润对账流水明细】\n"
+  csvContent += "单据编号,交易时间,支付方式,营业额(USD),折算收入(VES),进货成本(USD),真实毛利(USD),真实毛利(Bs.)\n"
+  
+  dailyAuditList.value.forEach(row => {
+    // 防止支付方式中有逗号破坏 CSV 结构
+    const safeMethod = `"${row.payment_method}"` 
+    csvContent += `${row.id},${row.date},${safeMethod},${Number(row.revenue_usd).toFixed(2)},${(Number(row.revenue_usd) * bcvRate.value).toFixed(2)},${Number(row.cost_usd).toFixed(2)},${Number(row.profit_usd).toFixed(2)},${(Number(row.profit_usd) * bcvRate.value).toFixed(2)}\n`
+  })
+
+  // 触发下载
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = `TOSTIKYK_Profit_Report_${dateStr}.csv`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 onMounted(() => {
