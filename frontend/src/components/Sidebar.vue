@@ -72,6 +72,7 @@ import {
   Cpu,
   LayoutDashboard, 
   TrendingUp, 
+  TrendingDown, // 🌟 关键：必须引入这个图标
   Package, 
   ShieldCheck, 
   Users, 
@@ -107,6 +108,7 @@ const groupedMenuItems = computed(() => {
       items: [
         { key: 'dashboard', icon: LayoutDashboard },
         { key: 'financial', icon: TrendingUp, requiredPerm: 'financial:view' },
+        { key: 'expenses', icon: TrendingDown, requiredPerm: 'financial:view' }, // 🌟 新增日常开支
       ]
     },
     {
@@ -122,7 +124,6 @@ const groupedMenuItems = computed(() => {
         { key: 'procurement', icon: ShoppingCart, requiredPerm: 'procurement:view' },
         { key: 'transactions', icon: History, requiredPerm: 'transactions:history' },
         { key: 'desk', icon: Calculator, requiredPerm: 'pos:access' },
-        // 🌟 新增：报价单列表入口
         { key: 'quotations', labelKey: 'quotations', icon: FileText, requiredPerm: 'pos:access' },
         { key: 'cash_register', labelKey: 'cashRegister', icon: FileText, requiredPerm: 'shift:report' },
       ]

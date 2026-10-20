@@ -73,6 +73,7 @@
             @navigate="(tab) => checkAndSwitchTab(tab)" 
           />
           <FinancialView v-else-if="activeTab === 'financial' && hasPermission('financial:view')" />
+          <GastosView v-else-if="activeTab === 'expenses' && hasPermission('financial:view')" />
           <StaffManagementView v-else-if="activeTab === 'staff' && hasPermission('users:manage')" />
           <AuditLogsView v-else-if="activeTab === 'audit_logs' && hasPermission('users:manage')" />
           <CashRegisterView v-else-if="activeTab === 'cash_register' && hasPermission('shift:report')" />
@@ -192,14 +193,19 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- 🌟 修改为三列网格，加入进货价输入框 -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colStock }}</label>
               <input v-model.number="newPart.stock" type="number" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colPriceUsd }}</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">零售价 ($)</label>
               <input v-model.number="newPart.price" type="number" step="0.5" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-amber-600 mb-1">进货价 ($)</label>
+              <input v-model.number="newPart.cost_price" type="number" step="0.5" min="0" class="w-full bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono text-amber-900 outline-none focus:border-amber-500" />
             </div>
           </div>
 
@@ -402,6 +408,7 @@ const BackupView = defineAsyncComponent(() => import('./components/BackupView.vu
 const AuditLogsView = defineAsyncComponent(() => import('./components/AuditLogsView.vue'))
 const PurchaseOrdersView = defineAsyncComponent(() => import('./components/ProcurementCenterView.vue'))
 const QuotationListView = defineAsyncComponent(() => import('./components/QuotationListView.vue'))
+const GastosView = defineAsyncComponent(() => import('./components/GastosView.vue'))
 
 import { apiFetch, apiUrl } from './utils/api'
 import { useAuth } from './composables/useAuth'
@@ -685,7 +692,8 @@ const confirmDeleteClient = async () => {
   }
 }
 
-const newPart = ref({ oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, tax_rate: 0.16, bin_location: 'Estante A-1', cross_references: '' })
+// 🌟 修改：加上进货价初始值
+const newPart = ref({ oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, cost_price: 10.00, tax_rate: 0.16, bin_location: 'Estante A-1', cross_references: '' })
 const selectedFiles = ref([])
 const handleFileChange = (e) => { selectedFiles.value = Array.from(e.target.files).slice(0, 5) }
 
@@ -699,6 +707,7 @@ const handleAddPart = async () => {
   formData.append('category', newPart.value.category || 'Uncategorized')
   formData.append('stock', newPart.value.stock ?? 0)
   formData.append('price', newPart.value.price ?? 0.0)
+  formData.append('cost_price', newPart.value.cost_price ?? 0.0) // 🌟 新增：提交进货价
   formData.append('tax_rate', newPart.value.tax_rate ?? 0.16)
   formData.append('bin_location', newPart.value.bin_location || 'Estante A-1')
   formData.append('cross_references', newPart.value.cross_references || '')
@@ -713,7 +722,8 @@ const handleAddPart = async () => {
     
     if (res.ok) {
       dialogVisible.value = false
-      newPart.value = { oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, tax_rate: 0.16, bin_location: 'Estante A-1', cross_references: '' }
+      // 🌟 修改：重置表单也带上进货价
+      newPart.value = { oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, cost_price: 10.00, tax_rate: 0.16, bin_location: 'Estante A-1', cross_references: '' }
       selectedFiles.value = []
       fetchParts(); fetchDashboardStats();
       showSuccessModal('✨ ' + tExt.value.toastPartAdded)

@@ -167,9 +167,6 @@ class OrderItem(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     order_id: int = Field(foreign_key="orders.id")
-    # 精确指向售出的那一行 AutoPart（同 OEM 多品牌时不能只靠 oem 回滚）。
-    # 这里不加数据库级 FK：SQLite 默认不启用外键约束，且迁移里只加普通列；
-    # 退款时会显式校验 part_id 是否仍存在。
     part_id: Optional[int] = Field(default=None, index=True)
     oem: str = Field(max_length=100)
     name: str = Field(max_length=150)
@@ -177,6 +174,9 @@ class OrderItem(SQLModel, table=True):
     price_usd: float
     subtotal_usd: float
     
+    # 🌟 新增：卖出那一刻的商品真实成本快照
+    cost_price_usd: float = Field(default=0.0) 
+
     tax_rate: float = Field(default=0.16)
     base_subtotal_usd: float = Field(default=0.0)
     tax_subtotal_usd: float = Field(default=0.0)
@@ -228,6 +228,24 @@ class CashRegisterSession(SQLModel, table=True):
     actual_cash_bs: float = Field(default=0.0)      # Bs
     total_revenue_usd: float = Field(default=0.0)
     notes: Optional[str] = Field(default="")
+
+
+# ══════════════════════════ 日常开支 (Gastos) ══════════════════════════
+class Expense(SQLModel, table=True):
+    __tablename__ = "expenses"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    category: str = Field(index=True, max_length=50) # 分类：房租、水电、工资、物流等
+    description: str = Field(default="", max_length=255) # 详细说明
+    amount: float = Field(default=0.0) # 金额
+    currency: str = Field(default="USD", max_length=10) # 币种：USD 或 BS
+    exchange_rate: float = Field(default=1.0) # 如果是 BS，记录当时的汇率
+    payment_method: str = Field(default="Cash_USD", max_length=50) # 现金、转账、刷卡等
+    receipt_url: str = Field(default="") # 凭证图片路径 (预留)
+    created_by: str = Field(default="Admin", max_length=50) # 经办人
+    expense_date: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d")) # 支出日期
+    created_at: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
 
 
 # ══════════════════════════ 账号与审计 ══════════════════════════
@@ -304,4 +322,5 @@ __all__ = [
     "StaffUser",
     "AuditLog",
     "HeldOrder",
+    "Expense",
 ]

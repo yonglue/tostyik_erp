@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from typing import Optional
-from decimal import Decimal, ROUND_HALF_UP # 🌟 引入 Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
@@ -34,17 +34,11 @@ _DEBT_KEYWORDS = ("Fiado", "Debt", "挂账")
 def _is_debt_payment(payment_method: str) -> bool:
     return any(k in payment_method for k in _DEBT_KEYWORDS)
 
-# 🌟 辅助函数：将 Decimal 四舍五入保留 2 位小数
 def _money(value) -> Decimal:
     return Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def _resolve_part(session: Session, oem: str, brand: Optional[str]) -> AutoPart:
-    """按 OEM（必要时叠加 brand）唯一定位配件。
-
-    AutoPart 允许同一 OEM 存在多个品牌，任何按 OEM 直接 UPDATE 的写法都会
-    误改其它品牌行，所以这里先锁定唯一一行，后续只按主键改库存。
-    """
     matches = session.exec(select(AutoPart).where(AutoPart.oem == oem)).all()
     if not matches:
         raise HTTPException(status_code=404, detail=f"商品 {oem} 不存在")
@@ -60,7 +54,6 @@ def _resolve_part(session: Session, oem: str, brand: Optional[str]) -> AutoPart:
 
 
 def _idempotent_response(session: Session, request_id: Optional[str]):
-    """request_id 命中已有订单时，直接返回原订单，不再扣库存/记账。"""
     if not request_id:
         return None
     existing = session.exec(
@@ -89,7 +82,6 @@ def create_pos_order(
 
     client_name = payload.client_name.strip() if payload.client_name else "Cliente General"
 
-    # 优先按 client_id 精确定位客户，避免同名/改名导致挂错账。
     client = None
     if payload.client_id is not None:
         client = session.get(Client, payload.client_id)
@@ -108,8 +100,6 @@ def create_pos_order(
 
     merged_items_map = {}
     for item in payload.items:
-        # 只有 OEM + 品牌 + 单价都相同才允许合并：
-        # 同 OEM 不同品牌是不同库存行；同商品不同单价是不同成交行，不能丢价。
         merge_key = (
             item.oem,
             (item.brand or "GENERAL").strip(),
@@ -130,7 +120,6 @@ def create_pos_order(
     if not deduped_items:
         raise HTTPException(status_code=400, detail="订单不能为空")
 
-    # 🌟 使用 Decimal 初始化累加器
     total_base_amount = Decimal("0.00")
     total_tax_amount = Decimal("0.00")
     order_items_to_create = []
@@ -142,6 +131,10 @@ def create_pos_order(
         part = _resolve_part(session, item.oem, item.brand)
         part_id = part.id
         part_name = part.name
+        
+
+        # 🌟 新增：从数据库获取真实进价
+        part_cost_price = Decimal(str(getattr(part, "cost_price", 0.0)))
 
         result = session.exec(
             update(AutoPart)
@@ -154,7 +147,6 @@ def create_pos_order(
             available = current.stock if current else 0
             raise HTTPException(status_code=400, detail=f"商品 {part_name} 库存不足（当前库存: {available}）")
 
-        # 🌟 使用 Decimal 计算
         d_price = Decimal(str(item.price))
         if d_price <= 0:
             session.rollback()
@@ -167,14 +159,13 @@ def create_pos_order(
             part_name=item.name,
             type="OUT",
             quantity=item.quantity,
-            unit_price=float(d_price), # 🌟 数据库模型还是 float，入库前转回 float 防止报错
+            unit_price=float(d_price),
             total_amount=float(line_total),
             customer_or_supplier=client_name,
         ))
 
         item_tax_rate = Decimal(str(getattr(part, "tax_rate", 0.16)))
         
-        # 🌟 严格按照 SENIAT 法规分离 Base Imponible 与 IVA (Decimal 版)
         if item_tax_rate > 0:
             base_sub = _money(line_total / (Decimal("1.0") + item_tax_rate))
             tax_sub = _money(line_total - base_sub)
@@ -192,6 +183,7 @@ def create_pos_order(
             "quantity": item.quantity,
             "price_usd": float(d_price),
             "subtotal_usd": float(line_total),
+            "cost_price_usd": float(part_cost_price), # 🌟 新增：把进价带上
             "tax_rate": float(item_tax_rate),
             "base_subtotal_usd": float(base_sub),
             "tax_subtotal_usd": float(tax_sub),
@@ -199,7 +191,6 @@ def create_pos_order(
 
     goods_total_usd = _money(total_base_amount + total_tax_amount)
 
-    # 🌟 不再硬编码 3%，但必须校验前端传来的 IGTF 金额（0 ≤ IGTF ≤ 货款的 3%）
     igtf_amount = _money(payload.igtf_amount)
     if igtf_amount < 0:
         session.rollback()
@@ -211,7 +202,6 @@ def create_pos_order(
 
     total_usd = _money(goods_total_usd + igtf_amount)
 
-    # 挂账必须先锁定客户并校验信用额度（库存已在上面扣减，失败时统一回滚）。
     if _is_debt_payment(payload.payment_method):
         if client is None:
             session.rollback()
@@ -231,7 +221,6 @@ def create_pos_order(
                 ),
             )
     
-    # 🌟 Decimal 计算汇率转换
     d_bcv_rate = Decimal(str(payload.bcv_rate))
     if d_bcv_rate <= 0:
         session.rollback()
@@ -260,8 +249,6 @@ def create_pos_order(
     try:
         session.flush()
     except IntegrityError:
-        # 并发重复提交：另一个请求已经用同一个 request_id 建单，
-        # 回滚本次库存/债务变更后返回已有订单。
         session.rollback()
         cached = _idempotent_response(session, request_id)
         if cached is not None:
@@ -277,13 +264,13 @@ def create_pos_order(
             quantity=oi["quantity"],
             price_usd=oi["price_usd"],
             subtotal_usd=oi["subtotal_usd"],
+            cost_price_usd=oi["cost_price_usd"], # 🌟 新增：把进价写入数据库
             tax_rate=oi["tax_rate"],
             base_subtotal_usd=oi["base_subtotal_usd"],
             tax_subtotal_usd=oi["tax_subtotal_usd"],
         ))
 
     if _is_debt_payment(payload.payment_method):
-        # 条件 UPDATE 再兜一层并发：另一个请求先加过债务时，这里会失败而不是超限。
         debt_updated = session.exec(
             update(Client)
             .where(
@@ -299,7 +286,6 @@ def create_pos_order(
                 detail="超出客户信用额度或客户档案已变更，请刷新后重试",
             )
 
-    # commit 会让 new_order 过期；先把 id 取出来，避免审计失败后读取过期对象。
     order_id = new_order.id
     try:
         session.commit()
@@ -314,9 +300,6 @@ def create_pos_order(
 
     return {"status": "success", "order_no": order_no, "order_id": order_id}
 
-
-# 🌟 下面的函数（get_pos_orders, refund_pos_order 等）逻辑不用大变，保持原样即可。
-# 为了方便你复制，我已经把后面的代码完整贴出来了（仅做了轻微格式调整）。
 
 @router.get("/api/pos/orders")
 def get_pos_orders(
@@ -349,6 +332,7 @@ def get_pos_orders(
             "name": i.name,
             "quantity": i.quantity,
             "price": i.price_usd,
+            "cost_price": i.cost_price_usd, # 🌟 新增：把进价返回给前端
         } for i in o.items]
 
         time_str = o.created_at.strftime("%Y-%m-%d %H:%M:%S") if o.created_at else ""
@@ -382,7 +366,6 @@ def refund_pos_order(
     order = session.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
-    # commit 会过期整个对象；先取出日志/返回值要用的单号。
     order_no = order.order_no
 
     claimed = session.exec(
@@ -395,7 +378,6 @@ def refund_pos_order(
         raise HTTPException(status_code=400, detail="该订单已经退货，请勿重复操作")
 
     for item in order.items:
-        # 优先按订单明细记录的 part_id 精确回补；老订单没有 part_id 时才退回 OEM 匹配
         part = session.get(AutoPart, item.part_id) if item.part_id else None
         if part is not None and part.oem != item.oem:
             part = None
@@ -438,7 +420,6 @@ def refund_pos_order(
                     detail="原挂账客户档案已删除，无法精确反减欠款，退货中止",
                 )
         else:
-            # 兼容没有 client_id 的历史订单
             candidates = session.exec(
                 select(Client).where(Client.name == order.client_name)
             ).all()
@@ -450,7 +431,6 @@ def refund_pos_order(
                 )
             client = candidates[0]
 
-        # 允许产生负数（客户预存款/应收负数），但必须精确命中一个客户。
         reversed_debt = session.exec(
             update(Client)
             .where(Client.id == client.id)

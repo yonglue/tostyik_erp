@@ -48,6 +48,8 @@ from app.routers import (
 from app.security import hash_password, verify_password
 from app.startup_checks import config_warnings, report
 from app.routers import staff
+from app.routers import expenses
+
 
 
 def bootstrap() -> None:
@@ -144,6 +146,8 @@ app.include_router(purchase_orders.router)
 app.include_router(pos.router)
 app.include_router(settings.router)
 app.include_router(staff.router)
+app.include_router(expenses.router)
+
 
 
 @app.get("/")
