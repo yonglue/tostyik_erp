@@ -34,6 +34,10 @@ class AutoPart(SQLModel, table=True):
     category: str = Field(default="未分类")
     stock: int = Field(default=0)
     price: float = Field(default=0.0)
+    stock: int = Field(default=0)
+    price: float = Field(default=0.0) # 售价
+    cost_price: float = Field(default=0.0) # 🌟 新增：进货价/成本价
+    bin_location: str = Field(default="Estante A-1")
     bin_location: str = Field(default="Estante A-1")
     image_url: str = Field(default="")
     cross_references: str = Field(default="")

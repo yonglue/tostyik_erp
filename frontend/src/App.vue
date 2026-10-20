@@ -38,7 +38,7 @@
             </div>
 
             <!-- 2. 语言切换胶囊 -->
-            <select v-model="currentLang" class="bg-white/70 hover:bg-blue-500/10 border border-slate-200/80 hover:border-blue-300 text-xs rounded-2xl px-3.5 py-2 outline-none font-semibold text-slate-700 hover:text-blue-700 cursor-pointer shadow-2xs transition-all duration-200 backdrop-blur-md hover:scale-[1.02]">
+            <select id="app-language-select" name="app-language" v-model="currentLang" class="bg-white/70 hover:bg-blue-500/10 border border-slate-200/80 hover:border-blue-300 text-xs rounded-2xl px-3.5 py-2 outline-none font-semibold text-slate-700 hover:text-blue-700 cursor-pointer shadow-2xs transition-all duration-200 backdrop-blur-md hover:scale-[1.02]">
               <option value="es">🇪🇸 ES</option>
               <option value="zh">🇨🇳 中文</option>
               <option value="en">🇺🇸 EN</option>
