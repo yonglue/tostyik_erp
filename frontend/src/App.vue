@@ -57,7 +57,6 @@
                 </div>
               </div>
 
-              <!-- 🌟 修复：t.logoutBtn 改为 t.common.logout -->
               <button @click="handleLogout" class="px-4 py-2 bg-white/70 hover:bg-rose-500/15 border border-slate-200/80 hover:border-rose-300 text-rose-600 rounded-2xl text-xs font-bold shadow-2xs transition-all duration-200 cursor-pointer backdrop-blur-md hover:scale-[1.02]">
                 {{ t.common.logout }}
               </button>
@@ -107,6 +106,14 @@
             @open-tx-modal="txDialogVisible = true"
             @delete-tx="openDeleteTxModal"
           />
+          
+          <!-- 🌟 挂载报价单列表 -->
+          <QuotationListView 
+            v-else-if="activeTab === 'quotations' && hasPermission('pos:access')"
+            @convert-to-pos="handleConvertToPos"
+            @show-toast="(msg, type) => showSuccessModal(msg)"
+          />
+
           <QuotationDeskView 
             v-else-if="activeTab === 'desk' && hasPermission('pos:access')"
             :partsList="partsList"
@@ -394,6 +401,7 @@ const QuotationDeskView = defineAsyncComponent(() => import('./components/Quotat
 const BackupView = defineAsyncComponent(() => import('./components/BackupView.vue'))
 const AuditLogsView = defineAsyncComponent(() => import('./components/AuditLogsView.vue'))
 const PurchaseOrdersView = defineAsyncComponent(() => import('./components/ProcurementCenterView.vue'))
+const QuotationListView = defineAsyncComponent(() => import('./components/QuotationListView.vue'))
 
 import { apiFetch, apiUrl } from './utils/api'
 import { useAuth } from './composables/useAuth'
@@ -601,6 +609,32 @@ const handleMenuClick = (key) => {
   if (key === 'dashboard') fetchDashboardStats()
   if (key === 'clients' || key === 'desk') fetchClients()
   if (key === 'quotations') fetchQuotations()
+}
+
+// 🌟 核心新增：处理从报价单转入 POS
+const handleConvertToPos = (data) => {
+  // 1. 清空当前购物车
+  cartItems.value = []
+  
+  // 2. 将报价单的明细映射到购物车格式
+  data.items.forEach(item => {
+    cartItems.value.push({
+      oem: item.oem,
+      name: item.name,
+      brand: item.brand || 'GENERAL',
+      price: Number(item.price),
+      quantity: Number(item.quantity),
+      tax_rate: item.tax_rate ?? 0.16
+    })
+  })
+
+  // 3. 带上客户名字
+  if (data.client_name && data.client_name !== 'Cliente General') {
+    quoteClientName.value = data.client_name
+  }
+
+  // 4. 跳转到 POS 页面
+  activeTab.value = 'desk'
 }
 
 const exportTransactionsExcel = () => window.open(apiUrl('/api/export/transactions'), '_blank')

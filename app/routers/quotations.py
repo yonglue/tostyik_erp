@@ -81,30 +81,6 @@ def generate_and_save_quotation(
                 detail=f"❌ 非法操作：商品 {item.oem} 的购买数量必须大于 0！",
             )
 
-        part = session.exec(select(AutoPart).where(AutoPart.oem == item.oem)).first()
-        if not part:
-            raise HTTPException(status_code=404, detail=f"商品 {item.oem} 不存在或已被删除！")
-
-        # 原子扣减库存
-        result = session.exec(
-            update(AutoPart)
-            .where(AutoPart.oem == item.oem, AutoPart.stock >= item.quantity)
-            .values(stock=AutoPart.stock - item.quantity)
-        )
-        if result.rowcount == 0:
-            session.rollback()
-            raise HTTPException(status_code=400, detail=f"商品 {part.name} 库存不足，无法成交出库！")
-
-        tx = InventoryTransaction(
-            part_oem=item.oem,
-            part_name=item.name,
-            type="OUT",
-            quantity=item.quantity,
-            unit_price=float(Decimal(str(item.price)).quantize(Decimal("0.01"))),
-            total_amount=float((Decimal(str(item.price)) * item.quantity).quantize(Decimal("0.01"))),
-            customer_or_supplier=client_name,
-        )
-        session.add(tx)
 
     pay_method = str(payload.payment_method).lower()
     is_fiado = any(keyword in pay_method for keyword in ["fiado", "debt", "赊账", "挂账", "credit"])
@@ -144,7 +120,7 @@ def generate_and_save_quotation(
         total_bs=total_bs,
         bcv_rate=bcv_rate,
         lang=lang,
-        items_json=json.dumps(items_snapshot, ensure_ascii=False),
+        items_json=json.dumps(items_snapshot, ensure_ascii=False, default=float),
     )
     session.add(record)
     session.commit()

@@ -45,7 +45,6 @@
         >
           <component :is="item.icon" :size="18" class="shrink-0" />
           <span class="truncate leading-tight text-left">
-            <!-- 🌟 核心修复：优先使用 labelKey 去字典里找，如果没有，再用 key 找 -->
             {{ t.menu[item.labelKey || item.key] }}
           </span>
         </button>
@@ -123,7 +122,8 @@ const groupedMenuItems = computed(() => {
         { key: 'procurement', icon: ShoppingCart, requiredPerm: 'procurement:view' },
         { key: 'transactions', icon: History, requiredPerm: 'transactions:history' },
         { key: 'desk', icon: Calculator, requiredPerm: 'pos:access' },
-        // 🌟 修复：加上 labelKey: 'cashRegister'
+        // 🌟 新增：报价单列表入口
+        { key: 'quotations', labelKey: 'quotations', icon: FileText, requiredPerm: 'pos:access' },
         { key: 'cash_register', labelKey: 'cashRegister', icon: FileText, requiredPerm: 'shift:report' },
       ]
     },
@@ -131,7 +131,6 @@ const groupedMenuItems = computed(() => {
       title: t.value.menu.groupSystem,
       items: [
         { key: 'staff', icon: ShieldCheck, requiredPerm: 'users:manage' },
-        // 🌟 修复：加上 labelKey: 'auditLogs'
         { key: 'audit_logs', labelKey: 'auditLogs', icon: ShieldAlert, requiredPerm: 'users:manage' },
         { key: 'backup', icon: Database, requiredPerm: 'settings:manage' },
       ]
