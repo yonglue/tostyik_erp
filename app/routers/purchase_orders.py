@@ -16,6 +16,7 @@ from app.models import AutoPart, InventoryTransaction, PurchaseOrder, Supplier, 
 from app.schemas import CreatePurchaseOrderRequest, SupplierPaymentPayload
 from app.services.numbering import make_po_no
 from app.services.audit import log_action
+from app.services.fx import to_usd
 
 router = APIRouter(tags=["采购"])
 
@@ -124,40 +125,63 @@ def pay_supplier(
     supplier_id: int,
     payload: SupplierPaymentPayload,
     session: Session = Depends(get_session),
-    actor: Actor = Depends(RequirePermission("procurement:view"))
+    actor: Actor = Depends(RequirePermission("procurement:manage")),
 ):
     sup = session.get(Supplier, supplier_id)
     if not sup:
         raise HTTPException(status_code=404, detail="供应商不存在")
 
-    if payload.currency.upper() in ["BS", "VES"]:
-        amount_usd = float(Decimal(str(payload.amount_paid)) / Decimal(str(payload.exchange_rate)))
-    else:
-        amount_usd = float(payload.amount_paid)
+    # 🌟 强制使用服务端权威汇率折算，忽略前端传入的 exchange_rate
+    try:
+        amount_usd, rate_snapshot = to_usd(payload.amount_paid, payload.currency)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     if amount_usd <= 0:
         raise HTTPException(status_code=400, detail="付款金额必须大于 0")
 
-    sup.debt_usd -= amount_usd
-    session.add(sup)
+    current_debt = Decimal(str(sup.debt_usd or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    if amount_usd > current_debt:
+        raise HTTPException(status_code=400, detail=f"付款金额 ${amount_usd:.2f} 超过欠款 ${current_debt:.2f}")
+
+    # 原子扣减应付账款，防并发冲突
+    paid = session.exec(
+        update(Supplier)
+        .where(
+            Supplier.id == sup.id,
+            func.coalesce(Supplier.debt_usd, 0.0) >= float(amount_usd),
+        )
+        .values(
+            debt_usd=func.round(
+                func.coalesce(Supplier.debt_usd, 0.0) - float(amount_usd), 2
+            )
+        )
+        .execution_options(synchronize_session=False)
+    )
+    if paid.rowcount != 1:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="应付账款已变化，请刷新后重试")
 
     record = SupplierPaymentRecord(
         supplier_id=sup.id,
         supplier_name=sup.name,
-        amount_usd=amount_usd,
-        currency=payload.currency,
+        amount_usd=float(amount_usd),
+        currency=payload.currency.strip().upper(),
         original_amount=float(payload.amount_paid),
-        exchange_rate=float(payload.exchange_rate),
+        exchange_rate=float(rate_snapshot.rate) if rate_snapshot else 1.0,
         payment_method=payload.payment_method,
         reference_no=payload.reference_no,
-        notes=payload.notes
+        notes=payload.notes,
     )
     session.add(record)
     session.commit()
 
-    log_action(session, actor.username, actor.role, "SUPPLIER_PAYMENT",
-               f"向供应商 {sup.name} 付款: ${amount_usd:.2f} USD")
-    return {"status": "success", "message": "付款成功"}
+    rate_desc = f"，汇率 {rate_snapshot.rate}（{rate_snapshot.source}）" if rate_snapshot else ""
+    log_action(
+        session, actor.username, actor.role, "SUPPLIER_PAYMENT",
+        f"向供应商 {sup.name} 付款: ${amount_usd:.2f} USD（原币 {payload.amount_paid} {payload.currency}{rate_desc}）",
+    )
+    return {"status": "success", "message": "付款成功", "amount_usd": float(amount_usd)}
 
 
 # ──────────────────────────── 采购订单接口 ────────────────────────────
@@ -271,50 +295,66 @@ def receive_purchase_order(
         total_order_amount_cents = 0
 
         for item_dict in items_data:
-            oem = item_dict.get("oem")
-            name = item_dict.get("name")
-            quantity = item_dict.get("quantity", 0)
-            unit_price = float(item_dict.get("unit_price", 0.0))
-            
-            d_price = Decimal(str(unit_price))
-            d_qty = Decimal(str(quantity))
-            
+            oem = (item_dict.get("oem") or "").strip()
+            name = (item_dict.get("name") or "").strip() or oem
+            if not oem:
+                raise HTTPException(status_code=400, detail=f"采购单 {po.po_no} 存在缺少 OEM 的明细")
+
+            try:
+                d_qty = Decimal(str(item_dict.get("quantity")))
+                d_price = Decimal(str(item_dict.get("unit_price")))
+            except (ArithmeticError, TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=f"采购单明细数值非法（OEM={oem}）")
+
+            if d_qty <= 0 or d_qty != d_qty.to_integral_value():
+                raise HTTPException(status_code=400, detail=f"明细数量必须为正整数（OEM={oem}）")
+            if d_price <= 0:
+                raise HTTPException(status_code=400, detail=f"明细单价必须大于 0（OEM={oem}）")
+
+            quantity = int(d_qty)
+            unit_price = float(d_price)
             line_total = (d_price * d_qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             total_order_amount_cents += int(line_total * 100)
 
-            brand = (item_dict.get("brand") or "").strip()
-            if brand:
-                part = session.exec(
-                    select(AutoPart).where(AutoPart.oem == oem, AutoPart.brand == brand)
-                ).first()
-            else:
-                matches = session.exec(select(AutoPart).where(AutoPart.oem == oem)).all()
-                if len(matches) > 1:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"OEM [{oem}] 存在多个品牌，采购单缺少 brand，无法确定入库商品。",
-                    )
-                part = matches[0] if matches else None
+            # 查找已有商品
+            part = session.exec(
+                select(AutoPart).where(AutoPart.oem == oem, AutoPart.brand == (item_dict.get("brand") or "GENERAL"))
+            ).first()
 
             if part:
+                # 🌟 加权平均成本（原子更新，防止并发丢失）
+                stock_expr = func.coalesce(AutoPart.stock, 0)
+                new_cost_expr = func.round(
+                    (
+                        stock_expr * func.coalesce(AutoPart.cost_price, 0.0)
+                        + quantity * unit_price
+                    ) * 1.0 / (stock_expr + quantity),
+                    4,
+                )
                 changed = session.exec(
                     update(AutoPart)
-                    .where(AutoPart.id == part.id)
+                    .where(
+                        AutoPart.id == part.id,
+                        func.coalesce(AutoPart.stock, 0) + quantity > 0,
+                    )
                     .values(
                         stock=AutoPart.stock + quantity,
-                        cost_price=unit_price
+                        cost_price=new_cost_expr,
                     )
+                    .execution_options(synchronize_session=False)
                 )
                 if changed.rowcount != 1:
-                    raise HTTPException(status_code=409, detail=f"商品 {oem} 已变更，请重试")
+                    raise HTTPException(status_code=409, detail=f"商品 {oem} 库存状态异常，请重试")
             else:
+                # 🚫 新商品不直接用进价当售价，置 0 强制后台定价，避免毛利为 0
                 session.add(AutoPart(
                     name=name,
                     oem=oem,
-                    brand=brand or "GENERAL",
+                    brand=item_dict.get("brand") or "GENERAL",
                     stock=quantity,
-                    price=unit_price, 
-                    cost_price=unit_price
+                    price=0.0,
+                    cost_price=unit_price,
+                    category="未分类（待定价）",
                 ))
 
             session.add(InventoryTransaction(
@@ -327,8 +367,8 @@ def receive_purchase_order(
                 customer_or_supplier=supplier.name if supplier else "Unknown Supplier",
             ))
 
+        total_order_amount = total_order_amount_cents / 100
         if supplier:
-            total_order_amount = total_order_amount_cents / 100
             session.exec(
                 update(Supplier)
                 .where(Supplier.id == supplier.id)
@@ -344,7 +384,7 @@ def receive_purchase_order(
             username=actor.username,
             role=actor.role,
             action="RECEIVE_PURCHASE_ORDER",
-            details=f"采购收货完成: {po.po_no}, 供应商: {supplier.name if supplier else '未知'}, 总金额: ${total_order_amount_cents / 100:.2f}",
+            details=f"采购收货完成: {po.po_no}, 供应商: {supplier.name if supplier else '未知'}, 总金额: ${total_order_amount:.2f}",
         )
 
         return {

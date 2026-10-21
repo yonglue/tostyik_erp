@@ -67,25 +67,26 @@ class ClientPaymentPayload(BaseModel):
 
 # ──────────────────────────── 采购收货 ────────────────────────────
 class PurchaseItemPayload(BaseModel):
-    oem: str
-    name: str
-    # 可选：同一 OEM 有多个品牌时用于精确入库；不传则只允许唯一 OEM
-    brand: Optional[str] = None
-    quantity: int
-    unit_price: MoneyType
+    oem: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1, max_length=150)
+    brand: Optional[str] = Field(default=None, max_length=50)
+    # 数量必须为正整数：防止负数让收货变成减库存
+    quantity: int = Field(gt=0, le=1_000_000)
+    # 进价必须 > 0：防止 0 元或负数入库污染加权成本
+    unit_price: PositiveMoney
 
 
 class CreatePurchaseOrderRequest(BaseModel):
-    supplier_name: str
-    po_no: Optional[str] = None # 🌟 新增：允许手动输入单号
-    items: List[PurchaseItemPayload]
+    supplier_name: str = Field(max_length=150)
+    po_no: Optional[str] = Field(default=None, max_length=50)
+    items: List[PurchaseItemPayload] = Field(min_length=1)
 
 
 # ──────────────────────────── 供应商付款 ────────────────────────────
 class SupplierPaymentPayload(BaseModel):
     amount_paid: MoneyType
-    currency: str = "USD" # USD 或 BS
-    exchange_rate: PositiveRate = Decimal("1.0")
+    currency: str = "USD"
+    exchange_rate: Optional[PositiveRate] = None
     payment_method: str = "Cash_USD"
     reference_no: Optional[str] = ""
     notes: Optional[str] = ""
