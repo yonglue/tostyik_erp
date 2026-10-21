@@ -41,7 +41,7 @@
           :class="isQuoteMode ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-blue-100 text-blue-700 border-blue-300'"
           class="px-3 py-1.5 border rounded-xl text-xs font-bold transition-all shadow-2xs hover:scale-[1.02] cursor-pointer flex items-center gap-1 mr-2"
         >
-          <span>{{ isQuoteMode ? '🔄 切换回收银' : '📄 切换到报价' }}</span>
+          <span>{{ isQuoteMode ? tExt.switchToCashier : tExt.switchToQuote }}</span>
         </button>
 
         <button v-if="!isQuoteMode" @click="openHistoryModal" class="bg-white/70 hover:bg-white/90 text-indigo-700 border border-slate-200 hover:border-indigo-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02]">
@@ -411,22 +411,22 @@
         <!-- ================= 🌟 报价模式面板 ================= -->
         <div v-if="isQuoteMode" class="flex flex-col h-full w-full p-4 justify-between animate-in fade-in duration-200">
           <div class="space-y-4">
-            <h3 class="font-bold text-sm text-slate-800 border-b border-slate-200/60 pb-2 flex items-center gap-2">📄 报价单信息</h3>
+            <h3 class="font-bold text-sm text-slate-800 border-b border-slate-200/60 pb-2 flex items-center gap-2">📄 {{ tExt.quoteInfoTitle }}</h3>
             
             <div>
-              <label class="block text-xs font-bold text-slate-500 mb-1">销售备注</label>
+              <label class="block text-xs font-bold text-slate-500 mb-1">{{ tExt.quoteNotesLabel }}</label>
               <textarea 
                 v-model="quoteNotes" 
                 class="w-full border border-slate-300 rounded-lg p-3 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-inner" 
                 rows="6" 
-                placeholder="填写客户要求、保修说明、交货期等..."
+                :placeholder="tExt.quoteNotesPlaceholder"
               ></textarea>
             </div>
             
             <div class="bg-amber-50/50 p-4 rounded-xl border border-amber-200/60">
-              <div class="text-xs text-amber-800 font-bold mb-1">💡 温馨提示:</div>
+              <div class="text-xs text-amber-800 font-bold mb-1">{{ tExt.quoteTipTitle }}</div>
               <div class="text-xs text-amber-700/80 leading-relaxed">
-                生成报价单不会扣减库存。客户确认购买后，请切回收银模式重新开单收款。
+                {{ tExt.quoteTipText }}
               </div>
             </div>
           </div>
@@ -437,7 +437,7 @@
               :disabled="cartItems.length === 0 || isSubmitting"
               class="w-full py-3.5 bg-amber-500 hover:bg-amber-400 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl font-black text-sm shadow-md shadow-amber-500/30 transition-all cursor-pointer flex items-center justify-center gap-1.5"
             >
-              <span>💾 {{ isSubmitting ? '正在生成...' : '保存并生成报价单 PDF' }}</span>
+              <span>💾 {{ isSubmitting ? tExt.savingQuote : tExt.saveQuoteBtn }}</span>
             </button>
           </div>
         </div>
@@ -868,8 +868,72 @@
       @cancel="exitConfirmVisible = false" 
       @confirm="executeExitPos" 
     />
-  </div>
-</template>
+
+    <!-- ==================================================== -->
+    <!-- 🌟 核心新增：隐藏的 80mm 热敏打印区域                  -->
+    <!-- ==================================================== -->
+    <div v-if="printData" class="print-only hidden" id="print-section">
+      <div class="print-header">
+        <h2>{{ systemConfig.company_name || 'TOSTIYK (TK)' }}</h2>
+        <p>RIF: {{ systemConfig.rif || 'J-00000000-0' }}</p>
+        <p>{{ systemConfig.address || 'Valencia, Carabobo' }}</p>
+        <p>Tel: {{ systemConfig.phone || 'N/A' }}</p>
+        <p class="divider">--------------------------------</p>
+      </div>
+      
+      <div class="print-meta">
+        <p>单号: {{ printData.order_no }}</p>
+        <p>日期: {{ printData.date }}</p>
+        <p>客户: {{ printData.client_name }}</p>
+        <p>收银: {{ printData.operator }}</p>
+        <p class="divider">--------------------------------</p>
+      </div>
+
+      <div class="print-items">
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align: left;">商品</th>
+              <th style="text-align: center;">数量</th>
+              <th style="text-align: right;">小计</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in printData.items" :key="item.oem">
+              <td style="text-align: left;">{{ item.name }}</td>
+              <td style="text-align: center;">{{ item.quantity }}</td>
+              <td style="text-align: right;">${{ (item.price * item.quantity).toFixed(2) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="divider">--------------------------------</p>
+      </div>
+
+      <div class="print-totals">
+        <p><span>Base Imponible:</span> <span>${{ printData.base_usd.toFixed(2) }}</span></p>
+        <p><span>IVA:</span> <span>${{ printData.tax_usd.toFixed(2) }}</span></p>
+        <p class="bold"><span>TOTAL USD:</span> <span>${{ printData.total_usd.toFixed(2) }}</span></p>
+        <p class="bold"><span>TOTAL VES:</span> <span>Bs. {{ printData.total_bs.toFixed(2) }}</span></p>
+        <p class="divider">--------------------------------</p>
+      </div>
+
+      <div class="print-payments">
+        <p>支付明细:</p>
+        <p v-if="printData.payment.cardPos > 0"> - Punto de Venta: Bs. {{ printData.payment.cardPos.toFixed(2) }}</p>
+        <p v-if="printData.payment.pagoMovil > 0"> - Pago Móvil: Bs. {{ printData.payment.pagoMovil.toFixed(2) }}</p>
+        <p v-if="printData.payment.cashBs > 0"> - Efectivo Bs: Bs. {{ printData.payment.cashBs.toFixed(2) }}</p>
+        <p v-if="printData.payment.cashUsd > 0"> - Efectivo USD: ${{ printData.payment.cashUsd.toFixed(2) }}</p>
+        <p v-if="printData.reference">Ref: {{ printData.reference }}</p>
+      </div>
+
+      <div class="print-footer">
+        <p>¡Gracias por su compra!</p>
+        <p>Tostiyk (TK) ERP</p>
+      </div>
+    </div>
+
+  </div> <!-- 这是最外层包裹所有界面的 div，只能有一个 -->
+</template> <!-- 这是 template 的结束标签，只能有一个 -->
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
@@ -886,6 +950,21 @@ const tExt = computed(() => {
   const isEs = currentLang.value === 'es'
   
   return {
+    switchToCashier: isZh ? '🔄 切换回收银' : isEs ? '🔄 Cambiar a Caja' : '🔄 Switch to Cashier',
+    switchToQuote: isZh ? '📄 切换到报价' : isEs ? '📄 Cambiar a Cotización' : '📄 Switch to Quote',
+    quoteInfoTitle: isZh ? '报价单信息' : isEs ? 'Información de Cotización' : 'Quotation Info',
+    quoteNotesLabel: isZh ? '销售备注' : isEs ? 'Notas de Venta' : 'Sales Notes',
+    quoteNotesPlaceholder: isZh ? '填写客户要求、保修说明、交货期等...' : isEs ? 'Requisitos del cliente, garantía, entrega...' : 'Client requirements, warranty, delivery...',
+    quoteTipTitle: isZh ? '💡 温馨提示:' : isEs ? '💡 Nota:' : '💡 Tip:',
+    quoteTipText: isZh ? '生成报价单不会扣减库存。客户确认购买后，请切回收银模式重新开单收款。' : isEs ? 'Generar cotización no descuenta inventario. Cámbiese a Caja para cobrar.' : 'Quotation does not deduct inventory. Switch to Cashier to charge.',
+    savingQuote: isZh ? '正在生成...' : isEs ? 'Generando...' : 'Generating...',
+    saveQuoteBtn: isZh ? '保存并生成报价单 PDF' : isEs ? 'Guardar y Generar PDF' : 'Save & Generate PDF',
+    genQuoteSuccess: isZh ? '报价单已生成并下载' : isEs ? 'Cotización generada y descargada' : 'Quotation generated and downloaded',
+    genQuotePdfError: isZh ? '报价单生成成功，但 PDF 下载失败' : isEs ? 'Cotización generada, pero fallo al descargar PDF' : 'Quotation generated, but PDF download failed',
+    genQuoteFail: isZh ? '生成报价单失败' : isEs ? 'Error al generar cotización' : 'Failed to generate quotation',
+    toastInvalidRif: isZh ? 'RIF 格式错误：必须是 8 到 9 位数字' : isEs ? 'Formato RIF inválido: 8 a 9 dígitos' : 'Invalid RIF: 8-9 digits',
+    toastInvalidPhone: isZh ? '电话号码错误：必须是 10 位数字' : isEs ? 'Teléfono inválido: 10 dígitos' : 'Invalid phone: 10 digits',
+    
     clearClient: isZh ? '清除当前选中客户' : isEs ? 'Limpiar cliente' : 'Clear client',
     clientSelected: isZh ? '当前已选客户' : isEs ? 'Cliente Seleccionado' : 'Selected Client',
     noClientSelected: isZh ? '未选择客户' : isEs ? 'Sin cliente' : 'No Client',
@@ -1402,13 +1481,13 @@ const saveNewClient = async () => {
 
   // 🌟 新增：前端 RIF 格式拦截
   if (newClientForm.value.rif_number && !/^\d{8,9}$/.test(newClientForm.value.rif_number)) {
-    showToast('❌ RIF 格式错误：必须是 8 到 9 位数字', 'error')
+    showToast('❌ ' + tExt.value.toastInvalidRif, 'error')
     return
   }
 
   // 🌟 新增：前端电话格式拦截
   if (newClientForm.value.phone && newClientForm.value.phone.length !== 10) {
-    showToast('❌ 电话号码错误：必须是 10 位数字', 'error')
+    showToast('❌ ' + tExt.value.toastInvalidPhone, 'error')
     return
   }
   
@@ -1674,6 +1753,7 @@ const openPreviewModal = () => {
 }
 
 const isSubmitting = ref(false)
+const printData = ref(null)
 
 const generateQuotationPDF = async () => {
   if (props.cartItems.length === 0) return
@@ -1682,7 +1762,7 @@ const generateQuotationPDF = async () => {
   try {
     const payload = {
       client_name: quoteClientName.value || "Cliente General",
-      payment_method: "quotation", // 明确标识为报价
+      payment_method: "quotation",
       lang: currentLang.value,
       items: props.cartItems.map(i => ({ 
         oem: i.oem, name: i.name, brand: i.brand || "GENERAL", 
@@ -1697,54 +1777,32 @@ const generateQuotationPDF = async () => {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      throw new Error(err.detail || '生成报价单失败')
+      throw new Error(err.detail || tExt.value.genQuoteFail)
     }
-    const data = await res.json()
     
-    // 成功后：使用 apiFetch 带上 Token 获取 PDF 流，然后再触发下载
-    if (data.pdf_url) {
-      try {
-        // 从后端的完整 URL 中提取出路径部分（比如 /api/quotation/pdf/download?quotation_no=xxx）
-        const urlObj = new URL(data.pdf_url)
-        const downloadPath = urlObj.pathname + urlObj.search
-        
-        // 带上 Token 请求 PDF
-        const pdfRes = await apiFetch(downloadPath)
-        if (!pdfRes.ok) throw new Error('PDF 下载失败')
-        
-        const blob = await pdfRes.blob()
-        const localUrl = window.URL.createObjectURL(blob)
-        
-        // 动态创建 a 标签触发下载
-        const a = document.createElement('a')
-        a.href = localUrl
-        a.download = `Quotation_${data.quotation_no || 'New'}.pdf`
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        window.URL.revokeObjectURL(localUrl)
-
-        showToast('✅ 报价单已生成并下载', 'success')
-      } catch (pdfErr) {
-        console.error(pdfErr)
-        showToast('❌ 报价单生成成功，但 PDF 下载失败', 'error')
-      }
-      
-      // 清空当前状态
-      emit('clear-cart')
-      quoteClientName.value = ''
-      quoteClientId.value = null
-      quoteNotes.value = ''
-      
-      // 切回收银模式
-      isQuoteMode.value = false 
-    }
+    // 🌟 核心修改：不再在前端请求 PDF 并下载
+    // 直接触发全屏绿色对勾动画
+    checkoutSuccessVisible.value = true
+    setTimeout(() => { checkoutSuccessVisible.value = false }, 1500)
+    
+    // 提示成功
+    showToast('✅ ' + tExt.value.genQuoteSuccess, 'success')
+    
+    // 清空当前状态
+    emit('clear-cart')
+    quoteClientName.value = ''
+    quoteClientId.value = null
+    quoteNotes.value = ''
+    
+    // 切回收银模式
+    isQuoteMode.value = false 
+    
   } catch (err) {
     showToast('❌ ' + err.message, 'error')
   } finally {
     isSubmitting.value = false
   }
-} // 🌟 这里补上了 generateQuotationPDF 的结束括号
+}
 
 const confirmAndPrint = async () => {
   if (isSubmitting.value) return 
@@ -1783,11 +1841,34 @@ const confirmAndPrint = async () => {
     setTimeout(() => { checkoutSuccessVisible.value = false }, 1500)
 
     showToast(`✅ ${tExt.value.toastCheckoutSuccess} ${data.order_no}`, 'success')
+
+    // 🌟 核心新增：组装打印数据
+    printData.value = {
+      order_no: data.order_no,
+      date: new Date().toLocaleString(),
+      client_name: quoteClientName.value || 'Cliente General',
+      operator: props.currentUser?.username || 'Admin',
+      items: [...props.cartItems], // 深拷贝，防止清空后打印数据丢失
+      base_usd: totalBaseUsd.value,
+      tax_usd: totalTaxUsd.value,
+      total_usd: totalUsd.value,
+      total_bs: totalUsd.value * props.bcvRate,
+      payment: { ...paymentSplit.value },
+      reference: paymentReference.value
+    }
+
+    // 清空状态
     paymentReference.value = ''
     quoteClientName.value = ''
     quoteClientId.value = null
     emit('generate-quote')
     fetchCompletedOrders()
+
+    // 🌟 核心新增：延迟 500ms 确保 DOM 更新完毕，然后调起打印机
+    setTimeout(() => {
+      window.print()
+    }, 500)
+
   } catch (err) { 
     showToast(err.message || tExt.value.toastCheckoutError, 'error') 
   } finally {
@@ -1956,4 +2037,96 @@ input[type=number].no-spinner {
 .animate-pop-in {
   animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
+
+/* ==================================================== */
+/* 🌟 核心新增：热敏小票打印 CSS 样式                    */
+/* ==================================================== */
+@media print {
+  /* 隐藏整个 Vue 应用的主体，只显示 #print-section */
+  body * {
+    visibility: hidden;
+  }
+  #print-section, #print-section * {
+    visibility: visible;
+  }
+  
+  /* 定位到左上角，去掉默认边距 */
+  #print-section {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm; /* 80mm 热敏纸宽度，如果是 58mm 请改为 58mm */
+    margin: 0;
+    padding: 5px;
+    font-family: 'Courier New', Courier, monospace; /* 等宽字体，小票标准 */
+    font-size: 12px;
+    color: #000;
+    background: #fff;
+    line-height: 1.2;
+  }
+
+  /* 强制页面无背景，取消所有阴影 */
+  @page {
+    size: auto; /* 自动适应打印机尺寸 */
+    margin: 0mm; 
+  }
+
+  .print-header, .print-footer {
+    text-align: center;
+  }
+  .print-header h2 {
+    font-size: 16px;
+    margin: 0 0 4px 0;
+  }
+  .print-header p, .print-footer p {
+    margin: 0;
+    font-size: 10px;
+  }
+  
+  .divider {
+    text-align: center;
+    margin: 4px 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .print-meta p {
+    margin: 2px 0;
+    font-size: 11px;
+  }
+
+  .print-items table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .print-items th, .print-items td {
+    padding: 2px 0;
+    font-size: 11px;
+  }
+  .print-items th {
+    border-bottom: 1px dashed #000;
+  }
+
+  .print-totals p {
+    display: flex;
+    justify-content: space-between;
+    margin: 2px 0;
+    font-size: 11px;
+  }
+  .print-totals .bold {
+    font-weight: bold;
+    font-size: 13px;
+  }
+
+  .print-payments p {
+    margin: 2px 0;
+    font-size: 10px;
+  }
+
+  .print-footer {
+    margin-top: 10px;
+  }
+}
+
+
 </style>

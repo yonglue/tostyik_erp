@@ -17,7 +17,7 @@
         </div>
 
         <div class="flex items-center gap-3 flex-wrap w-full md:w-auto">
-          <!-- 🌟 批量删除按钮 -->
+          <!-- 批量删除按钮 -->
           <button 
             v-if="selectedIds.length > 0" 
             @click="batchDeleteModalVisible = true" 
@@ -28,14 +28,14 @@
 
           <button
             @click="$emit('export-clients')"
-            class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md transition-all"
+            class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md transition-all cursor-pointer"
           >
             <FileSpreadsheet :size="16" />
             <span>{{ tExt.exportClients }}</span>
           </button>
           <button
             @click="$emit('open-add-client')"
-            class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md shadow-blue-500/25 transition-all"
+            class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md shadow-blue-500/25 transition-all cursor-pointer"
           >
             <Plus :size="16" />
             <span>{{ t.clients.addBtn }}</span>
@@ -47,7 +47,7 @@
         <table class="w-full text-left border-collapse min-w-[750px]">
           <thead>
             <tr class="bg-slate-50/75 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <!-- 🌟 全选框 -->
+              <!-- 全选框 -->
               <th class="py-3.5 px-4 w-12 text-center">
                 <input 
                   type="checkbox" 
@@ -71,9 +71,14 @@
                 {{ t.clients.empty }}
               </td>
             </tr>
-            <tr v-for="c in filteredClients" :key="c.id" class="hover:bg-slate-50/50 transition-colors">
-              <!-- 🌟 单选框 -->
-              <td class="py-4 px-4 text-center">
+            <tr 
+              v-for="c in filteredClients" 
+              :key="c.id" 
+              class="hover:bg-blue-50/30 transition-colors cursor-pointer group"
+              @click="openDetailDrawer(c)"
+            >
+              <!-- 单选框 -->
+              <td class="py-4 px-4 text-center" @click.stop>
                 <input 
                   type="checkbox" 
                   :checked="selectedIds.includes(c.id)" 
@@ -85,7 +90,7 @@
               <td class="py-4 px-6">
                 <span :class="['inline-flex px-2.5 py-1 rounded-md text-xs font-semibold',
                   c.client_type === 'Mayorista' ? 'bg-purple-50 text-purple-600' : (c.client_type === 'Taller' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600')]">
-                  {{ c.client_type }}
+                  {{ getClientTypeLabel(c.client_type) }}
                 </span>
               </td>
               <td class="py-4 px-6 font-mono text-slate-600">{{ c.phone || '-' }}</td>
@@ -94,20 +99,11 @@
               <td class="py-4 px-6 font-bold" :class="(c.debt || 0) > 0 ? 'text-rose-600' : 'text-slate-400'">
                 $ {{ (c.debt || 0).toFixed(2) }}
               </td>
-              <td class="py-4 px-6 text-center">
-                <div class="flex items-center justify-center gap-2">
-                  <!-- 🌟 新增：收款按钮（只有欠款大于 0 才显示） -->
-                  <button 
-                    v-if="(c.debt || 0) > 0"
-                    @click="openRepayModal(c)" 
-                    class="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer"
-                  >
-                    💰 {{ tExt.repay || '收款' }}
-                  </button>
-                  <button @click="$emit('delete-client', c)" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer">
-                    {{ t.common.delete }}
-                  </button>
-                </div>
+              <!-- 操作列：仅保留删除 -->
+              <td class="py-4 px-6 text-center" @click.stop>
+                <button @click="$emit('delete-client', c)" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer">
+                  {{ t.common.delete }}
+                </button>
               </td>
             </tr>
           </tbody>
@@ -127,32 +123,76 @@
       @confirm="confirmBatchDelete"
     />
 
-    <!-- 🌟 新增：客户收款 Modal -->
-    <div v-if="repayModalVisible" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 p-6 space-y-5">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div class="flex items-center gap-2">
-            <span class="text-xl">💰</span>
-            <h3 class="font-bold text-slate-800 text-base">{{ tExt.repayTitle || '客户还款收款' }}</h3>
+    <!-- 🌟 通用右侧详情/收款 Drawer -->
+    <SideDrawer 
+      :visible="detailDrawerVisible" 
+      :title="drawerMode === 'read' ? t.clients.title : tExt.repayTitle" 
+      :icon="drawerMode === 'read' ? '👤' : '💰'"
+      @close="closeDrawer"
+    >
+      <!-- 头部操作按钮（只在只读态显示） -->
+      <template #header-actions>
+        <template v-if="drawerMode === 'read'">
+          <button 
+            v-if="(currentClient?.debt || 0) > 0"
+            @click="switchToRepay" 
+            class="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer"
+          >
+            💰 {{ tExt.repay }}
+          </button>
+          <button @click="onDeleteFromDrawer" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer">
+            {{ t.common.delete }}
+          </button>
+        </template>
+      </template>
+
+      <!-- 内容区 -->
+      <div class="p-6">
+        
+        <!-- ===== 只读详情态 ===== -->
+        <div v-if="drawerMode === 'read'" class="space-y-5">
+          <!-- 欠款醒目卡片 -->
+          <div class="bg-rose-50/50 p-4 rounded-xl border border-rose-100 space-y-1">
+            <div class="text-xs text-rose-500 font-semibold">{{ tExt.currentDebt }}</div>
+            <div class="flex items-baseline gap-2">
+              <span class="font-black text-rose-600 text-2xl font-mono">$ {{ (currentClient?.debt || 0).toFixed(2) }}</span>
+              <span class="text-rose-400 font-medium text-xs"> (Bs. {{ ((currentClient?.debt || 0) * bcvRate).toFixed(2) }})</span>
+            </div>
           </div>
-          <button @click="repayModalVisible = false" class="text-slate-400 hover:text-slate-700 text-lg font-bold cursor-pointer">✕</button>
+
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.clients.colName }}</p>
+              <p class="font-bold text-slate-800">{{ currentClient?.name }}</p>
+            </div>
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.clients.colType }}</p>
+              <span :class="['inline-flex px-2.5 py-1 rounded-md text-xs font-semibold',
+                currentClient?.client_type === 'Mayorista' ? 'bg-purple-50 text-purple-600' : (currentClient?.client_type === 'Taller' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600')]">
+                {{ getClientTypeLabel(currentClient?.client_type) }}
+              </span>
+            </div>
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.clients.colPhone }}</p>
+              <p class="font-mono text-slate-800">{{ currentClient?.phone || '-' }}</p>
+            </div>
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.clients.colRif }}</p>
+              <p class="font-mono text-slate-800">{{ currentClient?.rif_or_cedula || '-' }}</p>
+            </div>
+            <div class="col-span-2">
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.clients.colAddress }}</p>
+              <p class="text-slate-700">{{ currentClient?.address || '-' }}</p>
+            </div>
+          </div>
         </div>
 
-        <!-- 客户信息与当前欠款 -->
-        <div class="bg-rose-50/50 p-4 rounded-xl border border-rose-100 space-y-1">
-          <div class="text-xs text-rose-500 font-semibold">{{ tExt.clientName || '客户名称' }}: <span class="font-bold text-slate-800">{{ currentClient?.name }}</span></div>
-          <div class="text-xs text-rose-500 font-semibold">
-            {{ tExt.currentDebt || '当前欠款' }}: 
-            <span class="font-black text-rose-600 text-sm">$ {{ (currentClient?.debt || 0).toFixed(2) }}</span>
-            <span class="text-rose-400 font-normal text-[10px]"> (Bs. {{ ((currentClient?.debt || 0) * bcvRate).toFixed(2) }})</span>
-          </div>
-        </div>
-
-        <div class="space-y-4">
+        <!-- ===== 收款编辑态 ===== -->
+        <div v-else-if="drawerMode === 'repay'" class="space-y-5">
           <!-- 金额与币种 -->
           <div class="flex items-end gap-3">
             <div class="flex-1">
-              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ tExt.amountPaid || '收款金额' }}</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ tExt.amountPaid }}</label>
               <input 
                 v-model.number="repayForm.amount_paid" 
                 type="number" 
@@ -181,42 +221,41 @@
 
           <!-- 实时折算提示 -->
           <div class="flex items-center justify-between bg-blue-50/50 p-3 rounded-xl border border-blue-100">
-            <span class="text-xs text-blue-700 font-semibold">{{ tExt.usdEquivalent || '折合美元' }}:</span>
+            <span class="text-xs text-blue-700 font-semibold">{{ tExt.usdEquivalent }}:</span>
             <span class="text-sm font-black text-blue-700 font-mono">
-              $ {{ repayForm.currency === 'USD' ? repayForm.amount_paid.toFixed(2) : (repayForm.amount_paid / bcvRate).toFixed(2) }}
+              $ {{ repayForm.currency === 'USD' ? (repayForm.amount_paid || 0).toFixed(2) : ((repayForm.amount_paid || 0) / bcvRate).toFixed(2) }}
             </span>
           </div>
 
           <!-- 支付方式与回执号 -->
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ tExt.payMethod || '支付方式' }}</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ tExt.payMethod }}</label>
               <select 
                 v-model="repayForm.payment_method"
                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold outline-none focus:border-blue-500 cursor-pointer"
               >
-                <option value="Cash_USD">美元现金</option>
-                <option value="Cash_BS">玻利瓦尔现金</option>
-                <option value="Pago_Movil">Pago Móvil</option>
-                <option value="Card_POS">刷卡 (POS)</option>
-                <option value="Bank_Transfer">银行转账</option>
-                <option value="Zelle">Zelle</option>
+                <option v-for="pm in paymentMethods" :key="pm.value" :value="pm.value">{{ pm.label }}</option>
               </select>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ tExt.referenceNo || '回执号码' }}</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ tExt.referenceNo }}</label>
               <input 
                 v-model="repayForm.reference_no" 
                 type="text" 
-                placeholder="选填"
+                :placeholder="tExt.optional"
                 class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono outline-none focus:border-blue-500" 
               />
             </div>
           </div>
         </div>
 
-        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-          <button @click="repayModalVisible = false" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+      </div>
+
+      <!-- 底部操作区（仅收款态显示） -->
+      <template #footer>
+        <div v-if="drawerMode === 'repay'" class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <button @click="switchToRead" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">
             {{ t.common.cancel }}
           </button>
           <button 
@@ -224,11 +263,11 @@
             :disabled="isRepaying"
             class="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white rounded-xl text-xs font-bold shadow-md shadow-amber-500/20 transition-all cursor-pointer"
           >
-            {{ isRepaying ? '...' : (tExt.confirmRepay || '确认收款') }}
+            {{ isRepaying ? '...' : tExt.confirmRepay }}
           </button>
         </div>
-      </div>
-    </div>
+      </template>
+    </SideDrawer>
 
   </div>
 </template>
@@ -241,6 +280,7 @@ import { apiFetch } from '../utils/api'
 import { useNotifications } from '../composables/useNotifications'
 import { useInventory } from '../composables/useInventory'
 import ConfirmDialog from './ConfirmDialog.vue'
+import SideDrawer from './SideDrawer.vue'
 
 const props = defineProps({
   clientsList: Array,
@@ -250,9 +290,9 @@ const props = defineProps({
 const emit = defineEmits(['update:clientSearchQuery', 'open-add-client', 'export-clients', 'delete-client', 'refresh-data'])
 const { t, currentLang } = useI18n()
 const { showSuccessModal } = useNotifications()
-const { bcvRate } = useInventory() // 🌟 引入全局汇率
+const { bcvRate } = useInventory()
 
-// 🌟 扩展翻译字典
+// 🌟 翻译字典
 const tExt = computed(() => {
   const isZh = currentLang.value === 'zh'
   const isEs = currentLang.value === 'es'
@@ -264,15 +304,42 @@ const tExt = computed(() => {
     batchDeleteMsg: isZh ? `确定要批量删除选中的 ${selectedIds.value.length} 个客户档案吗？删除后不可恢复。` : isEs ? `¿Eliminar ${selectedIds.value.length} clientes seleccionados? No se puede deshacer.` : `Delete ${selectedIds.value.length} selected clients? Cannot be undone.`,
     repay: isZh ? '收款' : isEs ? 'Cobrar' : 'Repay',
     repayTitle: isZh ? '客户还款收款' : isEs ? 'Cobro de Deuda' : 'Client Debt Collection',
-    clientName: isZh ? '客户名称' : isEs ? 'Cliente' : 'Client',
     currentDebt: isZh ? '当前欠款' : isEs ? 'Deuda Actual' : 'Current Debt',
     amountPaid: isZh ? '收款金额' : isEs ? 'Monto a Cobrar' : 'Amount to Pay',
     usdEquivalent: isZh ? '折合美元' : isEs ? 'Equivalente USD' : 'USD Equivalent',
     payMethod: isZh ? '支付方式' : isEs ? 'Método de Pago' : 'Payment Method',
     referenceNo: isZh ? '回执号码' : isEs ? 'Nro. Referencia' : 'Reference No.',
-    confirmRepay: isZh ? '确认收款' : isEs ? 'Confirmar Cobro' : 'Confirm Repayment'
+    confirmRepay: isZh ? '确认收款' : isEs ? 'Confirmar Cobro' : 'Confirm Repayment',
+    optional: isZh ? '选填' : isEs ? 'Opcional' : 'Optional',
+    regular: isZh ? '零售' : isEs ? 'Regular' : 'Retail',
+    taller: isZh ? '修理厂' : isEs ? 'Taller' : 'Workshop',
+    mayorista: isZh ? '批发商' : isEs ? 'Mayorista' : 'Wholesaler',
+    toastInvalidAmount: isZh ? '请输入有效的金额' : isEs ? 'Ingrese un monto válido' : 'Please enter a valid amount',
+    toastRepaySuccess: isZh ? '收款成功！' : isEs ? '¡Cobro exitoso!' : 'Repayment successful!',
+    toastRepayFailed: isZh ? '收款失败' : isEs ? 'Cobro fallido' : 'Repayment failed',
+    toastNetworkError: isZh ? '网络连接异常' : isEs ? 'Error de conexión' : 'Network error'
   }
 })
+
+// 动态支付方式翻译
+const paymentMethods = computed(() => {
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  return [
+    { value: 'Cash_USD', label: isZh ? '美元现金' : isEs ? 'Efectivo USD' : 'Cash USD' },
+    { value: 'Cash_BS', label: isZh ? '玻利瓦尔现金' : isEs ? 'Efectivo Bs.' : 'Cash Bs.' },
+    { value: 'Pago_Movil', label: isZh ? 'Pago Móvil' : isEs ? 'Pago Móvil' : 'Pago Móvil' },
+    { value: 'Card_POS', label: isZh ? '刷卡 (POS)' : isEs ? 'Punto de Venta' : 'Card POS' },
+    { value: 'Bank_Transfer', label: isZh ? '银行转账' : isEs ? 'Transferencia' : 'Bank Transfer' },
+    { value: 'Zelle', label: isZh ? 'Zelle' : isEs ? 'Zelle' : 'Zelle' }
+  ]
+})
+
+const getClientTypeLabel = (type) => {
+  if (type === 'Mayorista') return tExt.value.mayorista
+  if (type === 'Taller') return tExt.value.taller
+  return tExt.value.regular
+}
 
 const selectedIds = ref([])
 const batchDeleteModalVisible = ref(false)
@@ -321,9 +388,10 @@ const confirmBatchDelete = async () => {
   }
 }
 
-// ================= 收款逻辑 =================
+// ================= Drawer 与 收款逻辑 =================
 
-const repayModalVisible = ref(false)
+const detailDrawerVisible = ref(false)
+const drawerMode = ref('read') // 'read' | 'repay'
 const currentClient = ref(null)
 const isRepaying = ref(false)
 
@@ -335,21 +403,40 @@ const repayForm = ref({
   notes: ''
 })
 
-const openRepayModal = (client) => {
-  currentClient.value = client
+const openDetailDrawer = (client) => {
+  currentClient.value = { ...client }
+  drawerMode.value = 'read'
+  detailDrawerVisible.value = true
+}
+
+const switchToRepay = () => {
   repayForm.value = {
-    amount_paid: client.debt || 0, // 默认填入全部欠款
+    amount_paid: currentClient.value?.debt || 0,
     currency: 'USD',
     payment_method: 'Cash_USD',
     reference_no: '',
     notes: ''
   }
-  repayModalVisible.value = true
+  drawerMode.value = 'repay'
+}
+
+const switchToRead = () => {
+  drawerMode.value = 'read'
+}
+
+const closeDrawer = () => {
+  detailDrawerVisible.value = false
+  drawerMode.value = 'read'
+}
+
+const onDeleteFromDrawer = () => {
+  emit('delete-client', currentClient.value)
+  closeDrawer()
 }
 
 const submitRepayment = async () => {
   if (repayForm.value.amount_paid <= 0) {
-    showSuccessModal('❌ 请输入有效的金额')
+    showSuccessModal('❌ ' + tExt.value.toastInvalidAmount)
     return
   }
 
@@ -371,16 +458,22 @@ const submitRepayment = async () => {
 
     if (res.ok) {
       const data = await res.json()
-      showSuccessModal(`✅ 收款成功！折合 $${data.amount_usd_equivalent.toFixed(2)}，剩余欠款 $${data.remaining_debt.toFixed(2)}`)
-      repayModalVisible.value = false
-      emit('refresh-data') // 让父组件刷新客户列表
+      showSuccessModal(`✅ ${tExt.value.toastRepaySuccess} 折合 $${data.amount_usd_equivalent.toFixed(2)}，剩余欠款 $${data.remaining_debt.toFixed(2)}`)
+      
+      // 更新本地当前客户欠款
+      if (currentClient.value) {
+        currentClient.value.debt = data.remaining_debt
+      }
+      
+      drawerMode.value = 'read'
+      emit('refresh-data')
     } else {
       const err = await res.json().catch(() => ({}))
-      showSuccessModal(`❌ 收款失败: ${err.detail || '未知错误'}`)
+      showSuccessModal(`❌ ${tExt.value.toastRepayFailed}: ${err.detail || t.common.error}`)
     }
   } catch (e) {
     console.error(e)
-    showSuccessModal('❌ 网络连接异常')
+    showSuccessModal('❌ ' + tExt.value.toastNetworkError)
   } finally {
     isRepaying.value = false
   }

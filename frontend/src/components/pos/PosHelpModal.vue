@@ -20,15 +20,15 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-slate-700">
             <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
               <span class="font-bold">{{ tExt.hkFocus }}</span>
-              <span class="font-mono bg-slate-100 px-2.5 py-1 rounded text-blue-600 font-bold">[ / ] 键</span>
+              <span class="font-mono bg-slate-100 px-2.5 py-1 rounded text-blue-600 font-bold">{{ tExt.keySlash }}</span>
             </div>
             <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
               <span class="font-bold">{{ tExt.hkSelectResult }}</span>
-              <span class="font-mono bg-slate-100 px-2.5 py-1 rounded text-blue-600 font-bold">↑ / ↓ 键</span>
+              <span class="font-mono bg-slate-100 px-2.5 py-1 rounded text-blue-600 font-bold">↑ / ↓</span>
             </div>
             <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
               <span class="font-bold">{{ tExt.hkConfirmAdd }}</span>
-              <span class="font-mono bg-slate-100 px-2.5 py-1 rounded text-blue-600 font-bold">Enter 键</span>
+              <span class="font-mono bg-slate-100 px-2.5 py-1 rounded text-blue-600 font-bold">{{ tExt.keyEnter }}</span>
             </div>
           </div>
         </div>
@@ -39,15 +39,15 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-slate-700">
             <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
               <span class="font-bold">{{ tExt.hkSwitchRow }}</span>
-              <span class="font-mono bg-slate-100 px-2.5 py-1 rounded text-indigo-600 font-bold">↑ / ↓ 键</span>
+              <span class="font-mono bg-slate-100 px-2.5 py-1 rounded text-indigo-600 font-bold">↑ / ↓</span>
             </div>
             <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
               <span class="font-bold">{{ tExt.hkQtyAdd }}</span>
-              <span class="font-mono bg-slate-100 px-2.5 py-1 rounded text-indigo-600 font-bold">+ / = 键</span>
+              <span class="font-mono bg-slate-100 px-2.5 py-1 rounded text-indigo-600 font-bold">+ / =</span>
             </div>
             <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
               <span class="font-bold">{{ tExt.hkQtySub }}</span>
-              <span class="font-mono bg-slate-100 px-2.5 py-1 rounded text-indigo-600 font-bold">- 键</span>
+              <span class="font-mono bg-slate-100 px-2.5 py-1 rounded text-indigo-600 font-bold">-</span>
             </div>
             <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
               <span class="font-bold">{{ tExt.hkDelete }}</span>
@@ -66,19 +66,19 @@
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-slate-700">
             <div class="bg-white p-3 rounded-xl border border-slate-200/80 text-center shadow-2xs">
               <span class="block font-bold text-slate-900 mb-1">{{ tExt.payCash }}</span>
-              <span class="font-mono bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-black text-xs">F4 键</span>
+              <span class="font-mono bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-black text-xs">F4</span>
             </div>
             <div class="bg-white p-3 rounded-xl border border-slate-200/80 text-center shadow-2xs">
               <span class="block font-bold text-slate-900 mb-1">{{ tExt.payBs }}</span>
-              <span class="font-mono bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-black text-xs">F5 键</span>
+              <span class="font-mono bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-black text-xs">F5</span>
             </div>
             <div class="bg-white p-3 rounded-xl border border-slate-200/80 text-center shadow-2xs">
               <span class="block font-bold text-slate-900 mb-1">{{ tExt.payPos }}</span>
-              <span class="font-mono bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-black text-xs">F6 键</span>
+              <span class="font-mono bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-black text-xs">F6</span>
             </div>
             <div class="bg-white p-3 rounded-xl border border-slate-200/80 text-center shadow-2xs">
               <span class="block font-bold text-slate-900 mb-1">{{ tExt.payPago }}</span>
-              <span class="font-mono bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-black text-xs">F7 键</span>
+              <span class="font-mono bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-black text-xs">F7</span>
             </div>
           </div>
           <div class="bg-white p-3 rounded-xl border border-slate-200/80 text-slate-600 text-center shadow-2xs mt-2">
@@ -123,7 +123,6 @@
 
 <script setup>
 import { computed } from 'vue'
-// 🌟 核心修复：路径退两级 ../../ 才能找到 src/composables
 import { useI18n } from '../../composables/useI18n'
 
 defineProps({
@@ -143,6 +142,8 @@ const tExt = computed(() => {
     groupPay: isZh ? '支付通道快速聚焦' : isEs ? 'Enfoque Rápido de Pago' : 'Quick Payment Focus',
     groupSys: isZh ? '系统常用快捷键' : isEs ? 'Atajos del Sistema' : 'System Shortcuts',
     hkFocus: isZh ? '聚焦搜索框' : isEs ? 'Enfocar caja de búsqueda' : 'Focus search box',
+    keySlash: isZh ? '[ / ] 键' : isEs ? 'Tecla [ / ]' : '[ / ] Key',
+    keyEnter: isZh ? 'Enter 键' : isEs ? 'Tecla Enter' : 'Enter Key',
     hkSelectResult: isZh ? '搜索结果上下选择' : isEs ? 'Seleccionar resultado' : 'Select result',
     hkConfirmAdd: isZh ? '确认添加商品' : isEs ? 'Confirmar agregar' : 'Confirm add',
     hkSwitchRow: isZh ? '切换选中购物车行' : isEs ? 'Cambiar fila del carrito' : 'Switch cart row',

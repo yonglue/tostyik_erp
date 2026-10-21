@@ -1,9 +1,11 @@
 """库存出入库流水：列表 / 新增（联动库存）/ 删除（回滚库存）。"""
 
-from typing import List
+from typing import List, Optional
+from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlmodel import Session, select, update
 
@@ -13,6 +15,16 @@ from app.models import AutoPart, InventoryTransaction
 from app.services.audit import log_action
 
 router = APIRouter(tags=["进销存"])
+
+
+# 🌟 定义专属的请求载荷（防止因为模型必填字段缺失导致 422 报错）
+class ManualTransactionPayload(BaseModel):
+    type: str
+    part_oem: str
+    part_name: str
+    quantity: int
+    unit_price: float
+    customer_or_supplier: Optional[str] = ""
 
 
 def _resolve_part_by_oem(session: Session, oem: str) -> AutoPart:
@@ -46,52 +58,63 @@ def get_transactions(
 # 🌟 加锁：必须拥有管理库存的权限
 @router.post("/api/transactions", response_model=InventoryTransaction)
 def create_transaction(
-    tx: InventoryTransaction,
+    payload: ManualTransactionPayload, # 🌟 改为接收自定义载荷
     actor: Actor = Depends(RequirePermission("parts:manage")),
     session: Session = Depends(get_session),
 ):
     # 🌟 校验类型合法性
-    if tx.type not in ("IN", "OUT"):
+    if payload.type not in ("IN", "OUT"):
         raise HTTPException(status_code=400, detail="无效的库存变动类型，只能是 'IN' 或 'OUT'")
-    if tx.quantity <= 0:
+    if payload.quantity <= 0:
         raise HTTPException(status_code=400, detail="库存变动数量必须大于 0")
 
-    part = _resolve_part_by_oem(session, tx.part_oem)
+    part = _resolve_part_by_oem(session, payload.part_oem)
 
     old_stock = part.stock
     new_stock = old_stock
 
-    if tx.type == "IN":
+    if payload.type == "IN":
         # 原子自增，按主键精确命中一行
         changed = session.exec(
             update(AutoPart)
             .where(AutoPart.id == part.id)
-            .values(stock=AutoPart.stock + tx.quantity)
+            .values(stock=AutoPart.stock + payload.quantity)
         )
         if changed.rowcount != 1:
             session.rollback()
             raise HTTPException(status_code=409, detail="商品已变更，请刷新后重试")
-        new_stock = old_stock + tx.quantity
-    elif tx.type == "OUT":
+        new_stock = old_stock + payload.quantity
+    elif payload.type == "OUT":
         # 原子条件扣减：并发时只有一个能扣成功，避免超卖
         changed = session.exec(
             update(AutoPart)
-            .where(AutoPart.id == part.id, AutoPart.stock >= tx.quantity)
-            .values(stock=AutoPart.stock - tx.quantity)
+            .where(AutoPart.id == part.id, AutoPart.stock >= payload.quantity)
+            .values(stock=AutoPart.stock - payload.quantity)
         )
         if changed.rowcount != 1:
             session.rollback()
             raise HTTPException(status_code=400, detail="库存不足，无法出库！")
-        new_stock = old_stock - tx.quantity
+        new_stock = old_stock - payload.quantity
 
-    # 🌟 精度保护：使用 Decimal 计算流水总额
-    d_price = Decimal(str(tx.unit_price))
-    d_qty = Decimal(str(tx.quantity))
-    tx.total_amount = float((d_price * d_qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+    # 🌟 精度保护：使用 Decimal 计算流水总额，并组装数据库模型
+    d_price = Decimal(str(payload.unit_price))
+    d_qty = Decimal(str(payload.quantity))
+    calculated_total = float((d_price * d_qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
     
-    session.add(tx)
+    new_tx = InventoryTransaction(
+        type=payload.type,
+        part_oem=payload.part_oem,
+        part_name=payload.part_name,
+        quantity=payload.quantity,
+        unit_price=payload.unit_price,
+        total_amount=calculated_total,
+        customer_or_supplier=payload.customer_or_supplier,
+        timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S") # 补齐时间戳
+    )
+    
+    session.add(new_tx)
     session.commit()
-    session.refresh(tx)
+    session.refresh(new_tx)
 
     log_action(
         session=session,
@@ -99,12 +122,12 @@ def create_transaction(
         role=actor.role,
         action="UPDATE_STOCK",
         details=(
-            f"进销存单据导致库存变动: {part.name} (OEM: {tx.part_oem}), "
-            f"原库存: {old_stock} -> 新库存: {new_stock} (类型: {tx.type}, 数量: {tx.quantity})"
+            f"进销存单据导致库存变动: {part.name} (OEM: {new_tx.part_oem}), "
+            f"原库存: {old_stock} -> 新库存: {new_stock} (类型: {new_tx.type}, 数量: {new_tx.quantity})"
         ),
     )
 
-    return tx
+    return new_tx
 
 
 # 🌟 加锁：必须拥有管理库存的权限（流水删除是非常敏感的操作）

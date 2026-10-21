@@ -20,7 +20,7 @@
           <p class="text-[10px] text-slate-400 font-medium tracking-wide">Automotive Parts System</p>
         </div>
       </div>
-      <button @click="$emit('update:mobileMenuOpen', false)" class="md:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
+      <button @click="$emit('update:mobileMenuOpen', false)" class="md:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer">
         ✕
       </button>
     </div>
@@ -72,7 +72,7 @@ import {
   Cpu,
   LayoutDashboard, 
   TrendingUp, 
-  TrendingDown, // 🌟 关键：必须引入这个图标
+  TrendingDown,
   Package, 
   ShieldCheck, 
   Users, 
@@ -81,8 +81,7 @@ import {
   Calculator, 
   FileText, 
   Database,
-  ShieldAlert,
-  Settings
+  ShieldAlert
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -108,7 +107,7 @@ const groupedMenuItems = computed(() => {
       items: [
         { key: 'dashboard', icon: LayoutDashboard },
         { key: 'financial', icon: TrendingUp, requiredPerm: 'financial:view' },
-        { key: 'expenses', icon: TrendingDown, requiredPerm: 'financial:view' }, // 🌟 新增日常开支
+        { key: 'expenses', icon: TrendingDown, requiredPerm: 'financial:view' },
       ]
     },
     {
@@ -124,7 +123,7 @@ const groupedMenuItems = computed(() => {
         { key: 'procurement', icon: ShoppingCart, requiredPerm: 'procurement:view' },
         { key: 'transactions', icon: History, requiredPerm: 'transactions:history' },
         { key: 'desk', icon: Calculator, requiredPerm: 'pos:access' },
-        { key: 'quotations', labelKey: 'quotations', icon: FileText, requiredPerm: 'pos:access' },
+        { key: 'quotations', icon: FileText, requiredPerm: 'pos:access' },
         { key: 'cash_register', labelKey: 'cashRegister', icon: FileText, requiredPerm: 'shift:report' },
       ]
     },

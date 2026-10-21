@@ -55,8 +55,7 @@ const translations = {
       staff: "员工权限管理",
       auditLogs: "系统审计日志",
       backup: "数据备份",
-      suppliers: "供应商管理", // 中文
-      suppliers: "Proveedores" // 西语
+      suppliers: "供应商管理"
     },
     dashboard: {
       title: "TOSTIKYK ERP 经营总览",
@@ -128,6 +127,11 @@ const translations = {
       tax16: "16% 标准增值税",
       tax8: "8% 减免增值税",
       tax0: "0% 免税",
+      costPrice: "进货价 (USD)",
+      profit: "毛利 (USD)",
+      noImage: "暂无图片",
+      detailTitle: "配件详情",
+      binPlaceholder: "货架库位（如 A-1）"
     },
     clients: {
       title: "客户关系与欠款/记账本",
@@ -236,6 +240,7 @@ const translations = {
       staff: "Gestión de Personal",
       auditLogs: "Registros de Auditoría",
       backup: "Respaldo y Migración",
+      suppliers: "Proveedores"
     },
     dashboard: {
       title: "TOSTIKYK ERP - Panel General",
@@ -306,6 +311,11 @@ const translations = {
       tax16: "16% IVA General",
       tax8: "8% IVA Reducido",
       tax0: "0% Exento",
+      costPrice: "Precio de Costo ($)",
+      profit: "Ganancia ($)",
+      noImage: "Sin foto",
+      detailTitle: "Detalle del Repuesto",
+      binPlaceholder: "Ubicación (ej. A-1)"
     },
     clients: {
       title: "Directorio de Clientes y Fiado",
@@ -411,6 +421,7 @@ const translations = {
       staff: "Staff Management",
       auditLogs: "Audit Logs",
       backup: "Backup",
+      suppliers: "Suppliers"
     },
     dashboard: {
       title: "TOSTIKYK ERP Dashboard",
@@ -481,6 +492,11 @@ const translations = {
       tax16: "16% General VAT",
       tax8: "8% Reduced VAT",
       tax0: "0% Exempt",
+      costPrice: "Cost Price ($)",
+      profit: "Profit ($)",
+      noImage: "No Photo",
+      detailTitle: "Part Details",
+      binPlaceholder: "Bin Location (e.g. A-1)"
     },
     clients: {
       title: "Client Relationship & Fiado Ledger",

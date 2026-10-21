@@ -3,7 +3,7 @@
 import json
 import os
 from datetime import datetime
-from decimal import Decimal, ROUND_HALF_UP # 🌟 引入 Decimal 处理金额
+from decimal import Decimal, ROUND_HALF_UP
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -53,14 +53,21 @@ def generate_and_save_quotation(
 ):
     bcv_rate = get_official_rate()
     
-    # 🌟 核心修复 1：使用 Decimal 计算总价，防止精度丢失
+    # 🌟 核心修复：把数量校验提到最前面，防止负数污染后续的金额计算
+    for item in payload.items:
+        if item.quantity <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"❌ 非法操作：商品 {item.oem} 的购买数量必须大于 0！",
+            )
+
+    # 使用 Decimal 计算总价，防止精度丢失
     total_usd_dec = Decimal("0.00")
     for item in payload.items:
-        # 将商品单价转为 Decimal，乘以数量，并四舍五入到两位小数
         line_total = (Decimal(str(item.price)) * item.quantity).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         total_usd_dec += line_total
     
-    total_usd = float(total_usd_dec) # 入库暂存 float
+    total_usd = float(total_usd_dec) 
     total_bs = float((total_usd_dec * Decimal(str(bcv_rate))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
     quotation_no = make_quotation_no()
@@ -74,19 +81,10 @@ def generate_and_save_quotation(
         session.add(client_obj)
         session.flush()
 
-    for item in payload.items:
-        if item.quantity <= 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"❌ 非法操作：商品 {item.oem} 的购买数量必须大于 0！",
-            )
-
-
     pay_method = str(payload.payment_method).lower()
     is_fiado = any(keyword in pay_method for keyword in ["fiado", "debt", "赊账", "挂账", "credit"])
 
     if client_obj and is_fiado:
-        # 挂账逻辑同上，使用 Decimal 计算，避免浮点误差导致额度判断出错
         projected_debt = Decimal(str(client_obj.debt)) + total_usd_dec
         
         if projected_debt > Decimal(str(client_obj.credit_limit)):
@@ -145,7 +143,6 @@ def generate_and_save_quotation(
     }
 
 
-# 🌟 核心修复 2：加上 RequirePermission 权限拦截，只有能进 POS 的人才能下 PDF
 @router.get("/api/quotation/pdf/download", dependencies=[Depends(RequirePermission("pos:access"))])
 def download_existing_pdf(
     request: Request,
@@ -157,7 +154,6 @@ def download_existing_pdf(
     
     target_no = quotation_no or order_no
     
-    # 🌟 核心修复 3：拦截路径穿越漏洞（Path Traversal），严禁包含特殊字符
     if target_no and any(bad_char in target_no for bad_char in ["/", "\\", "..", ":"]):
         raise HTTPException(status_code=400, detail="非法的单号格式")
 
@@ -224,7 +220,6 @@ def download_existing_pdf(
             if os.path.exists(pdf_path):
                 return FileResponse(pdf_path, media_type="application/pdf", filename=f"Order_{target_no}.pdf")
 
-    # 降级兜底
     files = [f for f in os.listdir(UPLOAD_DIR) if f.startswith("quotation_") and f.endswith(".pdf")]
     if files:
         files.sort(key=lambda x: os.path.getmtime(os.path.join(UPLOAD_DIR, x)), reverse=True)

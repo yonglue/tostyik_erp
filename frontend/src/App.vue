@@ -99,9 +99,6 @@
             v-else-if="activeTab === 'procurement' && hasPermission('procurement:view')"
             @navigate="checkAndSwitchTab" 
           />          
-          <PurchaseOrdersView 
-            v-else-if="activeTab === 'procurement' && hasPermission('procurement:view')"
-          />
           <TransactionsView 
             v-else-if="activeTab === 'transactions' && hasPermission('transactions:history')"
             :transactionsList="transactionsList"
@@ -114,6 +111,7 @@
           <QuotationListView 
             v-else-if="activeTab === 'quotations' && hasPermission('pos:access')"
             @convert-to-pos="handleConvertToPos"
+            @delete-quote="openDeleteModal"
             @show-toast="(msg, type) => showSuccessModal(msg)"
           />
 
@@ -156,6 +154,73 @@
         </main>
       </div>
 
+    </div>
+
+    <!-- 🌟 新增：手工录入进销存单据弹窗 -->
+    <div v-if="txDialogVisible" @click.self="txDialogVisible = false" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 transition-all">
+      <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 p-6 space-y-5">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">📝</span>
+            <h3 class="font-bold text-slate-800 text-base">{{ tExt.dialogAddTxTitle }}</h3>
+          </div>
+          <button @click="txDialogVisible = false" class="text-slate-400 hover:text-slate-700 text-lg font-bold cursor-pointer">✕</button>
+        </div>
+
+        <form @submit.prevent="handleAddTx" class="space-y-4">
+          <!-- 类型选择 -->
+          <div class="flex gap-4">
+            <label class="flex-1 cursor-pointer">
+              <input type="radio" v-model="newTx.type" value="OUT" class="peer sr-only" />
+              <div class="p-3 text-center rounded-xl border border-slate-200 bg-slate-50 peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:text-amber-700 text-slate-600 font-bold transition-all">
+                出库 (销售)
+              </div>
+            </label>
+            <label class="flex-1 cursor-pointer">
+              <input type="radio" v-model="newTx.type" value="IN" class="peer sr-only" />
+              <div class="p-3 text-center rounded-xl border border-slate-200 bg-slate-50 peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:text-emerald-700 text-slate-600 font-bold transition-all">
+                入库 (采购)
+              </div>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">OEM 编号</label>
+              <input v-model="newTx.part_oem" type="text" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-mono font-bold outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">配件名称</label>
+              <input v-model="newTx.part_name" type="text" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-medium outline-none focus:border-blue-500" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">数量</label>
+              <input v-model.number="newTx.quantity" type="number" min="1" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-bold font-mono outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">单价 ($)</label>
+              <input v-model.number="newTx.unit_price" type="number" step="0.01" min="0" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-bold font-mono outline-none focus:border-blue-500" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">客户 / 供应商</label>
+            <input v-model="newTx.customer_or_supplier" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:border-blue-500" />
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+            <button type="button" @click="txDialogVisible = false" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+              {{ t.common.cancel }}
+            </button>
+            <button type="submit" :disabled="isSubmittingTx" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer disabled:opacity-50">
+              {{ isSubmittingTx ? '...' : t.common.save }}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!-- 弹窗组件：录入新汽配 -->
@@ -203,18 +268,18 @@
               <input v-model.number="newPart.stock" type="number" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">零售价 ($)</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colPriceUsd }}</label>
               <input v-model.number="newPart.price" type="number" step="0.5" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-amber-600 mb-1">进货价 ($)</label>
+              <label class="block text-xs font-semibold text-amber-600 mb-1">{{ t.inventory.costPrice }}</label>
               <input v-model.number="newPart.cost_price" type="number" step="0.5" min="0" class="w-full bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono text-amber-900 outline-none focus:border-amber-500" />
             </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">🌟 {{ t.inventory.taxRate }} (IVA)</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.taxRate }}</label>
               <select v-model.number="newPart.tax_rate" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold outline-none focus:border-blue-500 cursor-pointer">
                 <option :value="0.16">{{ t.inventory.tax16 }}</option>
                 <option :value="0.08">{{ t.inventory.tax8 }}</option>
@@ -223,7 +288,7 @@
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colBin }}</label>
-              <input v-model="newPart.bin_location" type="text" placeholder="Estante A-1" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono outline-none focus:border-blue-500" />
+              <input v-model="newPart.bin_location" type="text" :placeholder="t.inventory.binPlaceholder" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono outline-none focus:border-blue-500" />
             </div>
           </div>
 
@@ -459,6 +524,8 @@ const tExt = computed(() => {
     toastClientAdded: isZh ? '新客户档案创建成功！' : isEs ? '¡Cliente creado con éxito!' : 'Client created successfully!',
     toastErrorUnknown: isZh ? '未知错误' : isEs ? 'Error desconocido' : 'Unknown error',
     toastServerError: isZh ? '服务器连接异常！' : isEs ? '¡Error de conexión al servidor!' : 'Server connection error!',
+    dialogAddTxTitle: isZh ? '手工录入进销存单据' : isEs ? 'Registrar Movimiento' : 'Add Inventory Record',
+    toastTxAdded: isZh ? '单据录入成功' : isEs ? 'Registro guardado' : 'Record saved',
   }
 })
 
@@ -553,6 +620,43 @@ const selectedBrand = ref('ALL')
 const dialogVisible = ref(false)
 const clientDialogVisible = ref(false)
 const txDialogVisible = ref(false)
+// 🌟 新增手工单据的响应式数据
+const isSubmittingTx = ref(false)
+const newTx = ref({
+  type: 'OUT', // IN 或 OUT
+  part_oem: '',
+  part_name: '',
+  quantity: 1,
+  unit_price: 0,
+  customer_or_supplier: ''
+})
+
+// 🌟 提交手工单据
+const handleAddTx = async () => {
+  isSubmittingTx.value = true
+  try {
+    const res = await apiFetch('/api/transactions', {
+      method: 'POST',
+      body: JSON.stringify(newTx.value)
+    })
+    if (res.ok) {
+      txDialogVisible.value = false
+      showSuccessModal('✨ ' + (tExt.value.toastTxAdded || 'Saved'))
+      newTx.value = { type: 'OUT', part_oem: '', part_name: '', quantity: 1, unit_price: 0, customer_or_supplier: '' }
+      fetchTransactions()
+      fetchParts()
+      fetchDashboardStats()
+    } else {
+      const err = await res.json()
+      showSuccessModal(`❌ ${t.value.common.error}: ${err.detail || 'Unknown'}`)
+    }
+  } catch (e) {
+    console.error(e)
+    showSuccessModal('❌ ' + tExt.value.toastServerError)
+  } finally {
+    isSubmittingTx.value = false
+  }
+}
 const deleteModalVisible = ref(false)
 const deleteClientModalVisible = ref(false)
 const deletePartModalVisible = ref(false)

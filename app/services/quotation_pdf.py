@@ -3,7 +3,7 @@
 import os
 import re
 from datetime import datetime
-from decimal import Decimal, ROUND_HALF_UP # 🌟 引入 Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional, Sequence
 
 from reportlab.lib import colors
@@ -11,13 +11,15 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app.config import FONT_PATH
 
-# ──────────────────── 中文字体注册 ────────────────────
-_FONTS_READY = False
+# 🌟 1. 先注册 ReportLab 自带的中文字体作为绝对安全的兜底
+pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
 
+_FONTS_READY = False
 
 def register_fonts() -> bool:
     global _FONTS_READY
@@ -25,21 +27,28 @@ def register_fonts() -> bool:
         return True
     try:
         if os.path.exists(FONT_PATH):
-            for family in ("CustomChinese", "CustomChinese-Bold",
-                           "CustomChinese-Italic", "CustomChinese-BoldItalic"):
-                pdfmetrics.registerFont(TTFont(family, str(FONT_PATH), subfontIndex=0))
-            print(f"✅ 成功完美注册华文细黑全家桶: {FONT_PATH}")
+            # 🌟 2. 绝不使用 customchinese 这个名字，换成不可能冲突的 TK_CN_Font
+            font_name = "TK_CN_Font"
+            pdfmetrics.registerFont(TTFont(font_name, str(FONT_PATH), subfontIndex=0))
+            
+            # 🌟 3. 强制把所有的变体绑定给自己，彻底杀掉映射报错
+            pdfmetrics.registerFontFamily(
+                font_name,
+                normal=font_name,
+                bold=font_name,
+                italic=font_name,
+                boldItalic=font_name
+            )
+            print(f"✅ 成功完美注册自定义中文字体: {FONT_PATH}")
             _FONTS_READY = True
         else:
-            print(f"⚠️ 未在项目根目录下找到字体文件: {FONT_PATH}")
+            print(f"⚠️ 未在项目根目录下找到字体文件: {FONT_PATH}，将使用 STSong-Light 兜底。")
     except Exception as e:
-        print(f"⚠️ 字体注册异常: {e}")
+        print(f"⚠️ 字体注册异常，将使用 STSong-Light 兜底: {e}")
     return _FONTS_READY
-
 
 register_fonts()
 
-# ──────────────────────────── 多语言文案 ────────────────────────────
 TEXTS = {
     "es": {
         "comp_subtitle": "Valera, Trujillo - Venezuela",
@@ -71,7 +80,6 @@ TEXTS = {
     },
 }
 
-
 def normalize_lang(raw_lang: Optional[str]) -> str:
     if isinstance(raw_lang, str) and ("zh" in raw_lang.lower() or "cn" in raw_lang.lower()):
         return "zh"
@@ -93,88 +101,93 @@ def build_quotation_pdf(
 ) -> None:
     
     t = TEXTS.get(lang, TEXTS["es"])
-    active_font = "CustomChinese" if lang == "zh" else "Helvetica"
-    active_bold_font = "CustomChinese" if lang == "zh" else "Helvetica-Bold"
-
+    
+    # 🌟 4. 根据注册状态智能选择字体，若有自定义用自定义，否则用自带的 STSong-Light
+    if lang == "zh":
+        active_font = "TK_CN_Font" if _FONTS_READY else "STSong-Light"
+    else:
+        active_font = "Helvetica"
+    
     try:
         doc = SimpleDocTemplate(
             pdf_path, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=100,
         )
-        styles = getSampleStyleSheet()
         story = []
 
         comp_title = "TOSTIYK (TK) - AUTOPARTES VENEZUELA"
+        
+        # ─────────── 样式定义 ───────────
         title_style = ParagraphStyle(
-            "TopTitle", parent=styles["Heading1"], fontSize=14, leading=18,
-            textColor=colors.HexColor("#0f172a"), fontName=active_bold_font,
+            "TopTitle", fontSize=14, leading=18,
+            textColor=colors.HexColor("#0f172a"), fontName="Helvetica-Bold",
         )
         right_meta_style = ParagraphStyle(
-            "TopRight", parent=styles["Normal"], fontSize=9.5, leading=13,
+            "TopRight", fontSize=9.5, leading=13,
             alignment=2, textColor=colors.HexColor("#1e293b"), fontName=active_font,
         )
-
-        top_table_data = [
-            [
-                Paragraph(
-                    f"<b>{comp_title}</b><br/><font size=8.5 color='#64748b'>{t['comp_subtitle']}</font>", title_style,
-                ),
-                Paragraph(
-                    f"<b>{t['invoice_no']}:</b> {quotation_no}<br/>"
-                    f"<b>{t['date']}:</b> {datetime.now().strftime('%Y/%m/%d %H:%M:%S')}", right_meta_style,
-                ),
-            ]
-        ]
-        t_top = Table(top_table_data, colWidths=[310, 230])
-        t_top.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ]))
-        story.append(t_top)
-        story.append(Spacer(1, 10))
-
         box_style = ParagraphStyle(
-            "BoxStyle", parent=styles["Normal"], fontSize=9.5, leading=14,
+            "BoxStyle", fontSize=9.5, leading=15,
             textColor=colors.HexColor("#1e293b"), fontName=active_font,
         )
+        
+        # 🌟 5. 关键修复：顶部副标题不再使用 Paragraph，彻底避免解析报错
+        subtitle_table_data = [
+            [Paragraph(comp_title, title_style), Paragraph(f"{t['invoice_no']}: {quotation_no}", right_meta_style)],
+            [t['comp_subtitle'], f"{t['date']}: {datetime.now().strftime('%Y/%m/%d %H:%M:%S')}"]
+        ]
+        t_top = Table(subtitle_table_data, colWidths=[310, 230])
+        t_top.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("FONTNAME", (0, 1), (0, 1), active_font), # 副标题直接使用表格原生渲染
+            ("FONTNAME", (1, 0), (1, 1), active_font),
+            ("FONTSIZE", (0, 1), (0, 1), 8.5),
+            ("TEXTCOLOR", (0, 1), (0, 1), colors.HexColor("#64748b")),
+            ("ALIGN", (1, 0), (1, 1), "RIGHT"),
+        ]))
+        story.append(t_top)
+        story.append(Spacer(1, 12))
 
-        company_info_html = (
-            f"<b>{t['company_info']}</b><br/>"
-            f"• {t['vendor']}: Elias<br/>"
-            f"• {t['seller_phone']}: +58 412-0000000<br/>"
-            f"• {t['company_phone']}: +58 271-0000000<br/>"
-            f"• {t['address']}: Valera, Estado Trujillo, Venezuela"
-        )
+        # ─────────── 客户与公司信息 ───────────
+        company_info_content = [
+            Paragraph(t['company_info'], box_style),
+            Paragraph(f"• {t['vendor']}: Elias", box_style),
+            Paragraph(f"• {t['seller_phone']}: +58 412-0000000", box_style),
+            Paragraph(f"• {t['company_phone']}: +58 271-0000000", box_style),
+            Paragraph(f"• {t['address']}: Valera, Estado Trujillo, Venezuela", box_style),
+        ]
 
         actual_client_name = client_name if client_name != "Cliente General" else t["default_client"]
         actual_client_addr = client_obj.address if client_obj and client_obj.address else t["default_address"]
+        
+        client_info_content = [
+            Paragraph(t['client_info'], box_style),
+            Paragraph(f"• {t['client']}: {actual_client_name}", box_style),
+            Paragraph(f"• {t['phone']}: {client_obj.phone if client_obj and client_obj.phone else 'N/A'}", box_style),
+            Paragraph(f"• {t['address']}: {actual_client_addr}", box_style),
+        ]
 
-        client_info_html = (
-            f"<b>{t['client_info']}</b><br/>"
-            f"• {t['client']}: {actual_client_name}<br/>"
-            f"• {t['phone']}: {client_obj.phone if client_obj and client_obj.phone else 'N/A'}<br/>"
-            f"• {t['address']}: {actual_client_addr}"
-        )
-
-        t_info = Table([[Paragraph(company_info_html, box_style), Paragraph(client_info_html, box_style)]],
-                       colWidths=[270, 270])
+        t_info = Table([[company_info_content, client_info_content]], colWidths=[270, 270])
         t_info.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
             ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#cbd5e1")),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-            ("LEFTPADDING", (0, 0), (-1, -1), 10),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+            ("TOPPADDING", (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ("LEFTPADDING", (0, 0), (-1, -1), 12),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
         ]))
         story.append(t_info)
-        story.append(Spacer(1, 14))
+        story.append(Spacer(1, 16))
 
+        # ─────────── 商品明细表 ───────────
         th_style = ParagraphStyle(
-            "THStyle", parent=styles["Normal"], fontSize=9.5, leading=12,
-            textColor=colors.HexColor("#0f172a"), fontName=active_bold_font,
+            "THStyle", fontSize=9.5, leading=12,
+            textColor=colors.HexColor("#0f172a"), fontName=active_font,
         )
         th_right_style = ParagraphStyle(
-            "THRightStyle", parent=styles["Normal"], fontSize=9.5, leading=12,
-            alignment=2, textColor=colors.HexColor("#0f172a"), fontName=active_bold_font,
+            "THRightStyle", fontSize=9.5, leading=12,
+            alignment=2, textColor=colors.HexColor("#0f172a"), fontName=active_font,
         )
 
         table_data = [[
@@ -187,16 +200,15 @@ def build_quotation_pdf(
         ]]
 
         td_style = ParagraphStyle(
-            "TDStyle", parent=styles["Normal"], fontSize=9.5, leading=13,
+            "TDStyle", fontSize=9.5, leading=13,
             textColor=colors.HexColor("#1e293b"), fontName=active_font,
         )
         td_right_style = ParagraphStyle(
-            "TDRightStyle", parent=styles["Normal"], fontSize=9.5, leading=13,
+            "TDRightStyle", fontSize=9.5, leading=13,
             alignment=2, textColor=colors.HexColor("#1e293b"), fontName=active_font,
         )
 
         for item in items:
-            # 🌟 核心修复：在生成 PDF 内容时，也必须使用 Decimal 做计算，防止打印出 19.9999
             d_price = Decimal(str(item.price))
             d_qty = Decimal(str(item.quantity))
             subtotal = (d_price * d_qty).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -221,32 +233,32 @@ def build_quotation_pdf(
         t_items.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eff6ff")),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-            ("TOPPADDING", (0, 0), (-1, -1), 7),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
         ]))
         story.append(t_items)
 
+        # ─────────── 底部合计 ───────────
         def draw_fixed_footer(canvas, document):
             canvas.saveState()
             total_left_style = ParagraphStyle(
-                "TotalLeft", parent=styles["Normal"], fontSize=11, leading=15,
-                textColor=colors.HexColor("#0f172a"), fontName=active_bold_font,
+                "TotalLeft", fontSize=11, leading=15,
+                textColor=colors.HexColor("#0f172a"), fontName=active_font,
             )
             total_right_style = ParagraphStyle(
-                "TotalRight", parent=styles["Normal"], fontSize=11, leading=15,
-                alignment=2, textColor=colors.HexColor("#059669"), fontName=active_bold_font,
+                "TotalRight", fontSize=11, leading=15,
+                alignment=2, textColor=colors.HexColor("#059669"), fontName=active_font,
             )
 
-            # 🌟 格式化展示，同样避免浮点误差
             d_total_usd = Decimal(str(total_usd)).quantize(Decimal("0.01"))
             d_total_bs = Decimal(str(total_bs)).quantize(Decimal("0.01"))
 
             t_total = Table(
                 [[
-                    Paragraph(f"<b>{t['total_usd']}:</b> ${d_total_usd:.2f}", total_left_style),
-                    Paragraph(f"<b>{t['total_ves']}:</b> Bs. {d_total_bs:,.2f}", total_right_style),
+                    Paragraph(f"{t['total_usd']}: ${d_total_usd:.2f}", total_left_style),
+                    Paragraph(f"{t['total_ves']}: Bs. {d_total_bs:,.2f}", total_right_style),
                 ]],
                 colWidths=[270, 270],
             )

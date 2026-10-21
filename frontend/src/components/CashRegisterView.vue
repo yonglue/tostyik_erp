@@ -5,18 +5,18 @@
     <div class="bg-white/75 backdrop-blur-xl p-6 rounded-2xl border border-white/80 shadow-lg flex flex-wrap items-center justify-between gap-4">
       <div>
         <h2 class="text-lg font-black text-slate-800 flex items-center gap-2">
-          📊 {{ tExt.title }}
+          <span>📊</span> {{ tExt.title }}
         </h2>
-        <p class="text-xs text-slate-400 mt-1 font-medium">{{ tExt.subtitle }}</p>
+        <p class="text-xs text-slate-500 mt-1 font-medium">{{ tExt.subtitle }}</p>
       </div>
       
       <div class="flex items-center gap-3">
         <span class="text-xs font-bold text-slate-600">{{ tExt.selectDate }}:</span>
         <input type="date" v-model="selectedDate" class="bg-white border border-slate-200 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500 font-mono font-bold text-slate-700" />
-        <button @click="selectedDate = todayStr" :class="selectedDate === todayStr ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer">
+        <button @click="selectedDate = todayStr" :class="selectedDate === todayStr ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer">
           {{ tExt.todayBtn }}
         </button>
-        <button @click="selectedDate = ''" :class="selectedDate === '' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer">
+        <button @click="selectedDate = ''" :class="selectedDate === '' ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" class="px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer">
           {{ tExt.allBtn }}
         </button>
       </div>
@@ -24,19 +24,19 @@
 
     <!-- 三个核心指标卡 -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-      <div class="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-2xl shadow-lg text-white space-y-2 relative overflow-hidden">
+      <div class="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 rounded-2xl shadow-lg text-white space-y-2 relative overflow-hidden hover:scale-[1.01] transition-transform">
         <p class="text-xs font-bold text-blue-100 uppercase tracking-wider">{{ tExt.cardSelectedRevenue }}</p>
-        <h3 class="text-3xl font-black font-mono">$ {{ summary.selectedRevenue.toFixed(2) }}</h3>
-        <p class="text-xs text-blue-200 font-mono">= Bs. {{ (summary.selectedRevenue * bcvRate).toFixed(2) }} (BCV)</p>
+        <h3 class="text-3xl font-black font-mono">$ {{ formatNum(summary.selectedRevenue) }}</h3>
+        <p class="text-xs text-blue-200 font-mono">= Bs. {{ formatNum(summary.selectedRevenue * bcvRate) }} (BCV)</p>
       </div>
 
-      <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-2xl shadow-lg text-white space-y-2">
+      <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-2xl shadow-lg text-white space-y-2 hover:scale-[1.01] transition-transform">
         <p class="text-xs font-bold text-emerald-100 uppercase tracking-wider">{{ tExt.cardTotalRevenue }}</p>
-        <h3 class="text-3xl font-black font-mono">$ {{ summary.totalRevenue.toFixed(2) }}</h3>
+        <h3 class="text-3xl font-black font-mono">$ {{ formatNum(summary.totalRevenue) }}</h3>
         <p class="text-xs text-emerald-200 font-semibold">{{ tExt.totalOrders }}: {{ summary.totalOrders }} {{ tExt.unitOrder }}</p>
       </div>
 
-      <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl shadow-lg text-white space-y-2">
+      <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl shadow-lg text-white space-y-2 hover:scale-[1.01] transition-transform">
         <p class="text-xs font-bold text-slate-300 uppercase tracking-wider">{{ tExt.cardTotalQty }}</p>
         <h3 class="text-3xl font-black font-mono">{{ summary.totalQty }} <span class="text-sm font-sans">{{ tExt.unitItem }}</span></h3>
         <p class="text-xs text-slate-400 font-semibold">{{ tExt.stockStatus }}</p>
@@ -45,27 +45,29 @@
 
     <!-- 收款渠道拆分 -->
     <div class="bg-white/75 backdrop-blur-xl p-6 rounded-2xl border border-white/80 shadow-lg space-y-4">
-      <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">💳 {{ tExt.paySplitTitle }}</h3>
-      <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-1">
+      <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+        <span>💳</span> {{ tExt.paySplitTitle }}
+      </h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="bg-white border border-slate-200/80 p-4 rounded-xl space-y-1 shadow-2xs hover:border-blue-300 transition-colors">
           <span class="text-xs font-bold text-slate-500">💵 {{ tExt.payCashUSD }}</span>
-          <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentSplit.cashUsd.toFixed(2) }}</div>
+          <div class="text-lg font-black text-slate-900 font-mono">$ {{ formatNum(paymentSplit.cashUsd) }}</div>
         </div>
-        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-1">
+        <div class="bg-white border border-slate-200/80 p-4 rounded-xl space-y-1 shadow-2xs hover:border-blue-300 transition-colors">
           <span class="text-xs font-bold text-slate-500">💳 {{ tExt.payZelle }}</span>
-          <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentSplit.zelle.toFixed(2) }}</div>
+          <div class="text-lg font-black text-slate-900 font-mono">$ {{ formatNum(paymentSplit.zelle) }}</div>
         </div>
-        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-1">
+        <div class="bg-white border border-slate-200/80 p-4 rounded-xl space-y-1 shadow-2xs hover:border-blue-300 transition-colors">
           <span class="text-xs font-bold text-slate-500">⚡ {{ tExt.payPagoMovil }}</span>
-          <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentSplit.pagoMovil.toFixed(2) }}</div>
+          <div class="text-lg font-black text-slate-900 font-mono">$ {{ formatNum(paymentSplit.pagoMovil) }}</div>
         </div>
-        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-1">
+        <div class="bg-white border border-slate-200/80 p-4 rounded-xl space-y-1 shadow-2xs hover:border-blue-300 transition-colors">
           <span class="text-xs font-bold text-slate-500">🏦 {{ tExt.payTransfer }}</span>
-          <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentSplit.transferBs.toFixed(2) }}</div>
+          <div class="text-lg font-black text-slate-900 font-mono">$ {{ formatNum(paymentSplit.transferBs) }}</div>
         </div>
-        <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-1">
+        <div class="bg-white border border-slate-200/80 p-4 rounded-xl space-y-1 shadow-2xs hover:border-blue-300 transition-colors">
           <span class="text-xs font-bold text-slate-500">🪙 {{ tExt.payUsdt }}</span>
-          <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentSplit.usdt.toFixed(2) }}</div>
+          <div class="text-lg font-black text-slate-900 font-mono">$ {{ formatNum(paymentSplit.usdt) }}</div>
         </div>
       </div>
     </div>
@@ -74,7 +76,7 @@
     <div class="bg-white/75 backdrop-blur-xl rounded-2xl border border-white/80 shadow-lg overflow-hidden">
       <div class="p-6 border-b border-slate-200/60 flex items-center justify-between">
         <h3 class="font-bold text-slate-800 text-base">📋 {{ tExt.tableTitle }}</h3>
-        <span class="text-xs text-slate-400 font-bold">{{ tExt.totalRecords }} {{ shiftRecords.length }} {{ tExt.unitRecord }}</span>
+        <span class="text-xs text-slate-500 font-bold">{{ tExt.totalRecords }} {{ shiftRecords.length }} {{ tExt.unitRecord }}</span>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse min-w-[900px]">
@@ -90,24 +92,31 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 text-sm">
-            <tr v-for="(r, i) in shiftRecords" :key="i" class="hover:bg-slate-50/50">
+            <tr v-for="(r, i) in shiftRecords" :key="i" class="hover:bg-blue-50/30 transition-colors">
               <td class="py-4 px-6 font-mono text-xs text-slate-500">{{ r.closed_at }}</td>
               <td class="py-4 px-6 font-bold text-slate-800">{{ r.operator }}</td>
-              <td class="py-4 px-6 font-mono text-slate-600">$ {{ (r.system_cash_usd || 0).toFixed(2) }}</td>
-              <td class="py-4 px-6 font-mono font-bold text-slate-900">$ {{ (r.actual_cash_usd || 0).toFixed(2) }}</td>
+              <td class="py-4 px-6 font-mono text-slate-600">$ {{ formatNum(r.system_cash_usd) }}</td>
+              <td class="py-4 px-6 font-mono font-bold text-slate-900">$ {{ formatNum(r.actual_cash_usd) }}</td>
               <td class="py-4 px-6 font-mono text-slate-600">
-                <div class="text-[11px]">Zelle: ${{ (r.actual_zelle || 0).toFixed(2) }}</div>
-                <div class="text-[11px]">Pago: Bs.{{ (r.actual_pago_movil || 0).toFixed(2) }}</div>
+                <div class="text-[11px]">Zelle: ${{ formatNum(r.actual_zelle) }}</div>
+                <div class="text-[11px]">Pago: Bs.{{ formatNum(r.actual_pago_movil) }}</div>
               </td>
               <td class="py-4 px-6">
-                <span :class="(r.actual_cash_usd - r.system_cash_usd) >= 0 ? 'text-emerald-600' : 'text-rose-600'" class="font-mono font-bold">
-                  {{ (r.actual_cash_usd - r.system_cash_usd) >= 0 ? '+' : '' }}{{ (r.actual_cash_usd - r.system_cash_usd).toFixed(2) }}
+                <!-- 🌟 盈亏差额高亮显示 -->
+                <span 
+                  class="px-2.5 py-1 rounded-md font-mono font-bold border text-xs" 
+                  :class="(Number(r.actual_cash_usd || 0) - Number(r.system_cash_usd || 0)) >= 0 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'"
+                >
+                  {{ (Number(r.actual_cash_usd || 0) - Number(r.system_cash_usd || 0)) >= 0 ? '+' : '' }}{{ formatNum(Number(r.actual_cash_usd || 0) - Number(r.system_cash_usd || 0)) }}
                 </span>
               </td>
-              <td class="py-4 px-6 text-xs text-slate-500 max-w-[150px] truncate">{{ r.notes || '-' }}</td>
+              <td class="py-4 px-6 text-xs text-slate-500 max-w-[150px] truncate" :title="r.notes">{{ r.notes || '-' }}</td>
             </tr>
             <tr v-if="shiftRecords.length === 0">
-              <td colspan="7" class="py-16 text-center text-slate-400 text-xs font-bold">{{ tExt.emptyRecords }}</td>
+              <td colspan="7" class="py-16 text-center text-slate-400 text-xs font-bold">
+                <span class="text-3xl block mb-2">📭</span>
+                {{ tExt.emptyRecords }}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -119,9 +128,11 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from '../composables/useI18n'
+import { useInventory } from '../composables/useInventory'
 import { apiFetch } from '../utils/api'
 
 const { currentLang } = useI18n()
+const { bcvRate } = useInventory()
 
 const tExt = computed(() => {
   const isZh = currentLang.value === 'zh'
@@ -159,7 +170,6 @@ const tExt = computed(() => {
   }
 })
 
-const bcvRate = ref(881.8769) // 可以动态从接口获取，或者从父组件传入
 const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' })
 const selectedDate = ref(todayStr)
 
@@ -167,47 +177,63 @@ const shiftRecords = ref([])
 const summary = ref({ selectedRevenue: 0, totalRevenue: 0, totalOrders: 0, totalQty: 0 })
 const paymentSplit = ref({ cashUsd: 0, zelle: 0, pagoMovil: 0, transferBs: 0, usdt: 0 })
 
+// 🌟 安全数字格式化
+const formatNum = (val) => {
+  const num = Number(val) || 0
+  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 const fetchData = async () => {
   try {
-    // 这里模拟拉取数据，实际需要根据你的后端接口去请求
+    // 拉取交接班记录
     const res = await apiFetch('/api/pos/shift-records')
     if (res.ok) {
       shiftRecords.value = await res.json()
     }
     
-    // 模拟获取销售总览
+    // 拉取销售订单并计算
     const posRes = await apiFetch('/api/pos/orders')
     if (posRes.ok) {
       const orders = await posRes.json()
       const activeOrders = orders.filter(o => o.status !== 'REFUNDED')
+      
       let tRev = 0, tQty = 0, sRev = 0
       let pSplit = { cashUsd: 0, zelle: 0, pagoMovil: 0, transferBs: 0, usdt: 0 }
       
       activeOrders.forEach(o => {
-        const isToday = o.time && o.time.startsWith(selectedDate.value)
-        const rev = o.totalUsd || 0
+        const isMatchDate = selectedDate.value ? (o.time && o.time.startsWith(selectedDate.value)) : true
+        const rev = Number(o.totalUsd) || 0
         
         tRev += rev
-        o.items.forEach(item => tQty += item.quantity)
-        if (isToday && selectedDate.value) sRev += rev
+        if (o.items && Array.isArray(o.items)) {
+          o.items.forEach(item => tQty += (Number(item.quantity) || 0))
+        }
         
-        const method = String(o.paymentMethod).toUpperCase()
-        if (method.includes('CASH_USD')) pSplit.cashUsd += rev
-        else if (method.includes('ZELLE')) pSplit.zelle += rev
-        else if (method.includes('MOVIL')) pSplit.pagoMovil += rev
-        else if (method.includes('TRANSFER')) pSplit.transferBs += rev
-        else if (method.includes('USDT')) pSplit.usdt += rev
+        if (isMatchDate) {
+          sRev += rev
+          
+          // 拆分支付方式（只统计选中日期的）
+          const method = String(o.paymentMethod).toUpperCase()
+          if (method.includes('CASH_USD')) pSplit.cashUsd += rev
+          else if (method.includes('ZELLE')) pSplit.zelle += rev
+          else if (method.includes('MOVIL')) pSplit.pagoMovil += rev
+          else if (method.includes('TRANSFER')) pSplit.transferBs += rev
+          else if (method.includes('USDT')) pSplit.usdt += rev
+        }
       })
       
+      // 🌟 修复：如果选的是“全部”，拆分和选中营业额都显示总计
       summary.value = {
-        selectedRevenue: selectedDate.value ? sRev : tRev,
+        selectedRevenue: sRev,
         totalRevenue: tRev,
         totalOrders: activeOrders.length,
         totalQty: tQty
       }
       paymentSplit.value = pSplit
     }
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    console.error('获取收银数据失败:', e)
+  }
 }
 
 watch(selectedDate, fetchData)

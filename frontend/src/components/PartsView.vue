@@ -17,7 +17,7 @@
           />
         </div>
 
-        <!-- 🌟 品牌下拉选择器 -->
+        <!-- 🌟 品牌下拉选择器（筛选保留） -->
         <div class="relative">
           <select 
             :value="selectedBrand" 
@@ -32,7 +32,7 @@
           <div class="absolute right-3 top-3.5 pointer-events-none text-slate-400 text-xs">▼</div>
         </div>
 
-        <!-- 🌟 配件分类下拉选择器 -->
+        <!-- 🌟 配件分类下拉选择器（筛选保留） -->
         <div class="relative">
           <select 
             v-model="selectedCategory" 
@@ -67,11 +67,10 @@
       </div>
     </div>
 
-    <!-- 🌟 合并后的主商品表格 -->
+    <!-- 🌟 主商品表格（已移除分类、品牌、税率三列） -->
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
       <div class="overflow-x-auto">
-        <!-- 🌟 增加了最小宽度以容纳新列 -->
-        <table class="w-full text-left border-collapse min-w-[1150px]">
+        <table class="w-full text-left border-collapse min-w-[900px]">
           <thead>
             <tr class="bg-slate-50/75 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <th class="py-3.5 px-4 w-12 text-center">
@@ -86,16 +85,10 @@
               <th class="py-3.5 px-4">{{ t.inventory.colOem }}</th>
               <th class="py-3.5 px-4">{{ t.inventory.colName }}</th>
               <th class="py-3.5 px-4">📍 {{ t.inventory.colBin }}</th>
-              <th class="py-3.5 px-4">{{ t.inventory.colCategory }}</th>
-              <th class="py-3.5 px-4">{{ t.inventory.colBrand }}</th>
-              <th class="py-3.5 px-4">{{ t.inventory.taxRate }} (SENIAT)</th>
               <th class="py-3.5 px-4">{{ t.inventory.colStock }}</th>
-              
-              <!-- 🌟 新增：售价与进货价表头 -->
-              <th class="py-3.5 px-4">售价 (USD)</th>
-              <th class="py-3.5 px-4 text-amber-600">进货价 (USD)</th>
-              <th class="py-3.5 px-4 text-emerald-600">毛利 (Profit)</th>
-              
+              <th class="py-3.5 px-4">{{ t.inventory.colPriceUsd }}</th>
+              <th class="py-3.5 px-4 text-amber-600">{{ t.inventory.costPrice }}</th>
+              <th class="py-3.5 px-4 text-emerald-600">{{ t.inventory.profit }}</th>
               <th class="py-3.5 px-4 text-center">{{ t.common.actions }}</th>
             </tr>
           </thead>
@@ -104,7 +97,7 @@
               v-for="item in paginatedParts" 
               :key="item.id || item.oem" 
               class="hover:bg-blue-50/30 transition-colors cursor-pointer group"
-              @click="openEditModal(item)"
+              @click="openDetailDrawer(item)"
             >
               <!-- 多选框 -->
               <td class="py-4 px-4 text-center" @click.stop>
@@ -131,7 +124,7 @@
                     </div>
                   </template>
                   <div v-else class="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 text-[10px] font-bold">
-                    No 🖼️
+                    {{ t.inventory.noImage }}
                   </div>
                 </div>
               </td>
@@ -142,53 +135,32 @@
               <!-- 📍 货架库位胶囊 -->
               <td class="py-4 px-4">
                 <span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-xs font-semibold font-mono border border-emerald-200/60">
-                  📍 {{ item.bin_location || 'Estante A-1' }}
-                </span>
-              </td>
-
-              <td class="py-4 px-4 text-slate-600">
-                <span class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-xs font-semibold">{{ item.category || tExt.uncategorized }}</span>
-              </td>
-              <td class="py-4 px-4 text-slate-600">
-                <span class="bg-slate-100 px-2.5 py-1 rounded-md text-xs font-medium">{{ item.brand }}</span>
-              </td>
-
-              <!-- 🌟 SENIAT 税率类型标签 -->
-              <td class="py-4 px-4">
-                <span :class="item.tax_rate === 0.16 ? 'bg-amber-50 text-amber-700 border-amber-200/60' : (item.tax_rate === 0.08 ? 'bg-indigo-50 text-indigo-700 border-indigo-200/60' : 'bg-slate-100 text-slate-600 border-slate-200')" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border">
-                  {{ item.tax_rate === 0.16 ? t.inventory.tax16 : (item.tax_rate === 0.08 ? t.inventory.tax8 : t.inventory.tax0) }}
+                  📍 {{ item.bin_location || '—' }}
                 </span>
               </td>
 
               <td class="py-4 px-4 font-bold" :class="item.stock <= 5 ? 'text-rose-600' : 'text-slate-800'">{{ item.stock }}</td>
               
-              <!-- 🌟 售价 -->
               <td class="py-4 px-4 font-bold text-blue-600">$ {{ Number(item.price || 0).toFixed(2) }}</td>
               
-              <!-- 🌟 新增：进货价 -->
               <td class="py-4 px-4 font-bold text-amber-600">$ {{ Number(item.cost_price || 0).toFixed(2) }}</td>
 
-              <!-- 🌟 新增：毛利计算 -->
               <td class="py-4 px-4 font-black">
                 <span :class="(item.price - (item.cost_price || 0)) > 0 ? 'text-emerald-600' : 'text-rose-500'">
                   $ {{ Number((item.price || 0) - (item.cost_price || 0)).toFixed(2) }}
                 </span>
               </td>
 
+              <!-- 操作列：仅保留删除（编辑入口已移至 Drawer） -->
               <td class="py-4 px-4 text-center" @click.stop>
-                <div class="inline-flex items-center justify-center gap-2">
-                  <button @click="openEditModal(item)" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer">
-                    {{ t.common.edit }}
-                  </button>
-                  <button @click="$emit('delete-part', item)" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer">
-                    {{ t.common.delete }}
-                  </button>
-                </div>
+                <button @click="$emit('delete-part', item)" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer">
+                  {{ t.common.delete }}
+                </button>
               </td>
             </tr>
             <tr v-if="filteredParts.length === 0">
-              <!-- 🌟 修改 colspan 为 13 以匹配新列数 -->
-              <td colspan="13" class="py-12 text-center text-slate-400 text-xs">{{ tExt.emptyParts }}</td>
+              <!-- 🌟 colspan 调整为 10 -->
+              <td colspan="10" class="py-12 text-center text-slate-400 text-xs">{{ tExt.emptyParts }}</td>
             </tr>
           </tbody>
         </table>
@@ -201,7 +173,6 @@
         </span>
         
         <div class="flex items-center gap-3">
-          <!-- 🌟 指定页码直接跳转输入框 -->
           <div class="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2 py-1 shadow-2xs">
             <span class="text-slate-400 text-[11px]">{{ tExt.jumpTo }}</span>
             <input 
@@ -221,7 +192,6 @@
             </button>
           </div>
 
-          <!-- 上一页 / 页码显示 / 下一页 -->
           <div class="flex items-center gap-1.5">
             <button 
               @click="currentPage--" 
@@ -245,22 +215,103 @@
       </div>
     </div>
 
-    <!-- 🌟 编辑配件档案弹窗 -->
-    <div 
-      v-if="editModalVisible" 
-      @click.self="editModalVisible = false" 
-      class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 transition-all"
+    <!-- 🌟 右侧详情/编辑 Drawer -->
+    <SideDrawer 
+      :visible="detailDrawerVisible" 
+      :title="drawerMode === 'read' ? t.inventory.detailTitle : tExt.editTitle" 
+      :icon="drawerMode === 'read' ? '📋' : '✏️'"
+      @close="closeDrawer"
     >
-      <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 p-6 space-y-5">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div class="flex items-center gap-2">
-            <span class="text-xl">✏️</span>
-            <h3 class="font-bold text-slate-800 text-base">{{ tExt.editTitle }} (SKU #{{ editingPart.id }})</h3>
+      <template #header-actions>
+        <template v-if="drawerMode === 'read'">
+          <button @click="switchToEdit" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer">
+            {{ t.common.edit }}
+          </button>
+          <button @click="onDeleteFromDrawer" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer">
+            {{ t.common.delete }}
+          </button>
+        </template>
+      </template>
+
+      <div class="p-6">
+        <!-- ===== 只读态 ===== -->
+        <div v-if="drawerMode === 'read'" class="space-y-5">
+          <!-- 图片 -->
+          <div v-if="parseImages(editingPart.image_url).length > 0" class="flex flex-wrap gap-2">
+            <div 
+              v-for="(img, idx) in parseImages(editingPart.image_url)" 
+              :key="idx"
+              @click="$emit('open-gallery', parseImages(editingPart.image_url), idx)"
+              class="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 cursor-pointer hover:scale-105 transition-transform"
+            >
+              <img :src="img.startsWith('http') ? img : apiUrl(img)" class="w-full h-full object-cover" />
+            </div>
           </div>
-          <button @click="editModalVisible = false" class="text-slate-400 hover:text-slate-700 text-lg font-bold cursor-pointer">✕</button>
+          <div v-else class="w-full h-24 rounded-xl bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-slate-400 text-xs">
+            {{ t.inventory.noImage }}
+          </div>
+
+          <!-- 字段网格 -->
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.inventory.colOem }}</p>
+              <p class="font-mono font-bold text-slate-800">{{ editingPart.oem }}</p>
+            </div>
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.inventory.colName }}</p>
+              <p class="font-medium text-slate-900">{{ editingPart.name }}</p>
+            </div>
+            
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.inventory.colStock }}</p>
+              <p class="font-bold font-mono" :class="editingPart.stock <= 5 ? 'text-rose-600' : 'text-slate-800'">{{ editingPart.stock }}</p>
+            </div>
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.inventory.colBin }}</p>
+              <p class="font-mono text-slate-800">{{ editingPart.bin_location || '—' }}</p>
+            </div>
+            
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.inventory.colPriceUsd }}</p>
+              <p class="font-bold text-blue-600">$ {{ Number(editingPart.price || 0).toFixed(2) }}</p>
+            </div>
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.inventory.costPrice }}</p>
+              <p class="font-bold text-amber-600">$ {{ Number(editingPart.cost_price || 0).toFixed(2) }}</p>
+            </div>
+            
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.inventory.profit }}</p>
+              <p class="font-black" :class="(editingPart.price - (editingPart.cost_price || 0)) > 0 ? 'text-emerald-600' : 'text-rose-500'">
+                $ {{ Number((editingPart.price || 0) - (editingPart.cost_price || 0)).toFixed(2) }}
+              </p>
+            </div>
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.inventory.taxRate }}</p>
+              <p class="font-bold text-slate-800">
+                {{ editingPart.tax_rate === 0.16 ? t.inventory.tax16 : (editingPart.tax_rate === 0.08 ? t.inventory.tax8 : t.inventory.tax0) }}
+              </p>
+            </div>
+            
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.inventory.colCategory }}</p>
+              <p class="text-slate-700">{{ editingPart.category || tExt.uncategorized }}</p>
+            </div>
+            <div>
+              <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.inventory.colBrand }}</p>
+              <p class="text-slate-700">{{ editingPart.brand || '—' }}</p>
+            </div>
+          </div>
+
+          <!-- 交叉参考 -->
+          <div>
+            <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">🔗 {{ tExt.crossRef }}</p>
+            <p class="text-xs font-mono text-slate-600 bg-slate-50 rounded-xl p-3 whitespace-pre-wrap min-h-[48px]">{{ editingPart.cross_references || '—' }}</p>
+          </div>
         </div>
 
-        <form @submit.prevent="saveEditedPart" class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+        <!-- ===== 编辑态 ===== -->
+        <div v-else class="space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colOem }}</label>
@@ -283,25 +334,24 @@
             </div>
           </div>
 
-          <!-- 🌟 修改为三列网格，加入进货价输入框 -->
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colStock }}</label>
               <input v-model.number="editingPart.stock" type="number" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">售价 ($)</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colPriceUsd }}</label>
               <input v-model.number="editingPart.price" type="number" step="0.5" min="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono outline-none focus:border-blue-500" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-amber-600 mb-1">进货价 ($)</label>
+              <label class="block text-xs font-semibold text-amber-600 mb-1">{{ t.inventory.costPrice }}</label>
               <input v-model.number="editingPart.cost_price" type="number" step="0.5" min="0" class="w-full bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2 text-xs font-bold font-mono text-amber-900 outline-none focus:border-amber-500" />
             </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1">🌟 {{ t.inventory.taxRate }} (IVA)</label>
+              <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.taxRate }}</label>
               <select v-model.number="editingPart.tax_rate" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold outline-none focus:border-blue-500 cursor-pointer">
                 <option :value="0.16">{{ t.inventory.tax16 }}</option>
                 <option :value="0.08">{{ t.inventory.tax8 }}</option>
@@ -310,14 +360,12 @@
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">{{ t.inventory.colBin }}</label>
-              <input v-model="editingPart.bin_location" type="text" placeholder="Estante A-1" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono outline-none focus:border-blue-500" />
+              <input v-model="editingPart.bin_location" type="text" :placeholder="t.inventory.binPlaceholder" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono outline-none focus:border-blue-500" />
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1">
-              🔗 {{ tExt.crossRef }}
-            </label>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">🔗 {{ tExt.crossRef }}</label>
             <textarea 
               v-model="editingPart.cross_references" 
               rows="3" 
@@ -330,20 +378,23 @@
             <label class="block text-xs font-semibold text-slate-500 mb-1">{{ tExt.updateImages }}</label>
             <input type="file" @change="handleEditFileChange" accept="image/*" multiple class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-200 rounded-xl p-1.5" />
           </div>
-
-          <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-            <button type="button" @click="editModalVisible = false" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">
-              {{ t.common.cancel }} (ESC)
-            </button>
-            <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer">
-              {{ tExt.saveChanges }} (Enter)
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
-    </div>
 
-    <!-- 🌟 现代化风格的批量删除确认弹窗 -->
+      <!-- 底部操作区 -->
+      <template #footer>
+        <div v-if="drawerMode === 'edit'" class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <button @click="switchToRead" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+            {{ t.common.cancel }}
+          </button>
+          <button @click="saveEditedPart" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer">
+            {{ tExt.saveChanges }}
+          </button>
+        </div>
+      </template>
+    </SideDrawer>
+
+    <!-- 🌟 批量删除确认弹窗（不变） -->
     <ConfirmDialog
       :visible="batchDeleteModalVisible"
       overlay-class="bg-slate-900/40"
@@ -365,6 +416,7 @@ import { useI18n } from '../composables/useI18n'
 import { apiUrl, apiFetch } from '../utils/api'
 import { useNotifications } from '../composables/useNotifications'
 import ConfirmDialog from './ConfirmDialog.vue'
+import SideDrawer from './SideDrawer.vue'
 
 const props = defineProps({
   partsList: Array,
@@ -422,8 +474,10 @@ const categoriesList = computed(() => {
   ]
 })
 
-const editModalVisible = ref(false)
-// 🌟 增加 cost_price 初始值
+// 🌟 Drawer 状态
+const detailDrawerVisible = ref(false)
+const drawerMode = ref('read') // 'read' | 'edit'
+
 const editingPart = ref({ 
   id: null, 
   oem: '', 
@@ -434,8 +488,9 @@ const editingPart = ref({
   price: 0, 
   cost_price: 0,
   tax_rate: 0.16,
-  bin_location: 'Estante A-1',
-  cross_references: '' 
+  bin_location: '',
+  cross_references: '',
+  image_url: ''
 })
 const editFiles = ref([])
 
@@ -551,16 +606,51 @@ const confirmBatchDelete = async () => {
   }
 }
 
-const openEditModal = (item) => {
+// 🌟 Drawer 核心逻辑
+const openDetailDrawer = (item) => {
   editingPart.value = { 
     ...item, 
-    cost_price: item.cost_price ?? 0, // 🌟 载入时带上进货价
+    cost_price: item.cost_price ?? 0,
     tax_rate: item.tax_rate ?? 0.16,
-    bin_location: item.bin_location || 'Estante A-1',
-    cross_references: item.cross_references || ''
+    bin_location: item.bin_location || '',
+    cross_references: item.cross_references || '',
+    image_url: item.image_url || ''
   }
   editFiles.value = []
-  editModalVisible.value = true
+  drawerMode.value = 'read'
+  detailDrawerVisible.value = true
+}
+
+const switchToEdit = () => {
+  drawerMode.value = 'edit'
+}
+
+const switchToRead = () => {
+  // 从最新 props 数据回填，丢弃未保存的编辑
+  const latest = props.partsList.find(p => p.id === editingPart.value.id)
+  if (latest) {
+    editingPart.value = {
+      ...latest,
+      cost_price: latest.cost_price ?? 0,
+      tax_rate: latest.tax_rate ?? 0.16,
+      bin_location: latest.bin_location || '',
+      cross_references: latest.cross_references || '',
+      image_url: latest.image_url || ''
+    }
+  }
+  editFiles.value = []
+  drawerMode.value = 'read'
+}
+
+const closeDrawer = () => {
+  detailDrawerVisible.value = false
+  editFiles.value = []
+  drawerMode.value = 'read'
+}
+
+const onDeleteFromDrawer = () => {
+  emit('delete-part', editingPart.value)
+  closeDrawer()
 }
 
 const handleEditFileChange = (e) => {
@@ -576,9 +666,9 @@ const saveEditedPart = async () => {
     formData.append('category', editingPart.value.category || tExt.value.uncategorized)
     formData.append('stock', editingPart.value.stock ?? 0)
     formData.append('price', editingPart.value.price ?? 0.0)
-    formData.append('cost_price', editingPart.value.cost_price ?? 0.0) // 🌟 提交时带上进货价
+    formData.append('cost_price', editingPart.value.cost_price ?? 0.0)
     formData.append('tax_rate', editingPart.value.tax_rate ?? 0.16)
-    formData.append('bin_location', editingPart.value.bin_location || 'Estante A-1')
+    formData.append('bin_location', editingPart.value.bin_location || '')
     formData.append('cross_references', editingPart.value.cross_references || '')
 
     editFiles.value.forEach(f => formData.append('files', f))
@@ -589,7 +679,8 @@ const saveEditedPart = async () => {
     })
 
     if (res.ok) {
-      editModalVisible.value = false
+      editFiles.value = []
+      drawerMode.value = 'read'
       showSuccessModal('✨ ' + t.value.common.success)
       emit('refresh-data')
     } else {
@@ -602,11 +693,20 @@ const saveEditedPart = async () => {
   }
 }
 
+// 🌟 ESC 行为：编辑态回只读，只读态关闭
 const handleKeydown = (e) => {
-  if (!editModalVisible.value && !batchDeleteModalVisible.value) return
+  if (!detailDrawerVisible.value && !batchDeleteModalVisible.value) return
   if (e.key === 'Escape') {
-    editModalVisible.value = false
-    batchDeleteModalVisible.value = false
+    if (detailDrawerVisible.value) {
+      if (drawerMode.value === 'edit') {
+        switchToRead()
+      } else {
+        closeDrawer()
+      }
+    }
+    if (batchDeleteModalVisible.value) {
+      batchDeleteModalVisible.value = false
+    }
   }
 }
 

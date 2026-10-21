@@ -7,8 +7,8 @@
       <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
         <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg shadow-sm">⚙️</div>
         <div>
-          <h3 class="font-bold text-slate-800 text-base">系统参数与公司抬头配置</h3>
-          <p class="text-xs text-slate-400">配置打印小票、PDF 报价单上的公司信息，以及离线环境下的 BCV 官方汇率</p>
+          <h3 class="font-bold text-slate-800 text-base">{{ tExt.settingsTitle }}</h3>
+          <p class="text-xs text-slate-400 mt-0.5">{{ tExt.settingsSub }}</p>
         </div>
       </div>
 
@@ -16,19 +16,19 @@
         <!-- 公司基础信息 -->
         <div class="space-y-4">
           <div>
-            <label class="block text-xs font-bold text-slate-500 mb-1.5">公司全称 / 品牌名称</label>
+            <label class="block text-xs font-bold text-slate-500 mb-1.5">{{ tExt.labelCompanyName }}</label>
             <input v-model="settings.company_name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-500 font-semibold transition-colors" />
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-500 mb-1.5">RIF 税号 (委内瑞拉合规)</label>
+            <label class="block text-xs font-bold text-slate-500 mb-1.5">{{ tExt.labelRif }}</label>
             <input v-model="settings.rif" type="text" placeholder="J-31234567-8" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-500 font-mono transition-colors" />
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-500 mb-1.5">门店地址 (Address)</label>
+            <label class="block text-xs font-bold text-slate-500 mb-1.5">{{ tExt.labelAddress }}</label>
             <input v-model="settings.address" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-500 transition-colors" />
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-500 mb-1.5">公司电话 (Phone)</label>
+            <label class="block text-xs font-bold text-slate-500 mb-1.5">{{ tExt.labelPhone }}</label>
             <input v-model="settings.phone" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-500 font-mono transition-colors" />
           </div>
         </div>
@@ -37,11 +37,11 @@
         <div class="bg-blue-50/40 p-5 rounded-2xl border border-blue-100 flex flex-col justify-between">
           <div>
             <div class="flex items-center justify-between mb-3">
-              <label class="block text-sm font-black text-blue-900">💱 手动汇率配置 (BCV)</label>
-              <span class="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase">Offline Mode</span>
+              <label class="block text-sm font-black text-blue-900">{{ tExt.rateTitle }}</label>
+              <span class="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase">{{ tExt.offlineMode }}</span>
             </div>
             <p class="text-xs text-blue-700/80 mb-4 leading-relaxed">
-              由于本系统处于离线运行状态，您必须手动设置本地的 BCV 汇率。该数值将用于所有 POS 收银结算与财务报表计算。
+              {{ tExt.rateDesc }}
             </p>
             <div class="flex items-center gap-3">
               <div class="relative flex-1">
@@ -59,11 +59,11 @@
           
           <div class="flex gap-2 mt-4 pt-4 border-t border-blue-100">
             <button @click="saveRate" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer">
-              💾 保存当前汇率
+              💾 {{ tExt.btnSaveRate }}
             </button>
             <button @click="autoFetchRate" :disabled="isFetchingRate" class="bg-white hover:bg-blue-50 text-blue-600 border border-blue-200 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer">
-              <span v-if="isFetchingRate">⏳ 获取中</span>
-              <span v-else>🌐 联网获取</span>
+              <span v-if="isFetchingRate">⏳ {{ tExt.fetching }}</span>
+              <span v-else>🌐 {{ tExt.btnFetchOnline }}</span>
             </button>
           </div>
         </div>
@@ -71,7 +71,7 @@
 
       <div class="flex justify-end pt-2 border-t border-slate-100">
         <button @click="saveSettings" class="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-amber-500/20 transition-all cursor-pointer flex items-center gap-2">
-          💾 保存系统抬头配置
+          💾 {{ tExt.btnSaveSettings }}
         </button>
       </div>
     </div>
@@ -86,22 +86,22 @@
           <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
             <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg shadow-sm">📦</div>
             <div>
-              <h3 class="font-bold text-slate-800 text-base">数据导出与备份</h3>
-              <p class="text-xs text-slate-400">生成商品库存与客户账本的 CSV 备份文件</p>
+              <h3 class="font-bold text-slate-800 text-base">{{ tExt.exportTitle }}</h3>
+              <p class="text-xs text-slate-400 mt-0.5">{{ tExt.exportSub }}</p>
             </div>
           </div>
           
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button @click="$emit('export-parts')" class="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer">
-              <FileSpreadsheet :size="16" /> 导出商品 CSV
+              <FileSpreadsheet :size="16" /> {{ tExt.btnExportParts }}
             </button>
             <button @click="$emit('export-clients')" class="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer">
-              <FileSpreadsheet :size="16" /> 导出客户 CSV
+              <FileSpreadsheet :size="16" /> {{ tExt.btnExportClients }}
             </button>
           </div>
 
           <button @click="$emit('download-db')" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer mt-2">
-            🛡️ 下载完整数据库 (.db)
+            🛡️ {{ tExt.btnDownloadDb }}
           </button>
         </div>
 
@@ -110,14 +110,14 @@
           <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
             <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg shadow-sm">📥</div>
             <div>
-              <h3 class="font-bold text-slate-800 text-base">批量导入商品</h3>
-              <p class="text-xs text-slate-400">通过 CSV 文件批量更新库存与进价信息</p>
+              <h3 class="font-bold text-slate-800 text-base">{{ tExt.importTitle }}</h3>
+              <p class="text-xs text-slate-400 mt-0.5">{{ tExt.importSub }}</p>
             </div>
           </div>
           
           <div class="flex gap-2">
             <button @click="downloadCsvTemplate" class="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer">
-              📄 下载标准模板
+              📄 {{ tExt.btnDownloadTemplate }}
             </button>
           </div>
 
@@ -129,7 +129,7 @@
               @change="handleFileSelect" 
               class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" 
             />
-            <p class="text-[11px] text-slate-400 mt-2">请选择符合模板格式的 CSV 文件</p>
+            <p class="text-[11px] text-slate-400 mt-2">{{ tExt.fileHint }}</p>
           </div>
           
           <button 
@@ -137,7 +137,7 @@
             @click="uploadCsv" 
             class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
-            🚀 确认导入 ({{ selectedFile.name }})
+            🚀 {{ tExt.btnConfirmImport }} ({{ selectedFile.name }})
           </button>
         </div>
       </div>
@@ -148,19 +148,19 @@
           <div class="flex items-center gap-3 border-b border-rose-100 pb-4">
             <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-lg shadow-sm">🧹</div>
             <div>
-              <h3 class="font-bold text-rose-800 text-base">数据库清理与优化</h3>
-              <p class="text-xs text-rose-500/80">执行 VACUUM 释放磁盘空间并优化查询性能</p>
+              <h3 class="font-bold text-rose-800 text-base">{{ tExt.cleanupTitle }}</h3>
+              <p class="text-xs text-rose-500/80 mt-0.5">{{ tExt.cleanupSub }}</p>
             </div>
           </div>
 
           <div class="bg-rose-50/50 p-4 rounded-xl border border-rose-100">
             <p class="text-[11px] text-rose-700 leading-relaxed font-medium">
-              ⚠️ 注意：定期执行数据库碎片整理可以有效减小文件体积、提高索引查询速度。在执行期间请勿强行关闭后端服务或断电。
+              {{ tExt.cleanupWarning }}
             </p>
           </div>
 
           <button @click="showCleanupModal = true" class="w-full bg-rose-600 hover:bg-rose-700 text-white py-3.5 rounded-xl text-xs font-bold shadow-md shadow-rose-500/20 transition-all shrink-0 cursor-pointer">
-            ⚡ 开始清理与优化数据库
+            ⚡ {{ tExt.btnCleanup }}
           </button>
         </div>
       </div>
@@ -175,42 +175,31 @@
       </div>
     </transition>
 
-    <!-- 🌟 数据库清理确认模态框 -->
-    <div v-if="showCleanupModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 p-6 space-y-5">
-        <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xl shrink-0">⚡</div>
-          <div>
-            <h3 class="font-bold text-slate-800 text-base">确认执行数据库优化</h3>
-            <p class="text-xs text-slate-400">Database VACUUM & Space Optimization</p>
-          </div>
-        </div>
-        <p class="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
-          此操作将释放 SQLite 未使用的磁盘空间并整理内存碎片。在执行期间请勿强行关闭服务或断电。
-        </p>
-        <div class="flex justify-end gap-3 pt-2">
-          <button @click="showCleanupModal = false" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer">
-            取消
-          </button>
-          <button @click="runCleanup" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer">
-            确认执行
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- 🌟 统一确认弹窗 -->
+    <ConfirmDialog
+      :visible="showCleanupModal"
+      overlay-class="bg-slate-900/60"
+      :title="tExt.confirmCleanupTitle"
+      :message="tExt.confirmCleanupMsg"
+      :cancel-text="t.common.cancel"
+      :confirm-text="tExt.btnCleanup"
+      @cancel="showCleanupModal = false"
+      @confirm="runCleanup"
+    />
 
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { FileSpreadsheet } from 'lucide-vue-next'
 import { useI18n } from '../composables/useI18n'
 import { apiFetch } from '../utils/api'
 import { useInventory } from '../composables/useInventory'
+import ConfirmDialog from './ConfirmDialog.vue'
 
 defineEmits(['export-parts', 'export-clients', 'download-db'])
-const { t } = useI18n()
+const { t, currentLang } = useI18n()
 
 // 获取汇率状态
 const { bcvRate, updateBcvRate } = useInventory()
@@ -227,6 +216,59 @@ const settings = ref({
 
 const showCleanupModal = ref(false)
 
+const tExt = computed(() => {
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  return {
+    settingsTitle: isZh ? '系统参数与公司抬头配置' : isEs ? 'Configuración de Empresa' : 'Company Settings',
+    settingsSub: isZh ? '配置打印小票、PDF 报价单上的公司信息，以及离线环境下的 BCV 官方汇率' : isEs ? 'Configure la información en PDF y la tasa BCV' : 'Configure company info and BCV rate',
+    labelCompanyName: isZh ? '公司全称 / 品牌名称' : isEs ? 'Nombre de la Empresa' : 'Company Name',
+    labelRif: isZh ? 'RIF 税号 (委内瑞拉合规)' : isEs ? 'RIF (Cumplimiento)' : 'RIF Tax ID',
+    labelAddress: isZh ? '门店地址 (Address)' : isEs ? 'Dirección' : 'Address',
+    labelPhone: isZh ? '公司电话 (Phone)' : isEs ? 'Teléfono' : 'Phone',
+    
+    rateTitle: isZh ? '手动汇率配置 (BCV)' : isEs ? 'Configuración de Tasa BCV' : 'Manual BCV Rate',
+    offlineMode: isZh ? '离线模式' : isEs ? 'Modo Offline' : 'Offline Mode',
+    rateDesc: isZh ? '由于本系统处于离线运行状态，您必须手动设置本地的 BCV 汇率。该数值将用于所有 POS 收银结算与财务报表计算。' : isEs ? 'Configure la tasa local de BCV. Se usará para todas las ventas y finanzas.' : 'Set local BCV rate. Used for all POS and finance calculations.',
+    btnSaveRate: isZh ? '保存当前汇率' : isEs ? 'Guardar Tasa' : 'Save Rate',
+    fetching: isZh ? '获取中' : isEs ? 'Obteniendo' : 'Fetching',
+    btnFetchOnline: isZh ? '联网获取' : isEs ? 'Obtener Online' : 'Fetch Online',
+    btnSaveSettings: isZh ? '保存系统抬头配置' : isEs ? 'Guardar Configuración' : 'Save Settings',
+    
+    exportTitle: isZh ? '数据导出与备份' : isEs ? 'Exportación y Respaldo' : 'Data Export & Backup',
+    exportSub: isZh ? '生成商品库存与客户账本的 CSV 备份文件' : isEs ? 'Generar archivos CSV de inventario y clientes' : 'Generate CSV backups for parts and clients',
+    btnExportParts: isZh ? '导出商品 CSV' : isEs ? 'Exportar Repuestos' : 'Export Parts',
+    btnExportClients: isZh ? '导出客户 CSV' : isEs ? 'Exportar Clientes' : 'Export Clients',
+    btnDownloadDb: isZh ? '下载完整数据库 (.db)' : isEs ? 'Descargar Base de Datos' : 'Download Database',
+    
+    importTitle: isZh ? '批量导入商品' : isEs ? 'Importar Repuestos' : 'Import Parts',
+    importSub: isZh ? '通过 CSV 文件批量更新库存与进价信息' : isEs ? 'Actualice inventario y costos mediante CSV' : 'Update inventory and cost via CSV',
+    btnDownloadTemplate: isZh ? '下载标准模板' : isEs ? 'Descargar Plantilla' : 'Download Template',
+    fileHint: isZh ? '请选择符合模板格式的 CSV 文件' : isEs ? 'Seleccione un archivo CSV válido' : 'Select a valid CSV file',
+    btnConfirmImport: isZh ? '确认导入' : isEs ? 'Confirmar Importación' : 'Confirm Import',
+    
+    cleanupTitle: isZh ? '数据库清理与优化' : isEs ? 'Limpieza de Base de Datos' : 'Database Cleanup',
+    cleanupSub: isZh ? '执行 VACUUM 释放磁盘空间并优化查询性能' : isEs ? 'Ejecute VACUUM para liberar espacio y optimizar' : 'Run VACUUM to free space and optimize',
+    cleanupWarning: isZh ? '⚠️ 注意：定期执行数据库碎片整理可以有效减小文件体积、提高索引查询速度。在执行期间请勿强行关闭后端服务或断电。' : isEs ? '⚠️ Nota: La limpieza optimiza el archivo. No cierre el servidor durante el proceso.' : '⚠️ Note: Cleanup optimizes the file. Do not close the server during the process.',
+    btnCleanup: isZh ? '开始清理与优化数据库' : isEs ? 'Iniciar Limpieza' : 'Start Cleanup',
+    confirmCleanupTitle: isZh ? '确认执行数据库优化' : isEs ? 'Confirmar Limpieza' : 'Confirm Cleanup',
+    confirmCleanupMsg: isZh ? '此操作将释放 SQLite 未使用的磁盘空间并整理内存碎片。在执行期间请勿强行关闭服务或断电。' : isEs ? 'Esta acción liberará espacio en disco. No cierre el servicio.' : 'This action will free disk space. Do not close the service.',
+    
+    toastSettingsSaved: isZh ? '系统抬头与参数配置已成功保存！' : isEs ? '¡Configuración guardada!' : 'Settings saved successfully!',
+    toastSettingsFail: isZh ? '保存配置失败' : isEs ? 'Error al guardar' : 'Failed to save',
+    toastRateInvalid: isZh ? '请输入有效的汇率数字' : isEs ? 'Ingrese una tasa válida' : 'Enter a valid rate',
+    toastRateSaved: isZh ? '本地汇率已成功更新并应用！' : isEs ? '¡Tasa local actualizada!' : 'Local rate updated and applied!',
+    toastRateFail: isZh ? '汇率保存失败' : isEs ? 'Error al guardar la tasa' : 'Failed to save rate',
+    toastFetchSuccess: isZh ? '联网获取并应用汇率成功！' : isEs ? '¡Tasa obtenida y aplicada!' : 'Rate fetched and applied successfully!',
+    toastFetchFail: isZh ? '网络抓取失败，请手动输入' : isEs ? 'Error al obtener, ingrese manualmente' : 'Fetch failed, enter manually',
+    toastNetworkError: isZh ? '网络连接异常' : isEs ? 'Error de conexión' : 'Network error',
+    toastCleanupSuccess: isZh ? '数据库清理与空间优化已成功完成！' : isEs ? '¡Limpieza completada!' : 'Cleanup and optimization completed!',
+    toastCleanupFail: isZh ? '数据库清理执行失败' : isEs ? 'Error en la limpieza' : 'Cleanup failed',
+    toastImportSuccess: isZh ? '批量导入成功！共处理/更新了' : isEs ? '¡Importación exitosa! Procesados:' : 'Import successful! Processed:',
+    toastImportFail: isZh ? '导入失败，请检查 CSV 文件编码或格式。' : isEs ? 'Error de importación, revise el CSV.' : 'Import failed, check CSV format.'
+  }
+})
+
 // 统一的通知浮窗状态
 const toast = reactive({
   show: false,
@@ -242,6 +284,11 @@ const showToast = (msg, icon = '🎉') => {
     toast.show = false
   }, 3000)
 }
+
+// 同步全局汇率到本地输入框
+watch(bcvRate, (newVal) => {
+  if (newVal) rateInput.value = newVal
+}, { immediate: true })
 
 const fetchSettings = async () => {
   try {
@@ -261,55 +308,51 @@ const saveSettings = async () => {
       body: JSON.stringify(settings.value)
     })
     if (res.ok) {
-      showToast('系统抬头与参数配置已成功保存！', '🎉')
+      showToast(tExt.value.toastSettingsSaved, '🎉')
     } else {
       const errData = await res.json().catch(() => ({}))
-      showToast(`保存配置失败: ${errData.detail || res.statusText}`, '❌')
+      showToast(`${tExt.value.toastSettingsFail}: ${errData.detail || res.statusText}`, '❌')
     }
   } catch (e) {
     console.error(e)
-    showToast('网络异常，无法连接后端服务', '❌')
+    showToast(tExt.value.toastNetworkError, '❌')
   }
 }
 
-// 🌟 保存手动输入的汇率
 const saveRate = async () => {
   const val = parseFloat(rateInput.value)
   if (isNaN(val) || val <= 0) {
-    showToast('请输入有效的汇率数字', '❌')
+    showToast(tExt.value.toastRateInvalid, '❌')
     return
   }
   const ok = await updateBcvRate(val)
   if (ok) {
-    showToast('本地汇率已成功更新并应用！', '💱')
+    showToast(tExt.value.toastRateSaved, '💱')
   } else {
-    showToast('汇率保存失败', '❌')
+    showToast(tExt.value.toastRateFail, '❌')
   }
 }
 
-// 🌟 尝试联网自动获取
 const autoFetchRate = async () => {
   isFetchingRate.value = true
   try {
-    // 请求后端的自动抓取接口
     const res = await apiFetch('/api/bcv-rate')
     if (res.ok) {
       const data = await res.json()
       const newRate = data.rate.toFixed(2)
       rateInput.value = newRate
       
-      // 🌟 核心修复：获取成功后，直接调用 updateBcvRate 保存并更新全局状态
       const ok = await updateBcvRate(newRate)
       if (ok) {
-        showToast('联网获取并应用汇率成功！', '🌐')
+        showToast(tExt.value.toastFetchSuccess, '🌐')
       } else {
-        showToast('获取成功，但保存失败，请手动点击保存', '❌')
+        showToast(tExt.value.toastRateFail, '❌')
       }
     } else {
-      showToast('网络抓取失败，请手动输入', '❌')
+      showToast(tExt.value.toastFetchFail, '❌')
     }
   } catch (e) {
-    showToast('网络连接异常，请手动输入', '❌')
+    showToast(tExt.value.toastNetworkError, '❌')
   } finally {
     isFetchingRate.value = false
   }
@@ -323,20 +366,18 @@ const runCleanup = async () => {
     })
     if (res.ok) {
       const data = await res.json()
-      showToast(data.message || '数据库清理与空间优化已成功完成！', '⚡')
+      showToast(data.message || tExt.value.toastCleanupSuccess, '⚡')
     } else {
-      showToast('数据库清理执行失败', '❌')
+      showToast(tExt.value.toastCleanupFail, '❌')
     }
   } catch (e) {
     console.error(e)
-    showToast('网络或后端服务异常', '❌')
+    showToast(tExt.value.toastNetworkError, '❌')
   }
 }
 
 onMounted(() => {
   fetchSettings()
-  // 初始化时，把当前的汇率带进输入框
-  rateInput.value = bcvRate.value
 })
 
 const selectedFile = ref(null)
@@ -361,20 +402,20 @@ const uploadCsv = async () => {
     })
     if (res.ok) {
       const data = await res.json()
-      showToast(`批量导入成功！共处理/更新了 ${data.imported_count || 0} 个 SKU 档案。`, '📦')
+      showToast(`${tExt.value.toastImportSuccess} ${data.imported_count || 0} SKUs.`, '📦')
       selectedFile.value = null
       if (fileInputRef.value) fileInputRef.value.value = ''
     } else {
-      showToast('导入失败，请检查 CSV 文件编码或格式。', '❌')
+      showToast(tExt.value.toastImportFail, '❌')
     }
   } catch (e) {
     console.error(e)
-    showToast('网络或后端服务异常', '❌')
+    showToast(tExt.value.toastNetworkError, '❌')
   }
 }
 
 const downloadCsvTemplate = () => {
-  const csvContent = "oem,name,brand,category,stock,price,cost_price,bin_location\n17801-74060,空气滤清器,Toyota,滤清器,20,15.00,10.00,Estante A-1\n90915-YZZE1,机油滤清器,Toyota,滤清器,50,8.50,5.00,Estante A-2";
+  const csvContent = "oem,name,brand,category,stock,price,cost_price,bin_location\n17801-74060,Air Filter,Toyota,Filters,20,15.00,10.00,Estante A-1\n90915-YZZE1,Oil Filter,Toyota,Filters,50,8.50,5.00,Estante A-2";
   const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

@@ -4,44 +4,41 @@
     
     <!-- 🌟 顶部标题与导出按钮 -->
     <div class="flex flex-wrap items-center justify-between gap-4">
-      <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">📊 财务利润中心</h2>
+      <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+        <span>📊</span> {{ tExt.title }}
+      </h2>
       
       <div class="flex items-center gap-3 flex-wrap">
-        <!-- 🌟 自定义时间筛选器 -->
+        <!-- 自定义时间筛选器 -->
         <div class="relative">
           <div 
             @click="isDatePickerVisible = !isDatePickerVisible"
-            class="flex items-center gap-2 bg-white border border-slate-200 hover:border-blue-300 rounded-xl px-4 py-2.5 cursor-pointer shadow-2xs transition-colors select-none"
+            class="flex items-center gap-2 bg-white border border-slate-200 hover:border-blue-400 rounded-xl px-4 py-2.5 cursor-pointer shadow-2xs hover:shadow-md transition-all select-none"
           >
             <span class="text-sm font-bold font-mono text-blue-600">{{ startDate }}</span>
-            <span class="text-slate-400 text-xs font-bold">至</span>
+            <span class="text-slate-400 text-xs font-bold">{{ tExt.to }}</span>
             <span class="text-sm font-bold font-mono text-blue-600">{{ endDate }}</span>
             <svg class="w-4 h-4 text-slate-400 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
           </div>
 
           <!-- 日历面板 -->
           <div v-if="isDatePickerVisible" class="absolute top-full right-0 mt-2 bg-white/95 backdrop-blur-2xl border border-slate-200/80 rounded-2xl shadow-2xl z-50 p-4 w-72 animate-in fade-in slide-in-from-top-2">
-            <!-- 头部：月份切换 -->
             <div class="flex items-center justify-between mb-4">
               <button @click.stop="changeMonth(-1)" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
               </button>
-              <div class="font-black text-sm text-slate-800 font-mono">{{ currentYear }} 年 {{ currentMonth + 1 }} 月</div>
+              <div class="font-black text-sm text-slate-800 font-mono">{{ currentYear }} {{ tExt.yearUnit }} {{ currentMonth + 1 }} {{ tExt.monthUnit }}</div>
               <button @click.stop="changeMonth(1)" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
               </button>
             </div>
 
-            <!-- 星期表头 -->
             <div class="grid grid-cols-7 gap-1 text-center mb-2">
-              <div v-for="day in ['日', '一', '二', '三', '四', '五', '六']" :key="day" class="text-[10px] font-bold text-slate-400">{{ day }}</div>
+              <div v-for="day in tExt.weekDays" :key="day" class="text-[10px] font-bold text-slate-400">{{ day }}</div>
             </div>
 
-            <!-- 日期格子 -->
             <div class="grid grid-cols-7 gap-1">
-              <!-- 空白占位 -->
               <div v-for="n in firstDayOfWeek" :key="'empty-'+n" class="h-8"></div>
-              <!-- 本月日期 -->
               <button 
                 v-for="day in daysInMonth" 
                 :key="day"
@@ -57,112 +54,90 @@
             </div>
 
             <div class="mt-3 pt-3 border-t border-slate-100 flex justify-between">
-              <button @click.stop="setThisMonth" class="text-xs font-bold text-blue-600 hover:underline">本月至今</button>
-              <button @click.stop="isDatePickerVisible = false" class="text-xs font-bold text-slate-500 hover:text-slate-700">关闭</button>
+              <button @click.stop="setThisMonth" class="text-xs font-bold text-blue-600 hover:underline">{{ tExt.thisMonth }}</button>
+              <button @click.stop="isDatePickerVisible = false" class="text-xs font-bold text-slate-500 hover:text-slate-700">{{ tExt.close }}</button>
             </div>
           </div>
         </div>
 
         <button 
           @click="exportProfitReport"
-          class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer hover:scale-105"
+          class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 transition-all cursor-pointer hover:-translate-y-0.5"
         >
           📥 {{ tExt.exportBtn }}
         </button>
       </div>
     </div>
 
-    <!-- 顶部核心指标卡片 -->
+    <!-- 🌟 顶部核心指标卡片 (加入悬浮交互效果) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      <div class="bg-white/75 backdrop-blur-xl p-5 rounded-2xl border border-white/80 shadow-lg space-y-2">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">{{ tExt.revenue }}</p>
-        <h3 class="text-2xl font-black text-blue-600 font-mono">$ {{ analytics.total_revenue_usd.toFixed(2) }}</h3>
-        <p class="text-xs text-slate-400 font-mono">Bs. {{ (analytics.total_revenue_usd * bcvRate).toFixed(2) }}</p>
+      <!-- 营收 -->
+      <div class="bg-white/75 backdrop-blur-xl p-5 rounded-2xl border border-white/80 shadow-lg space-y-2 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 hover:bg-white hover:border-blue-200 cursor-default">
+        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">{{ tExt.revenue }}</p>
+        <h3 class="text-2xl font-black text-blue-600 font-mono">$ {{ formatNum(analytics.total_revenue_usd) }}</h3>
+        <p class="text-xs text-slate-400 font-mono">Bs. {{ formatNum(analytics.total_revenue_usd * bcvRate) }}</p>
       </div>
 
-      <div class="bg-white/75 backdrop-blur-xl p-5 rounded-2xl border border-white/80 shadow-lg space-y-2">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">{{ tExt.cost }}</p>
-        <h3 class="text-2xl font-black text-slate-700 font-mono">$ {{ analytics.total_cost_usd.toFixed(2) }}</h3>
-        <p class="text-xs text-slate-400 font-mono">Bs. {{ (analytics.total_cost_usd * bcvRate).toFixed(2) }}</p>
+      <!-- 成本 -->
+      <div class="bg-white/75 backdrop-blur-xl p-5 rounded-2xl border border-white/80 shadow-lg space-y-2 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 hover:bg-white hover:border-slate-300 cursor-default">
+        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">{{ tExt.cost }}</p>
+        <h3 class="text-2xl font-black text-slate-700 font-mono">$ {{ formatNum(analytics.total_cost_usd) }}</h3>
+        <p class="text-xs text-slate-400 font-mono">Bs. {{ formatNum(analytics.total_cost_usd * bcvRate) }}</p>
       </div>
 
-      <div class="bg-white/75 backdrop-blur-xl p-5 rounded-2xl border border-white/80 shadow-lg space-y-2">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">{{ tExt.expenses }}</p>
-        <h3 class="text-2xl font-black text-rose-500 font-mono">$ {{ analytics.total_expenses_usd.toFixed(2) }}</h3>
-        <p class="text-xs text-rose-400 font-mono font-bold">Bs. {{ (analytics.total_expenses_usd * bcvRate).toFixed(2) }}</p>
+      <!-- 开支 -->
+      <div class="bg-white/75 backdrop-blur-xl p-5 rounded-2xl border border-white/80 shadow-lg space-y-2 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 hover:bg-white hover:border-rose-200 cursor-default">
+        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">{{ tExt.expenses }}</p>
+        <h3 class="text-2xl font-black text-rose-500 font-mono">$ {{ formatNum(analytics.total_expenses_usd) }}</h3>
+        <p class="text-xs text-rose-400 font-mono font-bold">Bs. {{ formatNum(analytics.total_expenses_usd * bcvRate) }}</p>
       </div>
 
-      <!-- 🌟 应收欠款（不随时间过滤） -->
-      <div class="bg-amber-50/80 backdrop-blur-xl p-5 rounded-2xl border border-amber-200 shadow-lg space-y-2">
+      <!-- 欠款 -->
+      <div class="bg-amber-50/80 backdrop-blur-xl p-5 rounded-2xl border border-amber-200 shadow-lg space-y-2 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 hover:bg-amber-100/90 hover:border-amber-300 cursor-default">
         <p class="text-xs font-bold text-amber-600 uppercase tracking-wider">{{ tExt.debt }}</p>
-        <h3 class="text-2xl font-black text-amber-700 font-mono">$ {{ analytics.total_debt_usd.toFixed(2) }}</h3>
-        <p class="text-xs text-amber-600 font-mono font-bold">Bs. {{ (analytics.total_debt_usd * bcvRate).toFixed(2) }}</p>
+        <h3 class="text-2xl font-black text-amber-700 font-mono">$ {{ formatNum(analytics.total_debt_usd) }}</h3>
+        <p class="text-xs text-amber-600 font-mono font-bold">Bs. {{ formatNum(analytics.total_debt_usd * bcvRate) }}</p>
       </div>
 
-      <div class="bg-emerald-50/80 backdrop-blur-xl p-5 rounded-2xl border border-emerald-300 shadow-lg space-y-2 relative overflow-hidden">
+      <!-- 净利润 -->
+      <div class="bg-emerald-50/80 backdrop-blur-xl p-5 rounded-2xl border border-emerald-300 shadow-lg space-y-2 relative overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 hover:bg-emerald-100/90 hover:border-emerald-400 cursor-default">
         <div class="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-bl-full"></div>
         <p class="text-xs font-bold text-emerald-600 uppercase tracking-wider">{{ tExt.netProfit }}</p>
-        <h3 class="text-2xl font-black text-emerald-700 font-mono">$ {{ analytics.net_profit_usd.toFixed(2) }}</h3>
-        <p class="text-xs text-emerald-600 font-mono font-bold">Bs. {{ (analytics.net_profit_usd * bcvRate).toFixed(2) }}</p>
+        <h3 class="text-2xl font-black text-emerald-700 font-mono">$ {{ formatNum(analytics.net_profit_usd) }}</h3>
+        <p class="text-xs text-emerald-600 font-mono font-bold">Bs. {{ formatNum(analytics.net_profit_usd * bcvRate) }}</p>
       </div>
     </div>
 
-    <!-- 收银对账分类 -->
-    <div class="bg-white/75 backdrop-blur-xl rounded-2xl border border-white/80 shadow-xl p-6 space-y-4">
-      <div class="flex items-center justify-between flex-wrap gap-3">
-        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
-          💳 {{ tExt.paymentBreakdown }}
+    <!-- 🌟 可视化图表区域 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- 营收与利润趋势图 -->
+      <div class="bg-white/75 backdrop-blur-xl rounded-2xl border border-white/80 shadow-xl p-6 transition-shadow duration-300 hover:shadow-2xl">
+        <h3 class="font-bold text-slate-800 text-base mb-4 flex items-center gap-2">
+          <span>📈</span> {{ tExt.chartTrendTitle }}
         </h3>
-        <span class="text-xs bg-blue-500/10 text-blue-700 border border-blue-200/60 px-3 py-1 rounded-xl font-mono font-bold shadow-2xs">
-          BCV: {{ bcvRate }}
-        </span>
+        <div ref="trendChartRef" class="w-full h-72"></div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div class="bg-white/70 hover:bg-white backdrop-blur-md border border-white/90 hover:border-blue-300 rounded-2xl p-4 space-y-1 shadow-2xs transition-all duration-200 hover:scale-[1.02]">
-          <div class="flex items-center justify-between text-xs font-bold text-slate-500">
-            <span>💳 Card POS</span>
-            <span class="text-blue-600 font-mono">{{ paymentBreakdown.cardPos.count }} {{ tExt.unit }}</span>
-          </div>
-          <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentBreakdown.cardPos.totalUSD.toFixed(2) }}</div>
+      <!-- 支付渠道占比图 -->
+      <div class="bg-white/75 backdrop-blur-xl rounded-2xl border border-white/80 shadow-xl p-6 transition-shadow duration-300 hover:shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+            <span>💳</span> {{ tExt.paymentBreakdown }}
+          </h3>
+          <span class="text-xs bg-blue-500/10 text-blue-700 border border-blue-200/60 px-3 py-1 rounded-xl font-mono font-bold shadow-2xs">
+            BCV: {{ bcvRate }}
+          </span>
         </div>
-        <div class="bg-white/70 hover:bg-white backdrop-blur-md border border-white/90 hover:border-blue-300 rounded-2xl p-4 space-y-1 shadow-2xs transition-all duration-200 hover:scale-[1.02]">
-          <div class="flex items-center justify-between text-xs font-bold text-slate-500">
-            <span>⚡ Pago Móvil</span>
-            <span class="text-indigo-600 font-mono">{{ paymentBreakdown.pagoMovil.count }} {{ tExt.unit }}</span>
-          </div>
-          <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentBreakdown.pagoMovil.totalUSD.toFixed(2) }}</div>
-        </div>
-        <div class="bg-white/70 hover:bg-white backdrop-blur-md border border-white/90 hover:border-blue-300 rounded-2xl p-4 space-y-1 shadow-2xs transition-all duration-200 hover:scale-[1.02]">
-          <div class="flex items-center justify-between text-xs font-bold text-slate-500">
-            <span>🇻🇪 Cash Bs.</span>
-            <span class="text-emerald-600 font-mono">{{ paymentBreakdown.cashBs.count }} {{ tExt.unit }}</span>
-          </div>
-          <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentBreakdown.cashBs.totalUSD.toFixed(2) }}</div>
-        </div>
-        <div class="bg-white/70 hover:bg-white backdrop-blur-md border border-white/90 hover:border-blue-300 rounded-2xl p-4 space-y-1 shadow-2xs transition-all duration-200 hover:scale-[1.02]">
-          <div class="flex items-center justify-between text-xs font-bold text-slate-500">
-            <span>💵 Cash USD</span>
-            <span class="text-emerald-600 font-mono">{{ paymentBreakdown.cashUSD.count }} {{ tExt.unit }}</span>
-          </div>
-          <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentBreakdown.cashUSD.totalUSD.toFixed(2) }}</div>
-        </div>
-        <div class="bg-white/70 hover:bg-white backdrop-blur-md border border-white/90 hover:border-blue-300 rounded-2xl p-4 space-y-1 shadow-2xs transition-all duration-200 hover:scale-[1.02]">
-          <div class="flex items-center justify-between text-xs font-bold text-slate-500">
-            <span>🔄 Pago Mixto</span>
-            <span class="text-purple-600 font-mono">{{ paymentBreakdown.pagoMixto.count }} {{ tExt.unit }}</span>
-          </div>
-          <div class="text-lg font-black text-slate-900 font-mono">$ {{ paymentBreakdown.pagoMixto.totalUSD.toFixed(2) }}</div>
-        </div>
+        <div ref="pieChartRef" class="w-full h-72"></div>
       </div>
     </div>
 
-    <!-- 每日利润对账流水 -->
+    <!-- 🌟 每日利润对账流水 (加入表格悬浮效果) -->
     <div class="bg-white/75 backdrop-blur-xl rounded-2xl border border-white/80 shadow-xl overflow-hidden">
       <div class="p-6 border-b border-slate-200/60 flex items-center justify-between bg-white/40 backdrop-blur-md">
         <div>
-          <h3 class="font-bold text-slate-800 text-base">📈 {{ tExt.dailyAuditTitle }}</h3>
-          <p class="text-xs text-slate-400 mt-0.5 font-medium">{{ startDate }} {{ tExt.to }} {{ endDate }} {{ tExt.auditSubtitle }}</p>
+          <h3 class="font-bold text-slate-800 text-base">📋 {{ tExt.dailyAuditTitle }}</h3>
+          <p class="text-xs text-slate-500 mt-0.5 font-medium">{{ startDate }} {{ tExt.to }} {{ endDate }} {{ tExt.auditSubtitle }}</p>
         </div>
       </div>
 
@@ -180,21 +155,28 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200/60 text-sm font-medium">
-            <tr v-for="row in dailyAuditList" :key="row.id" class="hover:bg-blue-500/10 transition-all duration-200 cursor-pointer">
-              <td class="py-3.5 px-6 font-mono font-black text-blue-600">#{{ row.id }}</td>
+            <!-- 🌟 表格行交互：背景变蓝，左侧边框高亮，单号放大 -->
+            <tr 
+              v-for="row in dailyAuditList" 
+              :key="row.id" 
+              class="hover:bg-blue-50/60 transition-all duration-200 cursor-pointer group border-l-4 border-transparent hover:border-blue-500"
+            >
+              <td class="py-3.5 px-6 font-mono font-black text-blue-600 group-hover:scale-110 group-hover:origin-left transition-transform">
+                #{{ row.id }}
+              </td>
               <td class="py-3.5 px-6 text-xs text-slate-500 font-mono">{{ row.date }}</td>
               <td class="py-3.5 px-6">
-                <span class="bg-blue-500/15 text-blue-700 border border-blue-200/60 px-2.5 py-1 rounded-lg text-xs font-bold font-mono shadow-2xs">
-                  {{ row.payment_method }}
+                <span class="bg-blue-500/10 text-blue-700 border border-blue-200/60 px-2.5 py-1 rounded-lg text-xs font-bold font-mono shadow-2xs group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  {{ getPaymentMethodLabel(row.payment_method) }}
                 </span>
               </td>
-              <td class="py-3.5 px-6 font-mono font-black text-slate-900">$ {{ Number(row.revenue_usd || 0).toFixed(2) }}</td>
-              <td class="py-3.5 px-6 font-mono text-slate-600 font-bold">Bs. {{ (Number(row.revenue_usd || 0) * bcvRate).toFixed(2) }}</td>
-              <td class="py-3.5 px-6 font-mono text-slate-500 font-bold">$ {{ Number(row.cost_usd || 0).toFixed(2) }}</td>
-              <td class="py-3.5 px-6 font-mono font-black text-emerald-600">
-                $ {{ Number(row.profit_usd || 0).toFixed(2) }}
+              <td class="py-3.5 px-6 font-mono font-black text-slate-900">$ {{ formatNum(row.revenue_usd) }}</td>
+              <td class="py-3.5 px-6 font-mono text-slate-600 font-bold group-hover:text-blue-600 transition-colors">Bs. {{ formatNum(row.revenue_usd * bcvRate) }}</td>
+              <td class="py-3.5 px-6 font-mono text-slate-500 font-bold">$ {{ formatNum(row.cost_usd) }}</td>
+              <td class="py-3.5 px-6 font-mono font-black text-emerald-600 group-hover:text-emerald-700 transition-colors">
+                $ {{ formatNum(row.profit_usd) }}
                 <span class="block text-[11px] text-emerald-700/80 font-normal">
-                  Bs. {{ (Number(row.profit_usd || 0) * bcvRate).toFixed(2) }}
+                  Bs. {{ formatNum(row.profit_usd * bcvRate) }}
                 </span>
               </td>
             </tr>
@@ -210,106 +192,77 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import * as echarts from 'echarts'
 import { useI18n } from '../composables/useI18n'
 import { apiFetch } from '../utils/api'
 
 const { t, currentLang } = useI18n()
 
+// 安全数字格式化
+const formatNum = (val) => {
+  const num = Number(val) || 0
+  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 const tExt = computed(() => {
   const isZh = currentLang.value === 'zh'
   const isEs = currentLang.value === 'es'
   
-  if (isZh) {
-    return {
-      exportBtn: '导出利润报表',
-      revenue: '总营业收入',
-      cost: '总进货成本',
-      expenses: '日常开支 (Expenses)',
-      debt: '客户应收欠款 (Fiado)',
-      netProfit: '净利润',
-      paymentBreakdown: '收银对账分类 (基于所选时间段)',
-      unit: '笔',
-      dailyAuditTitle: '每日利润对账流水',
-      auditSubtitle: '的真实毛利贡献',
-      orderNo: '单据编号',
-      time: '交易时间',
-      payMethod: '支付方式',
-      revenueUsd: '营业额 (USD)',
-      revenueVes: '折算收入 (VES)',
-      costUsd: '进货成本 (USD)',
-      realProfit: '真实毛利',
-      noData: '该时间段内暂无交易流水',
-      
-      // 导出报表用
-      exportTitle: 'TOSTIKYK ERP - 财务利润综合报表',
-      to: '至',
-      rateLabel: '当前 BCV 汇率',
-      coreMetrics: '【核心财务指标 (USD / VES)】',
-      dailyDetails: '【每日利润对账流水明细】',
-      profitUsd: '真实毛利(USD)',
-      profitBs: '真实毛利(Bs.)'
-    }
-  } else if (isEs) {
-    return {
-      exportBtn: 'Exportar Reporte',
-      revenue: 'Ingresos Totales',
-      cost: 'Costo Total',
-      expenses: 'Gastos Diarios',
-      debt: 'Cuentas por Cobrar (Fiado)',
-      netProfit: 'Utilidad Neta',
-      paymentBreakdown: 'Conciliación de Caja (Período)',
-      unit: 'trans.',
-      dailyAuditTitle: 'Auditoría Diaria de Ganancias',
-      auditSubtitle: 'contribución real a la ganancia bruta',
-      orderNo: 'Nro. Orden',
-      time: 'Fecha',
-      payMethod: 'Método de Pago',
-      revenueUsd: 'Ingresos (USD)',
-      revenueVes: 'Ingresos (VES)',
-      costUsd: 'Costo (USD)',
-      realProfit: 'Ganancia Real',
-      noData: 'Sin transacciones en este período',
-      
-      exportTitle: 'TOSTIKYK ERP - Informe de Ganancias',
-      to: 'a',
-      rateLabel: 'Tasa BCV Actual',
-      coreMetrics: '【Indicadores Financieros Principales】',
-      dailyDetails: '【Detalle Diario de Ganancias】',
-      profitUsd: 'Ganancia Real (USD)',
-      profitBs: 'Ganancia Real (Bs.)'
-    }
-  } else {
-    return {
-      exportBtn: 'Export Report',
-      revenue: 'Total Revenue',
-      cost: 'Total Cost',
-      expenses: 'Daily Expenses',
-      debt: 'Accounts Receivable (Fiado)',
-      netProfit: 'Net Profit',
-      paymentBreakdown: 'Payment Breakdown (Period)',
-      unit: 'txns',
-      dailyAuditTitle: 'Daily Profit Audit Trail',
-      auditSubtitle: 'real gross profit contribution',
-      orderNo: 'Order No.',
-      time: 'Date',
-      payMethod: 'Payment Method',
-      revenueUsd: 'Revenue (USD)',
-      revenueVes: 'Revenue (VES)',
-      costUsd: 'Cost (USD)',
-      realProfit: 'Real Profit',
-      noData: 'No transactions in this period',
-      
-      exportTitle: 'TOSTIKYK ERP - Financial Profit Report',
-      to: 'to',
-      rateLabel: 'Current BCV Rate',
-      coreMetrics: '[ Key Financial Indicators ]',
-      dailyDetails: '[ Daily Profit Audit Trail ]',
-      profitUsd: 'Real Profit (USD)',
-      profitBs: 'Real Profit (Bs.)'
-    }
+  return {
+    title: isZh ? '财务利润中心' : isEs ? 'Centro de Ganancias' : 'Profit Center',
+    exportBtn: isZh ? '导出利润报表' : isEs ? 'Exportar Reporte' : 'Export Report',
+    revenue: isZh ? '总营业收入' : isEs ? 'Ingresos Totales' : 'Total Revenue',
+    cost: isZh ? '总进货成本' : isEs ? 'Costo Total' : 'Total Cost',
+    expenses: isZh ? '日常开支' : isEs ? 'Gastos Diarios' : 'Daily Expenses',
+    debt: isZh ? '客户应收欠款' : isEs ? 'Cuentas por Cobrar' : 'Accounts Receivable',
+    netProfit: isZh ? '净利润' : isEs ? 'Utilidad Neta' : 'Net Profit',
+    paymentBreakdown: isZh ? '支付渠道占比' : isEs ? 'Distribución de Pagos' : 'Payment Breakdown',
+    chartTrendTitle: isZh ? '营收与利润趋势' : isEs ? 'Tendencia de Ingresos y Ganancias' : 'Revenue & Profit Trend',
+    dailyAuditTitle: isZh ? '每日利润对账流水' : isEs ? 'Auditoría Diaria de Ganancias' : 'Daily Profit Audit',
+    auditSubtitle: isZh ? '的真实毛利贡献' : isEs ? 'contribución real' : 'real gross profit contribution',
+    orderNo: isZh ? '单据编号' : isEs ? 'Nro. Orden' : 'Order No.',
+    time: isZh ? '交易时间' : isEs ? 'Fecha' : 'Date',
+    payMethod: isZh ? '支付方式' : isEs ? 'Método de Pago' : 'Payment Method',
+    revenueUsd: isZh ? '营业额 (USD)' : isEs ? 'Ingresos (USD)' : 'Revenue (USD)',
+    revenueVes: isZh ? '折算收入 (VES)' : isEs ? 'Ingresos (VES)' : 'Revenue (VES)',
+    costUsd: isZh ? '进货成本 (USD)' : isEs ? 'Costo (USD)' : 'Cost (USD)',
+    realProfit: isZh ? '真实毛利' : isEs ? 'Ganancia Real' : 'Real Profit',
+    noData: isZh ? '该时间段内暂无交易流水' : isEs ? 'Sin transacciones en este período' : 'No transactions found',
+    to: isZh ? '至' : isEs ? 'a' : 'to',
+    close: isZh ? '关闭' : isEs ? 'Cerrar' : 'Close',
+    thisMonth: isZh ? '本月至今' : isEs ? 'Este mes' : 'This month',
+    yearUnit: isZh ? '年' : isEs ? '' : '',
+    monthUnit: isZh ? '月' : isEs ? '' : '',
+    weekDays: isZh ? ['日', '一', '二', '三', '四', '五', '六'] : isEs ? ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'] : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
+    chartRevenue: isZh ? '营收' : isEs ? 'Ingresos' : 'Revenue',
+    chartProfit: isZh ? '毛利' : isEs ? 'Ganancia Bruta' : 'Gross Profit',
+    chartAmount: isZh ? '金额 (USD)' : isEs ? 'Monto (USD)' : 'Amount (USD)',
+    chartOther: isZh ? '其他' : isEs ? 'Otros' : 'Other',
+    emptyData: isZh ? '暂无数据' : isEs ? 'Sin datos' : 'No data',
+    
+    exportTitle: isZh ? '财务利润综合报表' : isEs ? 'Informe de Ganancias' : 'Financial Profit Report',
+    rateLabel: isZh ? '当前 BCV 汇率' : isEs ? 'Tasa BCV Actual' : 'Current BCV Rate',
+    coreMetrics: isZh ? '【核心财务指标】' : isEs ? '【Indicadores Financieros】' : '[ Key Financial Indicators ]',
+    dailyDetails: isZh ? '【每日利润对账流水明细】' : isEs ? '【Detalle Diario de Ganancias】' : '[ Daily Profit Audit Trail ]',
+    profitUsd: isZh ? '真实毛利(USD)' : isEs ? 'Ganancia (USD)' : 'Real Profit (USD)',
+    profitBs: isZh ? '真实毛利(Bs.)' : isEs ? 'Ganancia (Bs.)' : 'Real Profit (Bs.)'
   }
 })
+
+const getPaymentMethodLabel = (methodCode) => {
+  if (!methodCode) return '-'
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  const m = String(methodCode).toUpperCase()
+
+  if (m.includes('CARD_POS')) return isZh ? '刷卡 (POS)' : isEs ? 'Punto de Venta' : 'Card POS'
+  if (m.includes('PAGO_MOVIL')) return isZh ? 'Pago Móvil' : isEs ? 'Pago Móvil' : 'Pago Móvil'
+  if (m.includes('CASH_BS')) return isZh ? '现金 (Bs.)' : isEs ? 'Efectivo Bs.' : 'Cash Bs.'
+  if (m.includes('CASH_USD')) return isZh ? '现金 (美元)' : isEs ? 'Efectivo USD' : 'Cash USD'
+  if (m.includes('MIXTO') || m.includes('MIX')) return isZh ? '混合支付' : isEs ? 'Pago Mixto' : 'Mixed Pay'
+  return methodCode
+}
 
 const bcvRate = ref(36.50)
 const analytics = ref({
@@ -338,7 +291,6 @@ const defaultEnd = now.toISOString().split('T')[0]
 const startDate = ref(defaultStart)
 const endDate = ref(defaultEnd)
 
-// 自定义日历状态
 const isDatePickerVisible = ref(false)
 const currentYear = ref(now.getFullYear())
 const currentMonth = ref(now.getMonth())
@@ -484,45 +436,218 @@ const fetchFinancialData = async () => {
       const debtData = await debtRes.json()
       fixedDebt.value = debtData.total_debt_usd || 0
     }
-
   } catch (e) {
     console.error("加载财务对账数据失败:", e)
   }
 }
 
-const exportProfitReport = () => {
-  const t = tExt.value
-  const bcv = bcvRate.value
+// ==================== ECharts 图表逻辑 ====================
+const trendChartRef = ref(null)
+const pieChartRef = ref(null)
+let trendChartInstance = null
+let pieChartInstance = null
 
-  let csvContent = "\uFEFF"
-  csvContent += `${t.exportTitle} (${startDate.value} ${t.to} ${endDate.value})\n`
-  csvContent += `${t.rateLabel},${bcv}\n\n`
+const renderCharts = () => {
+  renderTrendChart()
+  renderPieChart()
+}
 
-  csvContent += `${t.coreMetrics}\n`
-  csvContent += `${t.revenue},$ ${analytics.value.total_revenue_usd.toFixed(2)},Bs. ${(analytics.value.total_revenue_usd * bcv).toFixed(2)}\n`
-  csvContent += `${t.cost},$ ${analytics.value.total_cost_usd.toFixed(2)},Bs. ${(analytics.value.total_cost_usd * bcv).toFixed(2)}\n`
-  csvContent += `${t.expenses},$ ${analytics.value.total_expenses_usd.toFixed(2)},Bs. ${(analytics.value.total_expenses_usd * bcv).toFixed(2)}\n`
-  csvContent += `${t.debt},$ ${analytics.value.total_debt_usd.toFixed(2)},Bs. ${(analytics.value.total_debt_usd * bcv).toFixed(2)}\n`
-  csvContent += `${t.netProfit},$ ${analytics.value.net_profit_usd.toFixed(2)},Bs. ${(analytics.value.net_profit_usd * bcv).toFixed(2)}\n\n`
+const renderTrendChart = () => {
+  if (!trendChartRef.value) return
+  if (!trendChartInstance) {
+    trendChartInstance = echarts.init(trendChartRef.value)
+  }
 
-  csvContent += `${t.dailyDetails}\n`
-  csvContent += `${t.orderNo},${t.time},${t.payMethod},${t.revenueUsd},${t.revenueVes},${t.costUsd},${t.profitUsd},${t.profitBs}\n`
-  
-  dailyAuditList.value.forEach(row => {
-    const safeMethod = `"${row.payment_method}"` 
-    csvContent += `${row.id},${row.date},${safeMethod},${Number(row.revenue_usd).toFixed(2)},${(Number(row.revenue_usd) * bcv).toFixed(2)},${Number(row.cost_usd).toFixed(2)},${Number(row.profit_usd).toFixed(2)},${(Number(row.profit_usd) * bcv).toFixed(2)}\n`
+  const dateMap = {}
+  dailyAuditList.value.forEach(o => {
+    const d = o.date.substring(0, 10)
+    if (!dateMap[d]) dateMap[d] = { rev: 0, profit: 0 }
+    dateMap[d].rev += Number(o.revenue_usd)
+    dateMap[d].profit += Number(o.profit_usd)
   })
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = `TOSTIKYK_Profit_${startDate.value}_to_${endDate.value}.csv`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  const sortedDates = Object.keys(dateMap).sort().slice(-15)
+  const revData = sortedDates.map(d => dateMap[d].rev)
+  const profitData = sortedDates.map(d => dateMap[d].profit)
+
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      confine: true, 
+      appendToBody: true,
+      axisPointer: { type: 'shadow' },
+      backgroundColor: 'rgba(15, 23, 42, 0.9)',
+      textStyle: { color: '#fff', fontSize: 12 },
+      formatter: function (params) {
+        if (!params || params.length === 0) return tExt.value.emptyData
+        let res = params[0].axisValue + '<br/>'
+        params.forEach(item => {
+          res += `${item.marker} ${item.seriesName}: $${Number(item.value).toFixed(2)}<br/>`
+        })
+        return res
+      }
+    },
+    legend: {
+      data: [tExt.value.chartRevenue, tExt.value.chartProfit],
+      bottom: 0,
+      icon: 'roundRect',
+      textStyle: { color: '#64748b', fontSize: 11, fontWeight: 'bold' }
+    },
+    grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: sortedDates,
+      axisLine: { lineStyle: { color: '#cbd5e1' } },
+      axisLabel: { color: '#64748b', fontSize: 10, fontFamily: 'monospace' }
+    },
+    yAxis: {
+      type: 'value',
+      name: tExt.value.chartAmount,
+      nameTextStyle: { color: '#94a3b8', fontSize: 10 },
+      axisLabel: { color: '#64748b', fontSize: 10, fontFamily: 'monospace' },
+      splitLine: { lineStyle: { type: 'dashed', color: '#e2e8f0' } }
+    },
+    series: [
+      {
+        name: tExt.value.chartRevenue,
+        type: 'bar',
+        barWidth: '30%',
+        itemStyle: { color: '#3b82f6', borderRadius: [4, 4, 0, 0] },
+        data: revData,
+        emphasis: { focus: 'series', itemStyle: { shadowBlur: 10, shadowColor: 'rgba(59,130,246,0.5)' } }
+      },
+      {
+        name: tExt.value.chartProfit,
+        type: 'line',
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        itemStyle: { color: '#10b981' },
+        lineStyle: { width: 3, color: '#10b981' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(16, 185, 129, 0.2)' },
+            { offset: 1, color: 'rgba(16, 185, 129, 0)' }
+          ])
+        },
+        data: profitData,
+        emphasis: { focus: 'series', scale: 1.5 }
+      }
+    ]
+  }
+  trendChartInstance.setOption(option)
 }
+
+const renderPieChart = () => {
+  if (!pieChartRef.value) return
+  if (!pieChartInstance) {
+    pieChartInstance = echarts.init(pieChartRef.value)
+  }
+
+  const pb = paymentBreakdown.value
+  const data = [
+    { value: pb.cardPos.totalUSD, name: getPaymentMethodLabel('Card_POS') },
+    { value: pb.pagoMovil.totalUSD, name: getPaymentMethodLabel('Pago_Movil') },
+    { value: pb.cashBs.totalUSD, name: getPaymentMethodLabel('Cash_Bs') },
+    { value: pb.cashUSD.totalUSD, name: getPaymentMethodLabel('Cash_USD') },
+    { value: pb.pagoMixto.totalUSD, name: getPaymentMethodLabel('Pago_Mixto') }
+  ].filter(item => item.value > 0)
+
+  if (data.length === 0) {
+    data.push({ value: 1, name: tExt.value.emptyData })
+  }
+
+  const option = {
+    tooltip: {
+      trigger: 'item',
+      confine: true,
+      appendToBody: true,
+      backgroundColor: 'rgba(15, 23, 42, 0.9)',
+      textStyle: { color: '#fff', fontSize: 12 },
+      formatter: function (params) {
+        if (params.name === tExt.value.emptyData) return tExt.value.emptyData
+        return `${params.marker} ${params.name}<br/>$${params.value.toFixed(2)} (${params.percent}%)`
+      }
+    },
+    legend: {
+      orient: 'vertical',
+      right: '5%',
+      top: 'center',
+      icon: 'circle',
+      textStyle: { color: '#64748b', fontSize: 11, fontWeight: 'bold' }
+    },
+    color: data.length === 1 && data[0].name === tExt.value.emptyData ? ['#e2e8f0'] : ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#6366f1'],
+    series: [
+      {
+        name: tExt.value.paymentBreakdown,
+        type: 'pie',
+        radius: ['40%', '70%'],
+        center: ['35%', '50%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 6,
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        label: { show: false },
+        labelLine: { show: false },
+        data: data,
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 10,
+            shadowOffsetX: 0,
+            shadowColor: 'rgba(0, 0, 0, 0.5)'
+          }
+        }
+      }
+    ]
+  }
+  pieChartInstance.setOption(option, true)
+}
+
+watch(dailyAuditList, () => {
+  nextTick(() => {
+    renderCharts()
+  })
+}, { deep: true })
+
+watch(currentLang, () => {
+  nextTick(() => {
+    renderCharts()
+  })
+})
+
+const handleResize = () => {
+  if (trendChartInstance) trendChartInstance.resize()
+  if (pieChartInstance) pieChartInstance.resize()
+}
+
+let resizeObserver = null
+
+onMounted(async () => {
+  await fetchFinancialData()
+  
+  nextTick(() => {
+    renderCharts()
+    if (trendChartRef.value) {
+      resizeObserver = new ResizeObserver(() => {
+        handleResize()
+      })
+      resizeObserver.observe(trendChartRef.value)
+    }
+  })
+
+  window.addEventListener('click', handleClickOutside)
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('resize', handleResize)
+  if (resizeObserver) resizeObserver.disconnect()
+  if (trendChartInstance) trendChartInstance.dispose()
+  if (pieChartInstance) pieChartInstance.dispose()
+})
 
 const handleClickOutside = (e) => {
   const picker = document.querySelector('.absolute.top-full.right-0')
@@ -531,12 +656,37 @@ const handleClickOutside = (e) => {
   }
 }
 
-onMounted(() => {
-  fetchFinancialData()
-  window.addEventListener('click', handleClickOutside)
-})
+const exportProfitReport = () => {
+  const ex = tExt.value
+  const bcv = bcvRate.value
 
-onUnmounted(() => {
-  window.removeEventListener('click', handleClickOutside)
-})
+  let csvContent = "\uFEFF"
+  csvContent += `${ex.exportTitle} (${startDate.value} ${ex.to} ${endDate.value})\n`
+  csvContent += `${ex.rateLabel},${bcv}\n\n`
+
+  csvContent += `${ex.coreMetrics}\n`
+  csvContent += `${ex.revenue},$ ${analytics.value.total_revenue_usd.toFixed(2)},Bs. ${(analytics.value.total_revenue_usd * bcv).toFixed(2)}\n`
+  csvContent += `${ex.cost},$ ${analytics.value.total_cost_usd.toFixed(2)},Bs. ${(analytics.value.total_cost_usd * bcv).toFixed(2)}\n`
+  csvContent += `${ex.expenses},$ ${analytics.value.total_expenses_usd.toFixed(2)},Bs. ${(analytics.value.total_expenses_usd * bcv).toFixed(2)}\n`
+  csvContent += `${ex.debt},$ ${analytics.value.total_debt_usd.toFixed(2)},Bs. ${(analytics.value.total_debt_usd * bcv).toFixed(2)}\n`
+  csvContent += `${ex.netProfit},$ ${analytics.value.net_profit_usd.toFixed(2)},Bs. ${(analytics.value.net_profit_usd * bcv).toFixed(2)}\n\n`
+
+  csvContent += `${ex.dailyDetails}\n`
+  csvContent += `${ex.orderNo},${ex.time},${ex.payMethod},${ex.revenueUsd},${ex.revenueVes},${ex.costUsd},${ex.profitUsd},${ex.profitBs}\n`
+  
+  dailyAuditList.value.forEach(row => {
+    const safeMethod = `"${getPaymentMethodLabel(row.payment_method)}"` 
+    csvContent += `${row.id},${row.date},${safeMethod},${Number(row.revenue_usd).toFixed(2)},${(Number(row.revenue_usd) * bcv).toFixed(2)},${Number(row.cost_usd).toFixed(2)},${Number(row.profit_usd).toFixed(2)},${(Number(row.profit_usd) * bcv).toFixed(2)}\n`
+  })
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = `Profit_${startDate.value}_to_${endDate.value}.csv`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
 </script>

@@ -11,7 +11,7 @@
       <div class="flex items-center bg-slate-800/80 border border-slate-700/80 rounded-2xl px-3 py-1.5 backdrop-blur-md text-white text-xs gap-2 shadow-lg">
         <button 
           @click="zoomOut" 
-          title="缩小 (-)" 
+          :title="tExt.zoomOut" 
           class="hover:text-blue-400 transition-colors cursor-pointer px-1.5 py-0.5 font-bold text-sm"
         >
           ➖
@@ -19,14 +19,14 @@
         <span class="font-mono text-slate-300 w-12 text-center font-bold">{{ Math.round(scale * 100) }}%</span>
         <button 
           @click="zoomIn" 
-          title="放大 (+)" 
+          :title="tExt.zoomIn" 
           class="hover:text-blue-400 transition-colors cursor-pointer px-1.5 py-0.5 font-bold text-sm"
         >
           ➕
         </button>
         <button 
           @click="resetZoom" 
-          title="重置 100%" 
+          :title="tExt.reset" 
           class="hover:text-amber-400 transition-colors cursor-pointer text-[10px] bg-slate-700/60 px-2 py-0.5 rounded-lg font-mono ml-1"
         >
           1:1
@@ -36,13 +36,14 @@
       <!-- 关闭按钮 -->
       <button 
         @click="close" 
+        :title="tExt.close"
         class="w-9 h-9 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:bg-slate-700 text-white flex items-center justify-center text-base font-bold transition-all cursor-pointer shadow-lg"
       >
         ✕
       </button>
     </div>
 
-    <!-- 主图显示区域（支持鼠标滚轮缩放与拖拽预留） -->
+    <!-- 主图显示区域 -->
     <div 
       class="relative max-w-5xl max-h-[85vh] w-full h-full flex items-center justify-center overflow-hidden"
       @wheel.prevent="handleWheel"
@@ -52,7 +53,7 @@
         :src="images[index]" 
         :style="{ transform: `scale(${scale})` }"
         class="max-w-full max-h-[80vh] object-contain transition-transform duration-150 ease-out rounded-2xl shadow-2xl border border-slate-800/60"
-        alt="Preview Image"
+        :alt="tExt.previewAlt"
       />
     </div>
 
@@ -80,7 +81,8 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
+import { useI18n } from '../composables/useI18n'
 
 const props = defineProps({
   visible: Boolean,
@@ -89,6 +91,19 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'prev', 'next'])
+const { currentLang } = useI18n()
+
+const tExt = computed(() => {
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  return {
+    zoomIn: isZh ? '放大 (+)' : isEs ? 'Acercar (+)' : 'Zoom In (+)',
+    zoomOut: isZh ? '缩小 (-)' : isEs ? 'Alejar (-)' : 'Zoom Out (-)',
+    reset: isZh ? '重置 100%' : isEs ? 'Restablecer 100%' : 'Reset 100%',
+    close: isZh ? '关闭' : isEs ? 'Cerrar' : 'Close',
+    previewAlt: isZh ? '图片预览' : isEs ? 'Vista previa de imagen' : 'Image Preview'
+  }
+})
 
 // 缩放状态管理 (1.0 = 100%)
 const scale = ref(1.0)

@@ -13,12 +13,15 @@
 
       <!-- 筛选区 -->
       <div class="p-4 border-b border-slate-200/60 bg-white/40 shrink-0 flex flex-wrap gap-4 items-center">
-        <input v-model="searchQuery" type="text" :placeholder="tExt.searchPlaceholder" class="flex-1 min-w-[200px] bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-blue-500 font-bold text-slate-900" />
+        <div class="relative flex-1 min-w-[200px]">
+          <Search class="absolute left-3.5 top-3 text-slate-400" :size="16" />
+          <input v-model="searchQuery" type="text" :placeholder="tExt.searchPlaceholder" class="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-xs outline-none focus:border-blue-500 font-bold text-slate-900 transition-colors" />
+        </div>
         
         <div class="flex items-center gap-2">
           <input type="date" v-model="filterDate" class="bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs outline-none focus:border-blue-500 font-mono font-bold text-slate-700" />
-          <button @click="filterDate = todayStr" class="bg-blue-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer">{{ tExt.todayBtn }}</button>
-          <button @click="filterDate = ''" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer">{{ tExt.allBtn }}</button>
+          <button @click="filterDate = todayStr" class="bg-blue-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm cursor-pointer hover:bg-blue-700 transition-colors">{{ tExt.todayBtn }}</button>
+          <button @click="filterDate = ''" class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-colors">{{ tExt.allBtn }}</button>
         </div>
       </div>
 
@@ -35,12 +38,12 @@
           
           <div class="flex items-center gap-6">
             <div class="text-right">
-              <div class="text-sm font-black text-emerald-600 font-mono">$ {{ Number(order.totalUsd).toFixed(2) }}</div>
-              <div class="text-[10px] text-slate-400 font-bold uppercase">{{ order.paymentMethod }}</div>
+              <div class="text-sm font-black text-emerald-600 font-mono">$ {{ Number(order.totalUsd || 0).toFixed(2) }}</div>
+              <div class="text-[10px] text-slate-500 font-bold uppercase">{{ getPaymentMethodLabel(order.paymentMethod) }}</div>
             </div>
             <div class="flex items-center gap-2">
-              <button @click="$emit('reprint', order)" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-xs font-bold transition-colors">{{ tExt.btnReprint }}</button>
-              <button @click="confirmReturn(order.dbId)" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-bold transition-colors">{{ tExt.btnReturn }}</button>
+              <button @click="$emit('reprint', order)" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100 rounded-lg text-xs font-bold transition-colors cursor-pointer">{{ tExt.btnReprint }}</button>
+              <button @click="openReturnModal(order.dbId)" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-lg text-xs font-bold transition-colors cursor-pointer">{{ tExt.btnReturn }}</button>
             </div>
           </div>
         </div>
@@ -59,11 +62,25 @@
 
     </div>
   </div>
+
+  <!-- 🌟 退货确认弹窗 -->
+  <ConfirmDialog
+    :visible="returnModalVisible"
+    overlay-class="bg-slate-900/40"
+    :title="tExt.btnReturn"
+    :message="tExt.confirmReturnMsg"
+    :cancel-text="t.common.cancel"
+    :confirm-text="tExt.btnReturn"
+    @cancel="returnModalVisible = false"
+    @confirm="executeReturn"
+  />
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
+import { Search } from 'lucide-vue-next'
 import { useI18n } from '../../composables/useI18n'
+import ConfirmDialog from '../ConfirmDialog.vue'
 
 const props = defineProps({
   visible: Boolean,
@@ -71,7 +88,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'reprint', 'return'])
 
-const { currentLang } = useI18n()
+const { t, currentLang } = useI18n()
 
 const tExt = computed(() => {
   const isZh = currentLang.value === 'zh'
@@ -82,7 +99,7 @@ const tExt = computed(() => {
     todayBtn: isZh ? '今日' : isEs ? 'Hoy' : 'Today',
     allBtn: isZh ? '全部历史' : isEs ? 'Todo el Historial' : 'All History',
     btnReprint: isZh ? '补打小票' : isEs ? 'Reimprimir' : 'Reprint',
-    btnReturn: isZh ? '申请退货/退款' : isEs ? 'Devolver' : 'Return',
+    btnReturn: isZh ? '申请退货' : isEs ? 'Devolver' : 'Return',
     emptyDateMsg: isZh ? '暂无历史销售记录' : isEs ? 'Sin registros de ventas' : 'No sales records found',
     emptyAllMsg: isZh ? '暂无所有历史记录' : isEs ? 'No hay historial' : 'No history found',
     found: isZh ? '共找到' : isEs ? 'Encontrados' : 'Found',
@@ -92,9 +109,29 @@ const tExt = computed(() => {
   }
 })
 
+// 支付方式翻译
+const getPaymentMethodLabel = (method) => {
+  if (!method) return '-'
+  const isZh = currentLang.value === 'zh'
+  const isEs = currentLang.value === 'es'
+  const m = String(method).toUpperCase()
+  if (m.includes('CASH_USD')) return isZh ? '现金 USD' : isEs ? 'Efectivo USD' : 'Cash USD'
+  if (m.includes('CASH_BS')) return isZh ? '现金 Bs.' : isEs ? 'Efectivo Bs.' : 'Cash Bs.'
+  if (m.includes('PAGO_MOVIL')) return isZh ? 'Pago Móvil' : isEs ? 'Pago Móvil' : 'Pago Móvil'
+  if (m.includes('CARD_POS')) return isZh ? '刷卡 POS' : isEs ? 'Punto de Venta' : 'Card POS'
+  if (m.includes('MIXTO') || m.includes('MIX')) return isZh ? '混合支付' : isEs ? 'Pago Mixto' : 'Mixed Pay'
+  if (m.includes('ZELLE')) return 'Zelle'
+  if (m.includes('TRANSFER')) return isZh ? '银行转账' : isEs ? 'Transferencia' : 'Transfer'
+  return method
+}
+
 const todayStr = new Date().toLocaleDateString('en-CA')
 const searchQuery = ref('')
 const filterDate = ref(todayStr)
+
+// 退货确认状态
+const returnModalVisible = ref(false)
+const targetReturnId = ref(null)
 
 const filteredOrders = computed(() => {
   let result = props.orders
@@ -108,9 +145,16 @@ const filteredOrders = computed(() => {
   return result
 })
 
-const confirmReturn = (dbId) => {
-  if (confirm(tExt.value.confirmReturnMsg)) {
-    emit('return', dbId)
+const openReturnModal = (dbId) => {
+  targetReturnId.value = dbId
+  returnModalVisible.value = true
+}
+
+const executeReturn = () => {
+  if (targetReturnId.value) {
+    emit('return', targetReturnId.value)
   }
+  returnModalVisible.value = false
+  targetReturnId.value = null
 }
 </script>
