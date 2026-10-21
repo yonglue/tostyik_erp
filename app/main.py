@@ -52,6 +52,7 @@ from app.routers import expenses
 
 
 
+
 def bootstrap() -> None:
     """建表 + 首次启动的账号与演示数据播种 + 安全自检。"""
     

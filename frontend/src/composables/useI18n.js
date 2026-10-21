@@ -55,6 +55,8 @@ const translations = {
       staff: "员工权限管理",
       auditLogs: "系统审计日志",
       backup: "数据备份",
+      suppliers: "供应商管理", // 中文
+      suppliers: "Proveedores" // 西语
     },
     dashboard: {
       title: "TOSTIKYK ERP 经营总览",

@@ -44,7 +44,7 @@ class QuotationItemPayload(BaseModel):
     name: str
     brand: str
     quantity: int
-    price: MoneyType # 🌟 改
+    price: MoneyType
 
 
 class CreateQuotationRequest(BaseModel):
@@ -58,7 +58,7 @@ class CreateQuotationRequest(BaseModel):
 # ──────────────────────────── 客户还款 ────────────────────────────
 class ClientPaymentPayload(BaseModel):
     client_name: str
-    amount_paid: MoneyType # 🌟 改
+    amount_paid: MoneyType
     currency: str                    # 'USD' / 'BS' / 'USDT' ...
     payment_method: str
     reference_no: Optional[str] = ""
@@ -72,12 +72,23 @@ class PurchaseItemPayload(BaseModel):
     # 可选：同一 OEM 有多个品牌时用于精确入库；不传则只允许唯一 OEM
     brand: Optional[str] = None
     quantity: int
-    unit_price: MoneyType # 🌟 改
+    unit_price: MoneyType
 
 
 class CreatePurchaseOrderRequest(BaseModel):
     supplier_name: str
+    po_no: Optional[str] = None # 🌟 新增：允许手动输入单号
     items: List[PurchaseItemPayload]
+
+
+# ──────────────────────────── 供应商付款 ────────────────────────────
+class SupplierPaymentPayload(BaseModel):
+    amount_paid: MoneyType
+    currency: str = "USD" # USD 或 BS
+    exchange_rate: PositiveRate = Decimal("1.0")
+    payment_method: str = "Cash_USD"
+    reference_no: Optional[str] = ""
+    notes: Optional[str] = ""
 
 
 # ──────────────────────────── POS 收银 ────────────────────────────
@@ -147,8 +158,8 @@ class ShiftHandoverPayload(BaseModel):
 
 class CashRegisterCreatePayload(BaseModel):
     operator: str = "Elias"
-    bcv_rate_snapshot: RateType = Decimal("0.0000") # 🌟 改
-    system_cash_usd: MoneyType = Decimal("0.00") # 🌟 改
+    bcv_rate_snapshot: RateType = Decimal("0.0000")
+    system_cash_usd: MoneyType = Decimal("0.00")
     system_zelle: MoneyType = Decimal("0.00")
     system_pago_movil: MoneyType = Decimal("0.00")
     system_transfer_bs: MoneyType = Decimal("0.00")
@@ -171,6 +182,7 @@ __all__ = [
     "ClientPaymentPayload",
     "PurchaseItemPayload",
     "CreatePurchaseOrderRequest",
+    "SupplierPaymentPayload", # 🌟 新增
     "POSItemPayload",
     "POSOrderCreatePayload",
     "HeldOrderCreatePayload",

@@ -97,6 +97,10 @@
           />
           <PurchaseOrdersView 
             v-else-if="activeTab === 'procurement' && hasPermission('procurement:view')"
+            @navigate="checkAndSwitchTab" 
+          />          
+          <PurchaseOrdersView 
+            v-else-if="activeTab === 'procurement' && hasPermission('procurement:view')"
           />
           <TransactionsView 
             v-else-if="activeTab === 'transactions' && hasPermission('transactions:history')"
