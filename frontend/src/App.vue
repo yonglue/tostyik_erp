@@ -93,6 +93,7 @@
             @export-clients="exportClientsExcel"
             @open-add-client="clientDialogVisible = true"
             @delete-client="openDeleteClientModal"
+            @refresh-data="fetchClients"
           />
           <PurchaseOrdersView 
             v-else-if="activeTab === 'procurement' && hasPermission('procurement:view')"
@@ -124,6 +125,7 @@
             @generate-quote="fetchTransactions(); fetchParts(); fetchDashboardStats(); fetchClients()"
             @exit-pos="handleExitPos" 
             @clear-cart="cartItems = []"
+            @refresh-clients="fetchClients"
           />
           <BackupView 
             v-else-if="activeTab === 'backup' && hasPermission('settings:manage')"

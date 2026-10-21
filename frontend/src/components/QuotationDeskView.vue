@@ -14,7 +14,7 @@
 
     <!-- 右上角提示条 -->
     <transition name="fade">
-      <div v-if="toastMessage" :class="toastType === 'success' ? 'bg-emerald-600/90 border-emerald-400/30' : 'bg-rose-600/90 border-rose-400/30'" class="fixed top-2 right-4 z-50 text-white px-4 py-3 rounded-xl shadow-xl backdrop-blur-md border flex items-center gap-2 text-sm font-bold animate-bounce">
+      <div v-if="toastMessage" :class="toastType === 'success' ? 'bg-emerald-600/90 border-emerald-400/30' : 'bg-rose-600/90 border-rose-400/30'" class="fixed top-2 right-4 z-[100] text-white px-4 py-3 rounded-xl shadow-xl backdrop-blur-md border flex items-center gap-2 text-sm font-bold animate-bounce">
         <span>{{ toastType === 'success' ? '✅' : '❌' }}</span>
         <span>{{ toastMessage }}</span>
       </div>
@@ -355,17 +355,7 @@
                 </div>
               </div>
 
-              <div v-if="igtfAmountUsd > 0" class="flex justify-between items-start text-sm font-bold text-amber-700 border-b border-slate-200/60 pb-1.5">
-                <span class="font-bold pt-0.5">{{ t.pos.igtfTax }}:</span>
-                <div class="text-right">
-                  <div class="font-mono font-extrabold text-sm">
-                    {{ primaryCurrency === 'USD' ? `$${igtfAmountUsd.toFixed(2)}` : `Bs. ${(igtfAmountUsd * bcvRate).toFixed(2)}` }}
-                  </div>
-                  <div class="font-mono text-[11px] font-semibold">
-                    {{ primaryCurrency === 'USD' ? `Bs. ${(igtfAmountUsd * bcvRate).toFixed(2)}` : `$${igtfAmountUsd.toFixed(2)}` }}
-                  </div>
-                </div>
-              </div>
+              <!-- 🌟 IGTF 区块已彻底移除 -->
 
               <div class="flex justify-between items-start text-sm font-bold text-slate-700">
                 <span class="font-extrabold text-slate-800 pt-0.5">{{ t.pos.totalPayable }}:</span>
@@ -724,7 +714,6 @@
           <div class="space-y-1 text-right pb-1 font-bold">
             <div>{{ t.pos.baseImponible }}: ${{ totalBaseUsd.toFixed(2) }}</div>
             <div>{{ t.pos.ivaTax }}: ${{ totalTaxUsd.toFixed(2) }}</div>
-            <div v-if="igtfAmountUsd > 0">{{ t.pos.igtfTax }}: ${{ igtfAmountUsd.toFixed(2) }}</div>
             <div class="text-lg font-black text-slate-900 mt-1">{{ tExt.ticketTotal }}: ${{ totalUsd.toFixed(2) }} / Bs. {{ (totalUsd * bcvRate).toFixed(2) }}</div>
           </div>
         </div>
@@ -1057,8 +1046,7 @@ const totalTaxUsd = computed(() => {
 })
 
 const igtfAmountUsd = computed(() => {
-  const cUsd = Number(paymentSplit.value.cashUsd) || 0
-  return Math.round(cUsd * 100 * 0.03) / 100
+  return 0 // 🌟 彻底关闭 3% IGTF
 })
 
 const totalUsd = computed(() => {
@@ -1144,16 +1132,12 @@ const handlePaymentKeydown = (e, channelKey) => {
       }
     }
 
+    // 🌟 核心修复：直接补齐商品总价，不再算 IGTF
     if (channelKey === 'cashUsd') {
       const goodsNeeded = Math.max(0, goodsTotalUsd.value - otherPaidInUsd)
-      const exactCashUsd = goodsNeeded / 0.97
-      paymentSplit.value.cashUsd = Number(exactCashUsd.toFixed(2))
+      paymentSplit.value.cashUsd = Number(goodsNeeded.toFixed(2))
     } else {
-      const currentCashUsd = Number(paymentSplit.value.cashUsd) || 0
-      const currentIgtf = Number((currentCashUsd * 0.03).toFixed(2))
-      const targetTotalUsd = goodsTotalUsd.value + currentIgtf
-
-      const neededUsd = Math.max(0, targetTotalUsd - otherPaidInUsd)
+      const neededUsd = Math.max(0, goodsTotalUsd.value - otherPaidInUsd)
       paymentSplit.value[channelKey] = Number((neededUsd * rate).toFixed(2))
     }
     return
@@ -1415,6 +1399,18 @@ const saveNewClient = async () => {
     showToast(tExt.value.errorRequired, 'error')
     return
   }
+
+  // 🌟 新增：前端 RIF 格式拦截
+  if (newClientForm.value.rif_number && !/^\d{8,9}$/.test(newClientForm.value.rif_number)) {
+    showToast('❌ RIF 格式错误：必须是 8 到 9 位数字', 'error')
+    return
+  }
+
+  // 🌟 新增：前端电话格式拦截
+  if (newClientForm.value.phone && newClientForm.value.phone.length !== 10) {
+    showToast('❌ 电话号码错误：必须是 10 位数字', 'error')
+    return
+  }
   
   // 组装提交格式
   const finalRif = newClientForm.value.rif_number ? `${newClientForm.value.rif_type}-${newClientForm.value.rif_number}` : ""
@@ -1442,12 +1438,22 @@ const saveNewClient = async () => {
       quoteClientName.value = data.name
       quoteClientId.value = data.id ?? null
       
+      // 🌟 核心修复：清空搜索词，并关闭可能还开着的选择弹窗
+      clientFilterQuery.value = ''
+      clientModalVisible.value = false
+      
       showToast('✅ ' + tExt.value.toastClientCreated, 'success')
       
       emit('refresh-clients')
     } else {
-      const err = await res.json()
-      showToast(`❌ ${t.common.error}: ${err.detail || 'Unknown'}`, 'error')
+      // 🌟 修复：安全地解析错误信息，防止数组导致的崩溃
+      let errorMsg = 'Unknown Error'
+      try {
+        const err = await res.json()
+        if (typeof err.detail === 'string') errorMsg = err.detail
+        else if (Array.isArray(err.detail)) errorMsg = err.detail[0]?.msg || 'Validation Error'
+      } catch (e) {}
+      showToast(`❌ ${errorMsg}`, 'error')
     }
   } catch (e) {
     showToast('❌ ' + t.common.error, 'error')

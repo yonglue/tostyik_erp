@@ -4,17 +4,30 @@ from decimal import Decimal, ROUND_HALF_UP
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlmodel import Session, select, update
-import re # 🌟 引入正则用于校验电话
+import re
 
 from app.database import get_session
 from app.deps import Actor, get_current_actor, RequirePermission 
 from app.models import Client, ClientPaymentRecord, InventoryTransaction
 from app.schemas import ClientPaymentPayload
 from app.services.audit import log_action
-from app.services.bcv import get_official_rate
 
 router = APIRouter(tags=["客户"])
 
+# 🌟 辅助函数：从本地配置读取当前手动汇率
+import os
+import json
+from app.config import DB_PATH
+SETTINGS_FILE = os.path.join(os.path.dirname(DB_PATH), "system_settings.json")
+
+def get_local_rate() -> float:
+    try:
+        if os.path.exists(SETTINGS_FILE):
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                return float(json.load(f).get("bcv_rate", 36.50))
+    except Exception:
+        pass
+    return 36.50
 
 @router.get("/api/clients", response_model=list[Client])
 def get_clients(
@@ -23,19 +36,16 @@ def get_clients(
 ):
     return session.exec(select(Client).order_by(Client.id.desc())).all()
 
-
 @router.post("/api/clients", response_model=Client)
 def create_client(
     client: Client,
     actor: Actor = Depends(RequirePermission("clients:manage")),
     session: Session = Depends(get_session),
 ):
-    # 🌟 后端兜底校验：手机号如果存在，必须符合委内瑞拉格式 (+58 + 10位数字)
     if client.phone and client.phone != "":
         if not re.match(r"^\+58\d{10}$", client.phone):
             raise HTTPException(status_code=400, detail="电话号码格式错误，需为 +58 加 10 位数字")
     
-    # 🌟 后端兜底校验：RIF/身份证格式 (字母 + 8~9 位数字)
     if client.rif_or_cedula and client.rif_or_cedula != "":
         if not re.match(r"^[VEJG]-\d{8,9}$", client.rif_or_cedula):
             raise HTTPException(status_code=400, detail="RIF/身份证格式错误，需形如 J-12345678")
@@ -43,17 +53,9 @@ def create_client(
     session.add(client)
     session.commit()
     session.refresh(client)
-
-    log_action(
-        session=session,
-        username=actor.username,
-        role=actor.role,
-        action="CREATE_CLIENT",
-        details=f"新增客户: {client.name} (RIF: {client.rif_or_cedula}, 特殊纳税人: {client.is_special_taxpayer})",
-    )
-
+    log_action(session=session, username=actor.username, role=actor.role, action="CREATE_CLIENT",
+               details=f"新增客户: {client.name} (RIF: {client.rif_or_cedula})")
     return client
-
 
 @router.post("/api/clients/repay")
 def client_repayment(
@@ -65,10 +67,8 @@ def client_repayment(
     if not client:
         raise HTTPException(status_code=404, detail="客户档案不存在")
 
-    bcv_rate = get_official_rate()
-    if not bcv_rate:
-        bcv_rate = Decimal("1.0")
-
+    # 🌟 核心修复：使用本地手动配置的汇率，而不是联网抓取
+    bcv_rate = get_local_rate()
     curr = payload.currency.upper()
     
     d_amount_paid = Decimal(str(payload.amount_paid))
@@ -96,12 +96,8 @@ def client_repayment(
         notes=f"[{curr} 原币: {payload.amount_paid} | 汇率: {bcv_rate}] {payload.notes or ''}",
     )
     session.add(payment_record)
-
-    # 先提交业务，再写审计；审计失败时 log_action 会 rollback，
-    # 不能让它把尚未提交的还款一起回滚。
     session.commit()
     session.refresh(client)
-    remaining_debt = client.debt
 
     log_action(
         session=session, username=actor.username, role=actor.role,
@@ -112,10 +108,29 @@ def client_repayment(
     return {
         "status": "success",
         "amount_usd_equivalent": float(amount_usd_eq),
-        "remaining_debt": remaining_debt,
+        "remaining_debt": client.debt,
         "bcv_rate": float(bcv_rate),
     }
 
+# 🌟 新增：获取总应收欠款统计（给财务看板用）
+@router.get("/api/clients/analytics/debt-summary")
+def get_debt_summary(
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("clients:view"))
+):
+    total_debt = session.exec(select(func.sum(Client.debt)).where(Client.debt > 0)).one() or 0.0
+    
+    # 获取最近还款记录流水
+    recent_payments = session.exec(
+        select(ClientPaymentRecord).order_by(ClientPaymentRecord.id.desc()).limit(50)
+    ).all()
+    
+    total_repaid_usd = sum(p.amount_usd for p in recent_payments)
+
+    return {
+        "total_debt_usd": float(total_debt),
+        "recent_repaid_usd": float(total_repaid_usd)
+    }
 
 @router.get("/api/clients/{client_name}/unpaid-orders")
 def get_client_unpaid_orders(
@@ -138,7 +153,6 @@ def get_client_unpaid_orders(
 
     return {"transactions": transactions, "payments": payments}
 
-
 @router.delete("/api/clients/{client_id}")
 def delete_client(
     client_id: int,
@@ -152,13 +166,6 @@ def delete_client(
     client_name = client.name
     session.delete(client)
     session.commit()
-
-    log_action(
-        session=session,
-        username=actor.username,
-        role=actor.role,
-        action="DELETE_CLIENT",
-        details=f"删除了客户档案: {client_name} (ID: {client_id})",
-    )
-
+    log_action(session=session, username=actor.username, role=actor.role, action="DELETE_CLIENT",
+               details=f"删除了客户档案: {client_name} (ID: {client_id})")
     return {"status": "success", "message": f"客户 {client_name} 已成功删除"}
