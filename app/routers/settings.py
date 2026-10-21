@@ -1,4 +1,4 @@
-"""系统设置：公司抬头配置 / 数据清理与一键归档。"""
+"""系统设置：公司抬头配置 / 数据清理与一键归档 / 汇率配置。"""
 
 import json
 import os
@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select, text
 
 from app.config import DB_PATH
-from app.database import get_session, engine # 🌟 引入 engine 用于 VACUUM
+from app.database import get_session, engine
 from app.deps import Actor, get_current_actor, RequirePermission
 from app.services.audit import log_action
 
@@ -21,7 +21,8 @@ DEFAULT_SETTINGS = {
     "rif": "J-00000000-0",
     "address": "Valera, Estado Trujillo, Venezuela",
     "phone": "+58 412-0000000",
-    "email": "tostiyk.ventas@gmail.com"
+    "email": "tostiyk.ventas@gmail.com",
+    "bcv_rate": 36.50, # 🌟 新增：默认汇率
 }
 
 def load_settings() -> dict:
@@ -45,12 +46,13 @@ class SystemSettingsPayload(BaseModel):
     phone: str
     email: Optional[str] = ""
 
+# 🌟 新增：汇率载荷
+class BcvRatePayload(BaseModel):
+    rate: float
+
 
 @router.get("/api/settings")
-def get_system_settings(
-    # 🌟 修复：虽然是公司抬头，但也不应该让未登录的匿名用户随便抓取
-    actor: Actor = Depends(get_current_actor) 
-):
+def get_system_settings(actor: Actor = Depends(get_current_actor)):
     """获取当前系统抬头配置（需要登录）。"""
     return load_settings()
 
@@ -62,17 +64,34 @@ def update_system_settings(
     actor: Actor = Depends(RequirePermission("settings:manage"))
 ):
     """更新系统抬头配置（需要 settings:manage 细粒度权限）。"""
-    new_data = payload.model_dump()
+    current_settings = load_settings()
+    new_data = {**current_settings, **payload.model_dump()}
     save_settings(new_data)
 
-    log_action(
-        session=session,
-        username=actor.username,
-        role=actor.role,
-        action="UPDATE_SETTINGS",
-        details=f"更新系统公司抬头配置: {new_data.get('company_name')} (RIF: {new_data.get('rif')})"
-    )
+    log_action(session=session, username=actor.username, role=actor.role, action="UPDATE_SETTINGS",
+               details=f"更新系统公司抬头配置: {new_data.get('company_name')}")
     return {"status": "success", "message": "系统抬头配置已保存"}
+
+
+# 🌟 新增：获取和保存汇率的接口
+@router.get("/api/settings/bcv-rate")
+def get_saved_bcv_rate():
+    settings = load_settings()
+    return {"rate": settings.get("bcv_rate", 36.50)}
+
+@router.post("/api/settings/bcv-rate")
+def update_bcv_rate(
+    payload: BcvRatePayload,
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("pos:access")) # 有收银权限的人就可以改
+):
+    settings = load_settings()
+    settings["bcv_rate"] = round(payload.rate, 2)
+    save_settings(settings)
+    
+    log_action(session=session, username=actor.username, role=actor.role, action="UPDATE_BCV",
+               details=f"手动更新汇率为: {settings['bcv_rate']}")
+    return {"status": "success", "rate": settings["bcv_rate"]}
 
 
 @router.post("/api/settings/cleanup")
@@ -80,19 +99,12 @@ def cleanup_database(
     session: Session = Depends(get_session),
     actor: Actor = Depends(RequirePermission("db:maintenance"))
 ):
-    """数据清理与一键归档（需要 db:maintenance 权限）。"""
+    # ... 数据库清理逻辑保持不变 ...
     try:
-        # 🌟 核心修复：VACUUM 不能在常规事务中运行，必须使用 AUTOCOMMIT 模式独立连接执行
         with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
             conn.execute(text("VACUUM;"))
-
-        log_action(
-            session=session,
-            username=actor.username,
-            role=actor.role,
-            action="DB_CLEANUP",
-            details="执行数据库 VACUUM 空间清理与碎片整理"
-        )
+        log_action(session=session, username=actor.username, role=actor.role, action="DB_CLEANUP",
+                   details="执行数据库 VACUUM 空间清理与碎片整理")
         return {"status": "success", "message": "数据库清理与空间优化（VACUUM）已成功完成！"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"数据库清理失败: {str(e)}")

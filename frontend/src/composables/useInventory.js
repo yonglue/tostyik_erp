@@ -68,9 +68,29 @@ export function useInventory() {
     const data = await safeJson('/api/dashboard/stats')
     if (data) stats.value = data
   }
+  
+  // 🌟 修改：从本地配置读取汇率
   const fetchBcvRate = async () => {
-    const data = await safeJson('/api/bcv-rate')
+    const data = await safeJson('/api/settings/bcv-rate')
     if (data) bcvRate.value = data.rate
+  }
+
+  // 🌟 新增：手动更新汇率并保存到本地
+  const updateBcvRate = async (newRate) => {
+    try {
+      const res = await apiFetch('/api/settings/bcv-rate', {
+        method: 'POST',
+        body: JSON.stringify({ rate: Number(newRate) })
+      })
+      if (res.ok) {
+        const data = await res.json()
+        bcvRate.value = data.rate
+        return true
+      }
+    } catch (e) {
+      console.error('更新汇率失败:', e)
+    }
+    return false
   }
 
   /** 一次刷新全部列表（开单/删改后调用），内部自动做权限过滤 */
@@ -102,6 +122,7 @@ export function useInventory() {
     fetchQuotations,
     fetchDashboardStats,
     fetchBcvRate,
+    updateBcvRate, // 🌟 把新方法导出去
     refreshAll
   }
 }

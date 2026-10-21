@@ -28,13 +28,10 @@
           </div>
 
           <div class="flex items-center space-x-3">
-            <!-- 1. BCV 官方汇率胶囊 -->
-            <div class="hidden sm:flex items-center space-x-2 bg-white/70 hover:bg-blue-50/90 border border-slate-200/80 hover:border-blue-300 px-4 py-2 rounded-2xl text-xs font-mono shadow-2xs transition-all duration-200 backdrop-blur-md cursor-pointer hover:scale-[1.02]">
+            <!-- 1. BCV 官方汇率胶囊 (保留炫酷动态，不可点击) -->
+            <div class="hidden sm:flex items-center space-x-2 bg-white/70 hover:bg-blue-50/90 border border-slate-200/80 hover:border-blue-300 px-4 py-2 rounded-2xl text-xs font-mono shadow-2xs transition-all duration-200 backdrop-blur-md hover:scale-[1.02] hover:shadow-md">
               <span class="text-slate-500 font-bold">BCV =</span>
               <span class="font-black text-blue-600">{{ bcvRate }}</span>
-              <button @click="fetchBcvRate" title="刷新汇率" class="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer ml-1">
-                🔄
-              </button>
             </div>
 
             <!-- 2. 语言切换胶囊 -->
@@ -603,7 +600,7 @@ const {
   bcvRate, partsList, clientsList, transactionsList, quotationsList,
   stats, brandsList,
   fetchParts, fetchClients, fetchTransactions, fetchQuotations,
-  fetchDashboardStats, fetchBcvRate, refreshAll
+  fetchDashboardStats, fetchBcvRate, updateBcvRate, refreshAll // 🌟 确保有 updateBcvRate
 } = useInventory()
 
 const {
