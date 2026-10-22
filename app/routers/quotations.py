@@ -148,6 +148,7 @@ def download_existing_pdf(
     request: Request,
     quotation_no: Optional[str] = None, 
     order_no: Optional[str] = None,
+    lang: Optional[str] = None, 
     session: Session = Depends(get_session)
 ):
     """PDF 下载路由：直接响应并生成 PDF。"""
@@ -188,7 +189,7 @@ def download_existing_pdf(
                 items=items,
                 total_usd=record.total_usd,
                 total_bs=record.total_bs,
-                lang=normalize_lang(record.lang),
+                lang=normalize_lang(lang or record.lang),
             )
             if os.path.exists(pdf_path):
                 return FileResponse(pdf_path, media_type="application/pdf", filename=f"Quotation_{target_no}.pdf")

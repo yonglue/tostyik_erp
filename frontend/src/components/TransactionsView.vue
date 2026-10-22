@@ -1,40 +1,74 @@
 <!-- src/components/TransactionsView.vue -->
 <template>
-  <div class="space-y-6">
-    <!-- 顶部指标卡片 -->
+  <div class="space-y-6 max-w-11xl mx-auto pb-24">
+    
+    <!-- ==================== 第一层：页面大标题 ==================== -->
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <span>📋</span> {{ tExt.pageTitle }}
+        </h2>
+        <p class="text-xs text-slate-500 mt-1">查看所有历史进销存单据、出入库明细及退款记录。</p>
+      </div>
+    </div>
+
+    <!-- ==================== 第二层：顶部指标卡片 ==================== -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="bg-white/75 backdrop-blur-xl p-6 rounded-2xl border border-white/80 shadow-lg space-y-2">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2">
         <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">{{ tExt.totalTx }}</p>
         <h3 class="text-2xl font-black text-blue-600 font-mono">{{ filteredTxList.length }} <span class="text-sm">{{ tExt.unit }}</span></h3>
       </div>
-      <div class="bg-white/75 backdrop-blur-xl p-6 rounded-2xl border border-white/80 shadow-lg space-y-2">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2">
         <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">{{ tExt.totalOut }}</p>
         <h3 class="text-2xl font-black text-amber-600 font-mono">$ {{ totalOutAmount.toFixed(2) }}</h3>
       </div>
-      <div class="bg-white/75 backdrop-blur-xl p-6 rounded-2xl border border-white/80 shadow-lg space-y-2">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2">
         <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">{{ tExt.totalIn }}</p>
         <h3 class="text-2xl font-black text-emerald-600 font-mono">$ {{ totalInAmount.toFixed(2) }}</h3>
       </div>
     </div>
 
-    <!-- 主列表 -->
-    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-      <div class="p-4 md:p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
-        <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl">
-          <button @click="currentTab = 'ALL'" :class="currentTab === 'ALL' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer">{{ tExt.tabAll }}</button>
-          <button @click="currentTab = 'OUT'" :class="currentTab === 'OUT' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer">{{ tExt.tabOut }}</button>
-          <button @click="currentTab = 'IN'" :class="currentTab === 'IN' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer">{{ tExt.tabIn }}</button>
-        </div>
-        <div class="flex gap-3">
-          <button @click="$emit('export-transactions')" class="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer">
-            📥 {{ tExt.exportExcel }}
-          </button>
-          <button @click="$emit('open-tx-modal')" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer">
-            ➕ {{ tExt.newTx }}
-          </button>
-        </div>
+    <!-- ==================== 第三层：操作工具栏 ==================== -->
+    <div class="bg-white p-4 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- 左侧：Tab 切换 -->
+      <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl">
+        <button 
+          @click="currentTab = 'ALL'" 
+          :class="currentTab === 'ALL' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" 
+          class="px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer"
+        >
+          {{ tExt.tabAll }}
+        </button>
+        <button 
+          @click="currentTab = 'OUT'" 
+          :class="currentTab === 'OUT' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" 
+          class="px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer"
+        >
+          {{ tExt.tabOut }}
+        </button>
+        <button 
+          @click="currentTab = 'IN'" 
+          :class="currentTab === 'IN' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'" 
+          class="px-4 py-2 rounded-lg text-sm font-bold transition-all cursor-pointer"
+        >
+          {{ tExt.tabIn }}
+        </button>
       </div>
 
+      <!-- 右侧：操作按钮 -->
+      <div class="flex gap-3">
+        <button @click="$emit('export-transactions')" class="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer">
+          📥 {{ tExt.exportExcel }}
+        </button>
+        <button @click="$emit('open-tx-modal')" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer">
+          ➕ {{ tExt.newTx }}
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== 第四层：数据表格 ==================== -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse min-w-[900px]">
           <thead>
@@ -62,7 +96,6 @@
               <td class="py-4 px-6 font-mono font-bold text-blue-600">{{ tx.part_oem }}</td>
               <td class="py-4 px-6 font-bold text-slate-800">{{ tx.part_name }}</td>
               <td class="py-4 px-6">
-                <!-- 🌟 修复：合并重复的 :class 属性 -->
                 <span 
                   class="px-2.5 py-1 rounded-md text-xs font-bold border"
                   :class="[
@@ -91,7 +124,7 @@
       </div>
     </div>
 
-    <!-- 🌟 通用右侧 Drawer -->
+    <!-- ==================== 通用右侧 Drawer ==================== -->
     <SideDrawer 
       :visible="detailDrawerVisible" 
       :title="tExt.detailTitle" 
@@ -105,7 +138,6 @@
             <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ tExt.colTime }}</p>
             <p class="font-mono text-sm font-bold text-slate-800">{{ currentTx.timestamp }}</p>
           </div>
-          <!-- 🌟 修复：合并重复的 :class 属性 -->
           <span 
             class="px-3 py-1.5 rounded-lg text-sm font-bold border"
             :class="[
@@ -148,7 +180,7 @@
           </div>
         </div>
 
-        <!-- 操作按钮（仅在可删除时显示） -->
+        <!-- 操作按钮 -->
         <div class="pt-6">
           <button 
             v-if="currentTx.type !== 'REFUND'"
@@ -187,6 +219,7 @@ const tExt = computed(() => {
   const isZh = currentLang.value === 'zh'
   const isEs = currentLang.value === 'es'
   return {
+    pageTitle: isZh ? '进销存流水' : isEs ? 'Movimientos de Inventario' : 'Inventory Transactions',
     totalTx: isZh ? '今日总流水单数' : isEs ? 'Total Transacciones (Hoy)' : 'Total Transactions (Today)',
     totalOut: isZh ? '今日出库销售总额' : isEs ? 'Total Ventas (Hoy)' : 'Total Sales (Today)',
     totalIn: isZh ? '今日采购入库总额' : isEs ? 'Total Compras (Hoy)' : 'Total Purchases (Today)',
@@ -215,7 +248,6 @@ const tExt = computed(() => {
   }
 })
 
-// 数据过滤
 const filteredTxList = computed(() => {
   if (currentTab.value === 'ALL') return props.transactionsList
   if (currentTab.value === 'OUT') return props.transactionsList.filter(tx => tx.type === 'OUT' || tx.type === 'REFUND')
@@ -223,17 +255,12 @@ const filteredTxList = computed(() => {
   return props.transactionsList
 })
 
-// 顶部统计动态计算
 const totalOutAmount = computed(() => {
-  return props.transactionsList
-    .filter(tx => tx.type === 'OUT')
-    .reduce((sum, tx) => sum + Number(tx.total_amount || 0), 0)
+  return props.transactionsList.filter(tx => tx.type === 'OUT').reduce((sum, tx) => sum + Number(tx.total_amount || 0), 0)
 })
 
 const totalInAmount = computed(() => {
-  return props.transactionsList
-    .filter(tx => tx.type === 'IN')
-    .reduce((sum, tx) => sum + Number(tx.total_amount || 0), 0)
+  return props.transactionsList.filter(tx => tx.type === 'IN').reduce((sum, tx) => sum + Number(tx.total_amount || 0), 0)
 })
 
 const openDetailDrawer = (tx) => {

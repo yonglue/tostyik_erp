@@ -193,7 +193,33 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
-import * as echarts from 'echarts'
+
+// 🌟 按需引入 ECharts 核心模块（大幅减小打包体积）
+import * as echarts from 'echarts/core'
+import { BarChart, LineChart, PieChart } from 'echarts/charts'
+import {
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  LegendComponent
+} from 'echarts/components'
+import { LabelLayout, UniversalTransition } from 'echarts/features'
+import { CanvasRenderer } from 'echarts/renderers'
+
+// 注册所需组件
+echarts.use([
+  BarChart,
+  LineChart,
+  PieChart,
+  TitleComponent,
+  TooltipComponent,
+  GridComponent,
+  LegendComponent,
+  LabelLayout,
+  UniversalTransition,
+  CanvasRenderer
+])
+
 import { useI18n } from '../composables/useI18n'
 import { apiFetch } from '../utils/api'
 

@@ -1,42 +1,54 @@
 <!-- src/components/GastosView.vue -->
 <template>
-  <div class="space-y-6">
-    <!-- 顶部操作栏 -->
-    <div class="bg-white p-4 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-4">
+  <div class="space-y-6 max-w-11xl mx-auto pb-24">
+    
+    <!-- ==================== 第一层：页面大标题 ==================== -->
+    <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h2 class="text-xl font-bold text-slate-900">{{ tExt.title }}</h2>
+        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <span>💸</span> {{ tExt.title }}
+        </h2>
         <p class="text-xs text-slate-500 mt-1">{{ tExt.subtitle }}</p>
       </div>
+    </div>
+
+    <!-- ==================== 第二层：操作工具栏 ==================== -->
+    <div class="bg-white p-4 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- 左侧：筛选 -->
       <div class="flex items-center gap-3">
-        <!-- 月份筛选 -->
         <input 
           type="month" 
           v-model="filterMonth" 
           class="bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 rounded-xl px-4 py-2.5 outline-none focus:border-blue-500 transition-all cursor-pointer"
         />
+      </div>
+
+      <!-- 右侧：操作按钮 -->
+      <div class="flex items-center gap-3">
         <button @click="fetchExpenses" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">
           🔄 {{ t.common.refresh }}
         </button>
-        <button @click="openDetailDrawer(null)" class="flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md transition-all cursor-pointer">
+        <button @click="openDetailDrawer(null)" class="flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-rose-500/20 transition-all cursor-pointer">
           ➕ {{ tExt.addBtn }}
         </button>
       </div>
     </div>
 
-    <!-- 数据表格 -->
+    <!-- ==================== 第三层：数据表格 ==================== -->
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse min-w-[900px]">
           <thead>
-            <tr class="bg-slate-50/75 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <th class="py-3.5 px-6">{{ tExt.colDate }}</th>
-              <th class="py-3.5 px-6">{{ tExt.colCategory }}</th>
-              <th class="py-3.5 px-6">{{ tExt.colDesc }}</th>
-              <th class="py-3.5 px-6">{{ tExt.colAmount }}</th>
-              <th class="py-3.5 px-6">{{ tExt.colAmountUsd }}</th>
-              <th class="py-3.5 px-6">{{ tExt.colMethod }}</th>
-              <th class="py-3.5 px-6">{{ tExt.colUser }}</th>
-              <th class="py-3.5 px-6 text-center">{{ t.common.actions }}</th>
+            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <th class="py-4 px-6">{{ tExt.colDate }}</th>
+              <th class="py-4 px-6">{{ tExt.colCategory }}</th>
+              <th class="py-4 px-6">{{ tExt.colDesc }}</th>
+              <th class="py-4 px-6">{{ tExt.colAmount }}</th>
+              <th class="py-4 px-6">{{ tExt.colAmountUsd }}</th>
+              <th class="py-4 px-6">{{ tExt.colMethod }}</th>
+              <th class="py-4 px-6">{{ tExt.colUser }}</th>
+              <th class="py-4 px-6 text-center">{{ t.common.actions }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 text-sm">
@@ -82,7 +94,7 @@
       </div>
     </div>
 
-    <!-- 🌟 通用右侧 Drawer -->
+    <!-- 通用右侧 Drawer (保持原样) -->
     <SideDrawer 
       :visible="detailDrawerVisible" 
       :title="drawerMode === 'read' ? tExt.detailTitle : (currentExpense?.id ? tExt.editTitle : tExt.addTitle)" 
@@ -247,7 +259,7 @@ const tExt = computed(() => {
   const isZh = currentLang.value === 'zh'
   const isEs = currentLang.value === 'es'
   return {
-    title: isZh ? '💸 日常开支管理' : isEs ? '💸 Gestión de Gastos' : '💸 Expense Management',
+    title: isZh ? '日常开支管理' : isEs ? 'Gestión de Gastos' : 'Expense Management',
     subtitle: isZh ? '记录店铺租金、工资、水电等日常支出，支撑净利润核算。' : isEs ? 'Registre alquiler, salarios, servicios para calcular la ganancia neta.' : 'Record rent, payroll, utilities for net profit calculation.',
     addBtn: isZh ? '记一笔支出' : isEs ? 'Registrar Gasto' : 'Record Expense',
     colDate: isZh ? '支出日期' : isEs ? 'Fecha' : 'Date',

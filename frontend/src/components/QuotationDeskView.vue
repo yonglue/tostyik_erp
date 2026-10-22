@@ -35,7 +35,7 @@
       </div>
       
       <div class="flex items-center space-x-2.5">
-        <!-- 🌟 核心新增：模式切换按钮 -->
+        <!-- 模式切换按钮 -->
         <button 
           @click="isQuoteMode = !isQuoteMode" 
           :class="isQuoteMode ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-blue-100 text-blue-700 border-blue-300'"
@@ -411,7 +411,17 @@
         <!-- ================= 🌟 报价模式面板 ================= -->
         <div v-if="isQuoteMode" class="flex flex-col h-full w-full p-4 justify-between animate-in fade-in duration-200">
           <div class="space-y-4">
-            <h3 class="font-bold text-sm text-slate-800 border-b border-slate-200/60 pb-2 flex items-center gap-2">📄 {{ tExt.quoteInfoTitle }}</h3>
+            <div class="flex items-center justify-between border-b border-slate-200/60 pb-2">
+              <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">📄 {{ tExt.quoteInfoTitle }}</h3>
+              <!-- 🌟 新增：载入历史报价按钮 -->
+              <button 
+                @click="openHistoryQuotesModal" 
+                type="button"
+                class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+              >
+                📂 载入历史
+              </button>
+            </div>
             
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1">{{ tExt.quoteNotesLabel }}</label>
@@ -869,8 +879,67 @@
       @confirm="executeExitPos" 
     />
 
+    <!-- 🌟 新增：历史报价选择弹窗 -->
+    <div v-if="historyQuotesModalVisible" @click.self="historyQuotesModalVisible = false" class="fixed inset-0 bg-slate-950/40 backdrop-blur-md flex items-center justify-center z-[60] p-6 cursor-pointer">
+      <div class="bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden border border-white/80 flex flex-col cursor-default animate-in zoom-in-95 duration-150">
+        <div class="p-5 border-b border-slate-200/60 flex items-center justify-between bg-white/50 shrink-0">
+          <h3 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
+            <span>📂 载入历史报价单</span>
+          </h3>
+          <button @click="historyQuotesModalVisible = false" class="text-slate-400 hover:text-slate-700 text-base font-bold p-1 cursor-pointer">✕</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-5 space-y-3 bg-slate-50/50">
+          <div v-if="isFetchingQuotes" class="text-center py-10 text-slate-400 text-xs">加载中...</div>
+          
+          <template v-else-if="historyQuotesList.length > 0">
+            <div 
+              v-for="q in historyQuotesList" 
+              :key="q.id" 
+              @click="loadQuoteToCart(q)" 
+              class="bg-white p-4 rounded-2xl border border-slate-200/80 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between shadow-2xs group"
+            >
+              <div class="space-y-1">
+                <div class="font-black text-sm text-slate-800 flex items-center gap-2">
+                  <span class="text-blue-600 font-mono">{{ q.quotation_no }}</span>
+                  <span>👤 {{ q.client_name }}</span>
+                </div>
+                <div class="text-[11px] text-slate-400 font-mono">创建时间: {{ q.created_at || '历史记录' }}</div>
+              </div>
+              <div class="flex items-center gap-4">
+                <span class="text-base font-mono font-black text-emerald-600">${{ Number(q.total_usd || 0).toFixed(2) }}</span>
+                <span class="text-xs font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">载入 ↵</span>
+              </div>
+            </div>
+          </template>
+          
+          <div v-else class="text-center py-20 text-slate-400 text-xs font-bold">
+            <span class="text-4xl block mb-2">📭</span>
+            暂无历史报价记录
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-200/60 bg-white flex justify-end shrink-0">
+          <button @click="historyQuotesModalVisible = false" class="px-6 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer">
+            取消
+          </button>
+        </div>
+        <!-- 🌟 新增：覆盖购物车确认弹窗 -->
+        <ConfirmDialog
+          :visible="showLoadConfirm"
+          overlay-class="bg-slate-900/60"
+          :title="tExt.overwriteCartTitle || '覆盖购物车'"
+          :message="tExt.overwriteCartMsg || '载入历史报价将覆盖当前购物车中的商品，是否继续？'"
+          :cancel-text="t.common.cancel"
+          :confirm-text="t.common.confirm || '确认'"
+          @cancel="showLoadConfirm = false; pendingQuoteToLoad = null"
+          @confirm="executeLoadQuote(pendingQuoteToLoad)"
+        />
+      </div>
+    </div>
+
     <!-- ==================================================== -->
-    <!-- 🌟 核心新增：隐藏的 80mm 热敏打印区域                  -->
+    <!-- 🌟 核心新增：隐藏的 80mm 热敏打印区域 (已多语言化)      -->
     <!-- ==================================================== -->
     <div v-if="printData" class="print-only hidden" id="print-section">
       <div class="print-header">
@@ -882,10 +951,10 @@
       </div>
       
       <div class="print-meta">
-        <p>单号: {{ printData.order_no }}</p>
-        <p>日期: {{ printData.date }}</p>
-        <p>客户: {{ printData.client_name }}</p>
-        <p>收银: {{ printData.operator }}</p>
+        <p>{{ tExt.printOrderNo }} {{ printData.order_no }}</p>
+        <p>{{ tExt.printDate }} {{ printData.date }}</p>
+        <p>{{ tExt.printClient }} {{ printData.client_name }}</p>
+        <p>{{ tExt.printOperator }} {{ printData.operator }}</p>
         <p class="divider">--------------------------------</p>
       </div>
 
@@ -893,9 +962,9 @@
         <table>
           <thead>
             <tr>
-              <th style="text-align: left;">商品</th>
-              <th style="text-align: center;">数量</th>
-              <th style="text-align: right;">小计</th>
+              <th style="text-align: left;">{{ tExt.printItemsTitle }}</th>
+              <th style="text-align: center;">{{ tExt.printQtyTitle }}</th>
+              <th style="text-align: right;">{{ tExt.printSubtotalTitle }}</th>
             </tr>
           </thead>
           <tbody>
@@ -918,7 +987,7 @@
       </div>
 
       <div class="print-payments">
-        <p>支付明细:</p>
+        <p>{{ tExt.printPaymentTitle }}</p>
         <p v-if="printData.payment.cardPos > 0"> - Punto de Venta: Bs. {{ printData.payment.cardPos.toFixed(2) }}</p>
         <p v-if="printData.payment.pagoMovil > 0"> - Pago Móvil: Bs. {{ printData.payment.pagoMovil.toFixed(2) }}</p>
         <p v-if="printData.payment.cashBs > 0"> - Efectivo Bs: Bs. {{ printData.payment.cashBs.toFixed(2) }}</p>
@@ -927,7 +996,7 @@
       </div>
 
       <div class="print-footer">
-        <p>¡Gracias por su compra!</p>
+        <p>{{ tExt.printThanks }}</p>
         <p>Tostiyk (TK) ERP</p>
       </div>
     </div>
@@ -936,6 +1005,7 @@
 </template> <!-- 这是 template 的结束标签，只能有一个 -->
 
 <script setup>
+
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { apiFetch } from '../utils/api'
 import { useI18n } from '../composables/useI18n'
@@ -1029,6 +1099,16 @@ const tExt = computed(() => {
     checkoutSuccessTitle: isZh ? '交易完成！' : isEs ? '¡Pago Exitoso!' : 'Payment Successful!',
     toastClientCreated: isZh ? '客户创建成功并已选中！' : isEs ? '¡Cliente creado y seleccionado!' : 'Client created and selected!',
     errorRequired: isZh ? '请输入客户名称' : isEs ? 'Ingrese el nombre del cliente' : 'Enter client name',
+
+    printOrderNo: isZh ? '单号:' : isEs ? 'Nro:' : 'No:',
+    printDate: isZh ? '日期:' : isEs ? 'Fecha:' : 'Date:',
+    printClient: isZh ? '客户:' : isEs ? 'Cliente:' : 'Client:',
+    printOperator: isZh ? '收银:' : isEs ? 'Cajero:' : 'Operator:',
+    printItemsTitle: isZh ? '商品' : isEs ? 'Producto' : 'Item',
+    printQtyTitle: isZh ? '数量' : isEs ? 'Cant.' : 'Qty',
+    printSubtotalTitle: isZh ? '小计' : isEs ? 'Subtotal' : 'Subtotal',
+    printPaymentTitle: isZh ? '支付明细:' : isEs ? 'Pagos:' : 'Payments:',
+    printThanks: isZh ? '感谢惠顾！' : isEs ? '¡Gracias por su compra!' : 'Thank you!',
   }
 })
 
@@ -1211,7 +1291,6 @@ const handlePaymentKeydown = (e, channelKey) => {
       }
     }
 
-    // 🌟 核心修复：直接补齐商品总价，不再算 IGTF
     if (channelKey === 'cashUsd') {
       const goodsNeeded = Math.max(0, goodsTotalUsd.value - otherPaidInUsd)
       paymentSplit.value.cashUsd = Number(goodsNeeded.toFixed(2))
@@ -1541,6 +1620,69 @@ const saveNewClient = async () => {
   }
 }
 
+// ==================== 历史报价联动 ====================
+const historyQuotesModalVisible = ref(false)
+const showLoadConfirm = ref(false)
+const pendingQuoteToLoad = ref(null)
+const historyQuotesList = ref([])
+const isFetchingQuotes = ref(false)
+
+const openHistoryQuotesModal = async () => {
+  historyQuotesModalVisible.value = true
+  isFetchingQuotes.value = true
+  try {
+    const res = await apiFetch('/api/quotations')
+    if (res.ok) {
+      historyQuotesList.value = await res.json()
+    }
+  } catch (e) {
+    showToast('❌ 获取历史报价失败', 'error')
+  } finally {
+    isFetchingQuotes.value = false
+  }
+}
+
+const loadQuoteToCart = (quote) => {
+  if (props.cartItems.length > 0) {
+    // 🌟 新增：先关掉历史列表弹窗
+    historyQuotesModalVisible.value = false 
+    
+    // 再触发确认
+    pendingQuoteToLoad.value = quote
+    showLoadConfirm.value = true
+    return
+  }
+  executeLoadQuote(quote)
+}
+
+// 🌟 新增：真正执行载入的函数
+const executeLoadQuote = (quote) => {
+  if (!quote) return
+  try {
+    const parsedItems = JSON.parse(quote.items_json)
+    // 1. 清空当前购物车并载入新商品
+    props.cartItems.splice(0, props.cartItems.length, ...parsedItems)
+    
+    // 2. 载入客户信息
+    quoteClientName.value = quote.client_name || ''
+    const matchedClient = props.clientsList?.find(c => c.name === quote.client_name)
+    quoteClientId.value = matchedClient ? matchedClient.id : null
+    
+    // 3. 如果后端存了备注，顺便恢复
+    if (quote.notes) quoteNotes.value = quote.notes
+
+    historyQuotesModalVisible.value = false
+    showLoadConfirm.value = false
+    pendingQuoteToLoad.value = null
+    showToast('✅ 成功载入历史报价', 'success')
+  } catch (e) {
+    console.error(e)
+    showToast('❌ 解析报价数据失败', 'error')
+  }
+}
+
+
+
 // ---------------- 购物车与搜索 ----------------
 const filteredParts = computed(() => {
   const qStr = deskSearchQuery.value.trim().toUpperCase()
@@ -1801,6 +1943,29 @@ const generateQuotationPDF = async () => {
     showToast('❌ ' + err.message, 'error')
   } finally {
     isSubmitting.value = false
+  }
+}
+
+const downloadPdf = async (quotationNo) => {
+  try {
+    // 🌟 核心修改：在 URL 末尾加上了 &lang=${currentLang.value}
+    const res = await apiFetch(`/api/quotation/pdf/download?quotation_no=${quotationNo}&lang=${currentLang.value}`)
+    
+    if (!res.ok) throw new Error('PDF 获取失败')
+    
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Quotation_${quotationNo}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
+    emit('show-toast', '✅ PDF 下载成功', 'success')
+  } catch (err) {
+    console.error(err)
+    emit('show-toast', '❌ PDF 下载失败', 'error')
   }
 }
 
@@ -2127,6 +2292,4 @@ input[type=number].no-spinner {
     margin-top: 10px;
   }
 }
-
-
 </style>

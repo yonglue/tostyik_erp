@@ -1,8 +1,18 @@
 <!-- src/components/BackupView.vue -->
 <template>
-  <div class="space-y-6 max-w-6xl mx-auto pb-12 relative">
+  <div class="space-y-6 max-w-11xl mx-auto pb-12 relative">
     
-    <!-- 🌟 模块一：系统参数与汇率配置 -->
+    <!-- ==================== 第一层：页面大标题 ==================== -->
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <span>🗄️</span> 系统运维与数据备份
+        </h2>
+        <p class="text-xs text-slate-500 mt-1">配置系统基础信息、执行自动备份策略、管理数据导入导出以及数据库底层优化。</p>
+      </div>
+    </div>
+
+    <!-- ==================== 系统参数与汇率配置（全宽） ==================== -->
     <div class="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-5">
       <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
         <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg shadow-sm">⚙️</div>
@@ -12,10 +22,10 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-1">
         <!-- 公司基础信息 -->
-        <div class="space-y-4">
-          <div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="md:col-span-2">
             <label class="block text-xs font-bold text-slate-500 mb-1.5">{{ tExt.labelCompanyName }}</label>
             <input v-model="settings.company_name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-500 font-semibold transition-colors" />
           </div>
@@ -24,12 +34,12 @@
             <input v-model="settings.rif" type="text" placeholder="J-31234567-8" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-500 font-mono transition-colors" />
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-500 mb-1.5">{{ tExt.labelAddress }}</label>
-            <input v-model="settings.address" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-500 transition-colors" />
-          </div>
-          <div>
             <label class="block text-xs font-bold text-slate-500 mb-1.5">{{ tExt.labelPhone }}</label>
             <input v-model="settings.phone" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-500 font-mono transition-colors" />
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-bold text-slate-500 mb-1.5">{{ tExt.labelAddress }}</label>
+            <input v-model="settings.address" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-500 transition-colors" />
           </div>
         </div>
 
@@ -76,93 +86,121 @@
       </div>
     </div>
 
-    <!-- 🌟 模块二与模块三的容器 -->
+    <!-- ==================== 2x2 网格：数据维护区 ==================== -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       
-      <!-- 左侧：数据备份区 -->
-      <div class="space-y-6">
-        <!-- 商品与客户备份 -->
-        <div class="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-5">
-          <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg shadow-sm">📦</div>
-            <div>
-              <h3 class="font-bold text-slate-800 text-base">{{ tExt.exportTitle }}</h3>
-              <p class="text-xs text-slate-400 mt-0.5">{{ tExt.exportSub }}</p>
-            </div>
+      <!-- 模块 1：自动备份系统 -->
+      <div class="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-5">
+        <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg shadow-sm">🛡️</div>
+          <div>
+            <h3 class="font-bold text-slate-800 text-base">自动备份系统</h3>
+            <p class="text-xs text-slate-400 mt-0.5">系统每 24 小时自动备份一次，防止数据丢失</p>
           </div>
-          
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button @click="$emit('export-parts')" class="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer">
-              <FileSpreadsheet :size="16" /> {{ tExt.btnExportParts }}
-            </button>
-            <button @click="$emit('export-clients')" class="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer">
-              <FileSpreadsheet :size="16" /> {{ tExt.btnExportClients }}
-            </button>
-          </div>
-
-          <button @click="$emit('download-db')" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer mt-2">
-            🛡️ {{ tExt.btnDownloadDb }}
+        </div>
+        
+        <div class="flex justify-between items-center">
+          <p class="text-xs text-slate-500">目前保留最近 30 天的备份文件</p>
+          <button @click="triggerBackup" :disabled="isBackingUp" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-50">
+            {{ isBackingUp ? '备份中...' : '手动立即备份' }}
           </button>
         </div>
 
-        <!-- 批量导入 -->
-        <div class="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
-          <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg shadow-sm">📥</div>
+        <div class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+          <div v-for="bf in backupList" :key="bf.filename" class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors">
             <div>
-              <h3 class="font-bold text-slate-800 text-base">{{ tExt.importTitle }}</h3>
-              <p class="text-xs text-slate-400 mt-0.5">{{ tExt.importSub }}</p>
+              <p class="font-mono text-xs font-bold text-slate-800">{{ bf.filename }}</p>
+              <p class="text-[10px] text-slate-500 mt-1">{{ bf.created_at }} | {{ bf.size_mb }} MB</p>
             </div>
-          </div>
-          
-          <div class="flex gap-2">
-            <button @click="downloadCsvTemplate" class="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer">
-              📄 {{ tExt.btnDownloadTemplate }}
+            <button @click="downloadBackup(bf.filename)" class="text-xs text-blue-600 hover:text-blue-800 font-bold px-2 py-1 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer">
+              📥 下载
             </button>
           </div>
-
-          <div class="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center hover:bg-slate-50 transition-colors">
-            <input 
-              type="file" 
-              ref="fileInputRef"
-              accept=".csv" 
-              @change="handleFileSelect" 
-              class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" 
-            />
-            <p class="text-[11px] text-slate-400 mt-2">{{ tExt.fileHint }}</p>
+          <div v-if="backupList.length === 0" class="text-center py-6 text-slate-400 text-xs">
+            暂无备份记录
           </div>
-          
-          <button 
-            v-if="selectedFile" 
-            @click="uploadCsv" 
-            class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            🚀 {{ tExt.btnConfirmImport }} ({{ selectedFile.name }})
-          </button>
         </div>
       </div>
 
-      <!-- 右侧：系统维护 -->
-      <div class="space-y-6">
-        <div class="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-rose-200/60 shadow-sm space-y-4">
-          <div class="flex items-center gap-3 border-b border-rose-100 pb-4">
-            <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-lg shadow-sm">🧹</div>
-            <div>
-              <h3 class="font-bold text-rose-800 text-base">{{ tExt.cleanupTitle }}</h3>
-              <p class="text-xs text-rose-500/80 mt-0.5">{{ tExt.cleanupSub }}</p>
-            </div>
+      <!-- 模块 2：数据导出与备份 -->
+      <div class="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-5">
+        <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
+          <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg shadow-sm">📦</div>
+          <div>
+            <h3 class="font-bold text-slate-800 text-base">{{ tExt.exportTitle }}</h3>
+            <p class="text-xs text-slate-400 mt-0.5">{{ tExt.exportSub }}</p>
           </div>
-
-          <div class="bg-rose-50/50 p-4 rounded-xl border border-rose-100">
-            <p class="text-[11px] text-rose-700 leading-relaxed font-medium">
-              {{ tExt.cleanupWarning }}
-            </p>
-          </div>
-
-          <button @click="showCleanupModal = true" class="w-full bg-rose-600 hover:bg-rose-700 text-white py-3.5 rounded-xl text-xs font-bold shadow-md shadow-rose-500/20 transition-all shrink-0 cursor-pointer">
-            ⚡ {{ tExt.btnCleanup }}
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button @click="$emit('export-parts')" class="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer">
+            <FileSpreadsheet :size="16" /> {{ tExt.btnExportParts }}
+          </button>
+          <button @click="$emit('export-clients')" class="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer">
+            <FileSpreadsheet :size="16" /> {{ tExt.btnExportClients }}
           </button>
         </div>
+
+        <button @click="$emit('download-db')" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer mt-2">
+          🛡️ {{ tExt.btnDownloadDb }}
+        </button>
+      </div>
+
+      <!-- 模块 3：批量导入商品 -->
+      <div class="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+        <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg shadow-sm">📥</div>
+          <div>
+            <h3 class="font-bold text-slate-800 text-base">{{ tExt.importTitle }}</h3>
+            <p class="text-xs text-slate-400 mt-0.5">{{ tExt.importSub }}</p>
+          </div>
+        </div>
+        
+        <div class="flex gap-2">
+          <button @click="downloadCsvTemplate" class="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer">
+            📄 {{ tExt.btnDownloadTemplate }}
+          </button>
+        </div>
+
+        <div class="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center hover:bg-slate-50 transition-colors">
+          <input 
+            type="file" 
+            ref="fileInputRef"
+            accept=".csv" 
+            @change="handleFileSelect" 
+            class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" 
+          />
+          <p class="text-[11px] text-slate-400 mt-2">{{ tExt.fileHint }}</p>
+        </div>
+        
+        <button 
+          v-if="selectedFile" 
+          @click="uploadCsv" 
+          class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+        >
+          🚀 {{ tExt.btnConfirmImport }} ({{ selectedFile.name }})
+        </button>
+      </div>
+
+      <!-- 模块 4：数据库清理与优化 -->
+      <div class="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-rose-200/60 shadow-sm space-y-4">
+        <div class="flex items-center gap-3 border-b border-rose-100 pb-4">
+          <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-lg shadow-sm">🧹</div>
+          <div>
+            <h3 class="font-bold text-rose-800 text-base">{{ tExt.cleanupTitle }}</h3>
+            <p class="text-xs text-rose-500/80 mt-0.5">{{ tExt.cleanupSub }}</p>
+          </div>
+        </div>
+
+        <div class="bg-rose-50/50 p-4 rounded-xl border border-rose-100 flex-1">
+          <p class="text-[11px] text-rose-700 leading-relaxed font-medium">
+            {{ tExt.cleanupWarning }}
+          </p>
+        </div>
+
+        <button @click="showCleanupModal = true" class="w-full bg-rose-600 hover:bg-rose-700 text-white py-3.5 rounded-xl text-xs font-bold shadow-md shadow-rose-500/20 transition-all shrink-0 cursor-pointer mt-auto">
+          ⚡ {{ tExt.btnCleanup }}
+        </button>
       </div>
 
     </div>
@@ -194,14 +232,13 @@
 import { ref, onMounted, reactive, computed, watch } from 'vue'
 import { FileSpreadsheet } from 'lucide-vue-next'
 import { useI18n } from '../composables/useI18n'
-import { apiFetch } from '../utils/api'
+import { apiFetch, apiUrl } from '../utils/api'
 import { useInventory } from '../composables/useInventory'
 import ConfirmDialog from './ConfirmDialog.vue'
 
 defineEmits(['export-parts', 'export-clients', 'download-db'])
 const { t, currentLang } = useI18n()
 
-// 获取汇率状态
 const { bcvRate, updateBcvRate } = useInventory()
 const rateInput = ref(36.50)
 const isFetchingRate = ref(false)
@@ -215,6 +252,40 @@ const settings = ref({
 })
 
 const showCleanupModal = ref(false)
+
+// 🌟 自动备份相关状态
+const backupList = ref([])
+const isBackingUp = ref(false)
+
+const fetchBackups = async () => {
+  try {
+    const res = await apiFetch('/api/backup/list')
+    if (res.ok) {
+      backupList.value = await res.json()
+    }
+  } catch (e) { console.error(e) }
+}
+
+const triggerBackup = async () => {
+  isBackingUp.value = true
+  try {
+    const res = await apiFetch('/api/backup/trigger', { method: 'POST' })
+    if (res.ok) {
+      showToast('✅ 备份成功！', '🎉')
+      await fetchBackups()
+    } else {
+      showToast('❌ 备份失败，请检查数据库', '❌')
+    }
+  } catch (e) {
+    showToast('❌ 网络异常', '❌')
+  } finally {
+    isBackingUp.value = false
+  }
+}
+
+const downloadBackup = (filename) => {
+  window.open(apiUrl(`/api/backup/download/${filename}`), '_blank')
+}
 
 const tExt = computed(() => {
   const isZh = currentLang.value === 'zh'
@@ -269,7 +340,6 @@ const tExt = computed(() => {
   }
 })
 
-// 统一的通知浮窗状态
 const toast = reactive({
   show: false,
   message: '',
@@ -285,7 +355,6 @@ const showToast = (msg, icon = '🎉') => {
   }, 3000)
 }
 
-// 同步全局汇率到本地输入框
 watch(bcvRate, (newVal) => {
   if (newVal) rateInput.value = newVal
 }, { immediate: true })
@@ -378,6 +447,7 @@ const runCleanup = async () => {
 
 onMounted(() => {
   fetchSettings()
+  fetchBackups() // 🌟 初始化时加载备份列表
 })
 
 const selectedFile = ref(null)

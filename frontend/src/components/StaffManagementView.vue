@@ -1,6 +1,6 @@
 <!-- src/components/StaffManagementView.vue -->
 <template>
-  <div class="space-y-6 max-w-5xl mx-auto pb-12">
+  <div class="space-y-6 max-w-11xl mx-auto pb-12">
     
     <!-- 顶部标题栏 -->
     <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80 flex items-center justify-between">

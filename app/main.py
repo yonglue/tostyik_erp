@@ -10,6 +10,10 @@
 from contextlib import asynccontextmanager
 import os  # 🌟 引入 os 用于路径处理
 
+from app.routers import backup  # 🌟 导入备份路由
+from app.services.backup import auto_backup_task  # 🌟 导入自动备份定时任务
+import asyncio # 如果没导入的话
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -148,6 +152,7 @@ app.include_router(pos.router)
 app.include_router(settings.router)
 app.include_router(staff.router)
 app.include_router(expenses.router)
+app.include_router(backup.router)  # 🌟 注册备份路由
 
 
 
@@ -178,3 +183,9 @@ async def catch_exceptions_middleware(request: Request, call_next):
                 "Access-Control-Allow-Credentials": "true",
             }
         )
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(auto_backup_task())
+
+

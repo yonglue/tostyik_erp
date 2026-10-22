@@ -1,6 +1,6 @@
 <!-- src/components/CashRegisterView.vue -->
 <template>
-  <div class="space-y-6 max-w-7xl mx-auto">
+  <div class="space-y-6 max-w-11xl mx-auto">
     <!-- 顶部标题与日期筛选 -->
     <div class="bg-white/75 backdrop-blur-xl p-6 rounded-2xl border border-white/80 shadow-lg flex flex-wrap items-center justify-between gap-4">
       <div>

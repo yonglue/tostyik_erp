@@ -1,6 +1,6 @@
 <!-- src/components/DashboardView.vue -->
 <template>
-  <div class="space-y-6 max-w-7xl mx-auto">
+  <div class="space-y-6 max-w-11xl mx-auto">
     
     <!-- 欢迎横幅与系统概览 -->
     <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-blue-500/15 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

@@ -16,8 +16,11 @@ from sqlmodel import Session, select
 from app.config import UPLOAD_DIR
 from app.database import get_session
 from app.deps import Actor, get_current_actor, RequirePermission
-from app.models import AutoPart
+from app.models import AutoPart, InventoryTransaction
 from app.services.audit import log_action
+
+from pydantic import BaseModel
+from datetime import datetime
 
 router = APIRouter(tags=["配件"])
 
@@ -400,3 +403,71 @@ async def import_parts(
         "updated_count": imported_count,
         "count": imported_count
     }
+
+
+# ==================== 🌟 库存盘点接口 ====================
+class AuditItemPayload(BaseModel):
+    part_id: int
+    actual_stock: int
+    reason: Optional[str] = ""
+
+class AuditPayload(BaseModel):
+    items: List[AuditItemPayload]
+
+@router.post("/api/inventory/audit")
+def audit_inventory(
+    payload: AuditPayload,
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("parts:manage")),
+):
+    """接收前端提交的盘点单，比对系统库存并生成损益流水"""
+    changed_count = 0
+    
+    # 🌟 新增：生成全局唯一的批次号，并获取当前操作人
+    batch_no = f"AUDIT-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    operator = actor.username
+    
+    for item in payload.items:
+        part = session.get(AutoPart, item.part_id)
+        if not part:
+            continue
+            
+        diff = item.actual_stock - part.stock
+        if diff == 0:
+            continue
+            
+        old_stock = part.stock
+        part.stock = item.actual_stock
+        session.add(part)
+        
+        tx_type = "IN" if diff > 0 else "OUT"
+        tx = InventoryTransaction(
+            part_oem=part.oem,
+            part_name=part.name,
+            type=tx_type,
+            quantity=abs(diff),
+            unit_price=part.cost_price or 0.0,
+            total_amount=abs(diff) * (part.cost_price or 0.0),
+            # 🌟 核心修改：写入批次号和操作人
+            customer_or_supplier=f"库存盘点调整|{batch_no}|{operator}",
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        session.add(tx)
+        changed_count += 1
+        
+        log_action(
+            session=session,
+            username=actor.username,
+            role=actor.role,
+            action="UPDATE_STOCK",
+            details=f"盘点调整(批次:{batch_no}): {part.name}(OEM:{part.oem}) 原库存:{old_stock} -> 实盘:{item.actual_stock}，原因:{item.reason}"
+        )
+        
+    session.commit()
+    return {"status": "success", "message": f"盘点完成，共调整了 {changed_count} 个商品库存"}
+
+
+
+
+
+

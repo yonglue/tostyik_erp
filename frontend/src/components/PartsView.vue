@@ -1,9 +1,21 @@
 <!-- src/components/PartsView.vue -->
 <template>
-  <div class="space-y-6">
+  <div class="space-y-6 max-w-11xl mx-auto pb-24">
     
-    <!-- 🌟 顶部统一的操作栏与搜索、下拉筛选 -->
+    <!-- ==================== 第一层：页面大标题 ==================== -->
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <span>📦</span> {{ t.inventory.title }}
+        </h2>
+        <p class="text-xs text-slate-500 mt-1">管理汽车配件的入库、出库、定价及多图档案。</p>
+      </div>
+    </div>
+
+    <!-- ==================== 第二层：操作工具栏 ==================== -->
     <div class="bg-white p-4 md:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- 左侧：搜索与筛选 -->
       <div class="flex items-center gap-3 flex-wrap w-full md:w-auto">
         <!-- 搜索框 -->
         <div class="relative w-full md:w-64">
@@ -13,11 +25,11 @@
             @input="$emit('update:searchQuery',$event.target.value)"
             type="text"
             :placeholder="t.inventory.searchPlaceholder"
-            class="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-blue-500 focus:bg-white transition-all"
+            class="w-full bg-slate-50 border border-slate-200 text-sm rounded-xl pl-10 pr-4 py-2.5 outline-none focus:border-blue-500 focus:bg-white transition-all font-bold"
           />
         </div>
 
-        <!-- 🌟 品牌下拉选择器（筛选保留） -->
+        <!-- 品牌下拉 -->
         <div class="relative">
           <select 
             :value="selectedBrand" 
@@ -32,7 +44,7 @@
           <div class="absolute right-3 top-3.5 pointer-events-none text-slate-400 text-xs">▼</div>
         </div>
 
-        <!-- 🌟 配件分类下拉选择器（筛选保留） -->
+        <!-- 分类下拉 -->
         <div class="relative">
           <select 
             v-model="selectedCategory" 
@@ -47,8 +59,8 @@
         </div>
       </div>
 
+      <!-- 右侧：操作按钮 -->
       <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-        <!-- 批量删除按钮 -->
         <button 
           v-if="selectedIds.length > 0" 
           @click="openBatchDeleteModal" 
@@ -59,7 +71,7 @@
 
         <button
           @click="$emit('open-add-modal')"
-          class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-md shadow-blue-500/25 transition-all cursor-pointer"
+          class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-blue-500/20 transition-all cursor-pointer"
         >
           <Plus :size="16" />
           <span>{{ t.inventory.addBtn }}</span>
@@ -67,13 +79,13 @@
       </div>
     </div>
 
-    <!-- 🌟 主商品表格（已移除分类、品牌、税率三列） -->
+    <!-- ==================== 第三层：数据表格 ==================== -->
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse min-w-[900px]">
           <thead>
-            <tr class="bg-slate-50/75 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <th class="py-3.5 px-4 w-12 text-center">
+            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <th class="py-4 px-4 w-12 text-center">
                 <input 
                   type="checkbox" 
                   :checked="isAllSelected" 
@@ -81,15 +93,15 @@
                   class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" 
                 />
               </th>
-              <th class="py-3.5 px-4">{{ t.inventory.colImage }}</th>
-              <th class="py-3.5 px-4">{{ t.inventory.colOem }}</th>
-              <th class="py-3.5 px-4">{{ t.inventory.colName }}</th>
-              <th class="py-3.5 px-4">📍 {{ t.inventory.colBin }}</th>
-              <th class="py-3.5 px-4">{{ t.inventory.colStock }}</th>
-              <th class="py-3.5 px-4">{{ t.inventory.colPriceUsd }}</th>
-              <th class="py-3.5 px-4 text-amber-600">{{ t.inventory.costPrice }}</th>
-              <th class="py-3.5 px-4 text-emerald-600">{{ t.inventory.profit }}</th>
-              <th class="py-3.5 px-4 text-center">{{ t.common.actions }}</th>
+              <th class="py-4 px-4">{{ t.inventory.colImage }}</th>
+              <th class="py-4 px-4">{{ t.inventory.colOem }}</th>
+              <th class="py-4 px-4">{{ t.inventory.colName }}</th>
+              <th class="py-4 px-4">📍 {{ t.inventory.colBin }}</th>
+              <th class="py-4 px-4">{{ t.inventory.colStock }}</th>
+              <th class="py-4 px-4">{{ t.inventory.colPriceUsd }}</th>
+              <th class="py-4 px-4 text-amber-600">{{ t.inventory.costPrice }}</th>
+              <th class="py-4 px-4 text-emerald-600">{{ t.inventory.profit }}</th>
+              <th class="py-4 px-4 text-center">{{ t.common.actions }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100 text-sm">
@@ -132,7 +144,7 @@
               <td class="py-4 px-4 font-mono font-bold text-slate-800">{{ item.oem }}</td>
               <td class="py-4 px-4 font-medium text-slate-900">{{ item.name }}</td>
 
-              <!-- 📍 货架库位胶囊 -->
+              <!-- 货架库位 -->
               <td class="py-4 px-4">
                 <span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-xs font-semibold font-mono border border-emerald-200/60">
                   📍 {{ item.bin_location || '—' }}
@@ -151,7 +163,7 @@
                 </span>
               </td>
 
-              <!-- 操作列：仅保留删除（编辑入口已移至 Drawer） -->
+              <!-- 操作列：仅保留删除 -->
               <td class="py-4 px-4 text-center" @click.stop>
                 <button @click="$emit('delete-part', item)" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer">
                   {{ t.common.delete }}
@@ -159,14 +171,16 @@
               </td>
             </tr>
             <tr v-if="filteredParts.length === 0">
-              <!-- 🌟 colspan 调整为 10 -->
-              <td colspan="10" class="py-12 text-center text-slate-400 text-xs">{{ tExt.emptyParts }}</td>
+              <td colspan="10" class="py-16 text-center text-slate-400 text-sm">
+                <span class="text-4xl block mb-3">📭</span>
+                {{ tExt.emptyParts }}
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <!-- 分页与指定页码跳转栏 -->
+      <!-- 分页 -->
       <div v-if="totalPages > 1" class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4 text-xs">
         <span class="text-slate-500 font-medium">
           {{ tExt.showing }} <strong class="text-slate-800">{{ (currentPage - 1) * pageSize + 1 }}</strong> {{ tExt.to }} <strong class="text-slate-800">{{ Math.min(currentPage * pageSize, filteredParts.length) }}</strong> {{ tExt.of }} <strong class="text-slate-800">{{ filteredParts.length }}</strong> {{ tExt.products }}
@@ -215,7 +229,7 @@
       </div>
     </div>
 
-    <!-- 🌟 右侧详情/编辑 Drawer -->
+    <!-- ==================== 通用右侧 Drawer 详情/编辑 ==================== -->
     <SideDrawer 
       :visible="detailDrawerVisible" 
       :title="drawerMode === 'read' ? t.inventory.detailTitle : tExt.editTitle" 
@@ -234,9 +248,8 @@
       </template>
 
       <div class="p-6">
-        <!-- ===== 只读态 ===== -->
+        <!-- 只读态 -->
         <div v-if="drawerMode === 'read'" class="space-y-5">
-          <!-- 图片 -->
           <div v-if="parseImages(editingPart.image_url).length > 0" class="flex flex-wrap gap-2">
             <div 
               v-for="(img, idx) in parseImages(editingPart.image_url)" 
@@ -251,7 +264,6 @@
             {{ t.inventory.noImage }}
           </div>
 
-          <!-- 字段网格 -->
           <div class="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">{{ t.inventory.colOem }}</p>
@@ -303,14 +315,13 @@
             </div>
           </div>
 
-          <!-- 交叉参考 -->
           <div>
             <p class="text-[11px] font-semibold text-slate-400 uppercase mb-1">🔗 {{ tExt.crossRef }}</p>
             <p class="text-xs font-mono text-slate-600 bg-slate-50 rounded-xl p-3 whitespace-pre-wrap min-h-[48px]">{{ editingPart.cross_references || '—' }}</p>
           </div>
         </div>
 
-        <!-- ===== 编辑态 ===== -->
+        <!-- 编辑态 -->
         <div v-else class="space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -394,7 +405,7 @@
       </template>
     </SideDrawer>
 
-    <!-- 🌟 批量删除确认弹窗（不变） -->
+    <!-- 批量删除确认 -->
     <ConfirmDialog
       :visible="batchDeleteModalVisible"
       overlay-class="bg-slate-900/40"
@@ -430,7 +441,6 @@ const emit = defineEmits(['update:searchQuery', 'update:selectedBrand', 'open-ad
 const { t, currentLang } = useI18n()
 const { showSuccessModal } = useNotifications()
 
-// 🌟 扩展翻译字典
 const tExt = computed(() => {
   const isZh = currentLang.value === 'zh'
   const isEs = currentLang.value === 'es'
@@ -474,23 +484,12 @@ const categoriesList = computed(() => {
   ]
 })
 
-// 🌟 Drawer 状态
 const detailDrawerVisible = ref(false)
-const drawerMode = ref('read') // 'read' | 'edit'
+const drawerMode = ref('read')
 
 const editingPart = ref({ 
-  id: null, 
-  oem: '', 
-  name: '', 
-  brand: '', 
-  category: '', 
-  stock: 0, 
-  price: 0, 
-  cost_price: 0,
-  tax_rate: 0.16,
-  bin_location: '',
-  cross_references: '',
-  image_url: ''
+  id: null, oem: '', name: '', brand: '', category: '', stock: 0, 
+  price: 0, cost_price: 0, tax_rate: 0.16, bin_location: '', cross_references: '', image_url: ''
 })
 const editFiles = ref([])
 
@@ -524,12 +523,9 @@ const filteredParts = computed(() => {
     const rawCross = i.cross_references ? i.cross_references.toLowerCase() : ''
 
     const matchSearch = 
-      cleanOem.includes(cleanQuery) || 
-      rawOem.includes(query) || 
-      cleanName.includes(query) ||
-      rawName.includes(query) ||
-      cleanBrand.includes(query) ||
-      rawCross.includes(query)
+      cleanOem.includes(cleanQuery) || rawOem.includes(query) || 
+      cleanName.includes(query) || rawName.includes(query) ||
+      cleanBrand.includes(query) || rawCross.includes(query)
 
     return matchBrand && matchCategory && matchSearch
   })
@@ -606,7 +602,6 @@ const confirmBatchDelete = async () => {
   }
 }
 
-// 🌟 Drawer 核心逻辑
 const openDetailDrawer = (item) => {
   editingPart.value = { 
     ...item, 
@@ -626,7 +621,6 @@ const switchToEdit = () => {
 }
 
 const switchToRead = () => {
-  // 从最新 props 数据回填，丢弃未保存的编辑
   const latest = props.partsList.find(p => p.id === editingPart.value.id)
   if (latest) {
     editingPart.value = {
@@ -693,7 +687,6 @@ const saveEditedPart = async () => {
   }
 }
 
-// 🌟 ESC 行为：编辑态回只读，只读态关闭
 const handleKeydown = (e) => {
   if (!detailDrawerVisible.value && !batchDeleteModalVisible.value) return
   if (e.key === 'Escape') {

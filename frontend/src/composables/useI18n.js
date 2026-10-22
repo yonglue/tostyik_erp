@@ -46,6 +46,8 @@ const translations = {
       financial: "财务利润",
       expenses: "日常开支", // 🌟 新增
       parts: "商品库存",
+      inventoryAudit: "库存盘点", // 👈 新增
+
       clients: "客户与账本",
       procurement: "订单采购",
       transactions: "进销存单据",
@@ -231,6 +233,8 @@ const translations = {
       financial: "Reporte Financiero",
       expenses: "Gastos Diarios", // 🌟 新增
       parts: "Inventario y Stock",
+      inventoryAudit: "Auditoría de Stock", // 👈 新增
+
       clients: "Clientes y Créditos",
       procurement: "Órdenes de Compra",
       transactions: "Movimientos y Cuentas",
@@ -412,6 +416,8 @@ const translations = {
       financial: "Financial Report",
       expenses: "Daily Expenses", // 🌟 新增
       parts: "Inventory",
+      inventoryAudit: "Stock Audit", // 👈 新增
+
       clients: "Clients & Debt",
       procurement: "Purchase Orders",
       transactions: "Transactions",

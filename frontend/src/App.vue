@@ -12,6 +12,7 @@
         :activeTab="activeTab" 
         :mobileMenuOpen="mobileMenuOpen"
         :currentDateTime="currentDateTime"
+        :isCollapsed="isSidebarCollapsed"
         @update:activeTab="activeTab = $event"
         @update:mobileMenuOpen="mobileMenuOpen = $event"
         @menu-click="handleMenuClick"
@@ -22,8 +23,15 @@
         
         <header v-if="activeTab !== 'desk'" class="h-16 bg-white/75 backdrop-blur-xl border-b border-white/60 px-6 flex items-center justify-between shrink-0 shadow-xs transition-all">
           <div class="flex items-center space-x-4">
-            <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 text-slate-600 hover:bg-blue-50/90 rounded-2xl transition-colors">
+            <!-- 移动端菜单按钮 (保留) -->
+            <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 text-slate-600 hover:bg-blue-50/90 rounded-2xl transition-colors cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <!-- 🌟 新增：桌面端侧边栏折叠按钮 -->
+            <button @click="isSidebarCollapsed = !isSidebarCollapsed" class="hidden md:flex p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer items-center justify-center" title="折叠/展开侧边栏">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" />
+              </svg>
             </button>
           </div>
 
@@ -60,6 +68,15 @@
             </div>
           </div>
         </header>
+
+        <!-- 🌟 全局搜索弹窗 -->
+        <GlobalSearchModal 
+          :visible="isGlobalSearchVisible"
+          :partsList="partsList"
+          :clientsList="clientsList"
+          @close="isGlobalSearchVisible = false"
+          @select="handleGlobalSelect"
+        />
 
         <!-- 主内容区域 -->
         <main class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
@@ -105,6 +122,9 @@
             @export-transactions="exportTransactionsExcel"
             @open-tx-modal="txDialogVisible = true"
             @delete-tx="openDeleteTxModal"
+          />
+          <InventoryAuditView 
+            v-else-if="activeTab === 'inventory_audit' && hasPermission('parts:manage')" 
           />
           
           <!-- 🌟 挂载报价单列表 -->
@@ -466,6 +486,8 @@ import ConfirmDialog from './components/ConfirmDialog.vue'
 import ImageGalleryModal from './components/ImageGalleryModal.vue'
 import GlobalNoticeModal from './components/GlobalNoticeModal.vue'
 
+import GlobalSearchModal from './components/GlobalSearchModal.vue'
+
 const DashboardView = defineAsyncComponent(() => import('./components/DashboardView.vue'))
 const FinancialView = defineAsyncComponent(() => import('./components/FinancialView.vue'))
 const PartsView = defineAsyncComponent(() => import('./components/PartsView.vue'))
@@ -477,6 +499,8 @@ const AuditLogsView = defineAsyncComponent(() => import('./components/AuditLogsV
 const PurchaseOrdersView = defineAsyncComponent(() => import('./components/ProcurementCenterView.vue'))
 const QuotationListView = defineAsyncComponent(() => import('./components/QuotationListView.vue'))
 const GastosView = defineAsyncComponent(() => import('./components/GastosView.vue'))
+const InventoryAuditView = defineAsyncComponent(() => import('./components/InventoryAuditView.vue'))
+
 
 import { apiFetch, apiUrl } from './utils/api'
 import { useAuth } from './composables/useAuth'
@@ -592,6 +616,7 @@ const checkAndSwitchTab = (tab) => {
 }
 
 const mobileMenuOpen = ref(false)
+const isSidebarCollapsed = ref(false) // 🌟 新增：默认不折叠
 const activeTab = ref(getDefaultAllowedTab())
 
 watch(isLoggedIn, (newVal) => {
@@ -618,6 +643,7 @@ const clientSearchQuery = ref('')
 const selectedBrand = ref('ALL')
 
 const dialogVisible = ref(false)
+const isGlobalSearchVisible = ref(false)
 const clientDialogVisible = ref(false)
 const txDialogVisible = ref(false)
 // 🌟 新增手工单据的响应式数据
@@ -861,6 +887,13 @@ const handleAddClient = async () => {
 }
 
 const handleGlobalKeydown = (e) => {
+  // 🌟 最高优先级：监听全局 Ctrl+K 或 Cmd+K
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault()
+    isGlobalSearchVisible.value = true
+    return
+  }
+
   if (galleryModalVisible.value) {
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -881,6 +914,7 @@ const handleGlobalKeydown = (e) => {
 
   if (e.key === 'Escape') {
     if (dialogVisible.value) { dialogVisible.value = false; return; }
+    if (isGlobalSearchVisible.value) { isGlobalSearchVisible.value = false; return; }
   }
 
   if (e.key !== 'Enter') return
@@ -919,6 +953,20 @@ const handleGlobalKeydown = (e) => {
     e.preventDefault()
     confirmDeleteTx()
     return
+  }
+}
+
+const handleGlobalSelect = ({ type, item }) => {
+  if (type === 'part') {
+    // 跳转到商品库存
+    activeTab.value = 'parts'
+    // 为了让用户进去能直接看到搜到的商品，把搜索词带过去
+    searchQuery.value = item.oem || item.name
+    selectedBrand.value = 'ALL' // 重置品牌筛选，防止过滤掉
+  } else if (type === 'client') {
+    // 跳转到客户账本
+    activeTab.value = 'clients'
+    clientSearchQuery.value = item.name
   }
 }
 

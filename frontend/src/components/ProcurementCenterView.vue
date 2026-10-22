@@ -282,9 +282,15 @@
         </div>
       </div>
       <template #footer>
-        <div v-if="currentOrderDetail?.status === 'PENDING'" class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
-          <button @click="cancelOrder(currentOrderDetail.id)" class="px-5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">{{ tExt.btnVoid }}</button>
-          <button @click="receiveOrder(currentOrderDetail.id)" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors cursor-pointer">{{ tExt.btnReceive }}</button>
+        <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
+          <!-- 🌟 新增的 A4 打印按钮 -->
+          <button @click="printA4PurchaseOrder(currentOrderDetail)" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors cursor-pointer flex items-center gap-2">
+            🖨️ {{ tExt.btnPrintA4 }}
+          </button>
+          <div v-if="currentOrderDetail?.status === 'PENDING'" class="flex items-center gap-3">
+            <button @click="cancelOrder(currentOrderDetail.id)" class="px-5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition-colors cursor-pointer">{{ tExt.btnVoid }}</button>
+            <button @click="receiveOrder(currentOrderDetail.id)" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors cursor-pointer">{{ tExt.btnReceive }}</button>
+          </div>
         </div>
       </template>
     </SideDrawer>
@@ -442,6 +448,76 @@
       @confirm="executeConfirm"
     />
   </div>
+
+  <!-- ==================================================== -->
+  <!-- 🌟 核心修复：将 A4 打印区域通过 Teleport 移到 body 下，摆脱所有父级限制 -->
+  <!-- ==================================================== -->
+  <Teleport to="body">
+    <div v-if="a4PrintData" class="a4-print-only" id="a4-print-section">
+      <div class="a4-header">
+        <div class="company-info">
+          <h1>TOSTIYK (TK)</h1>
+          <p>RIF: J-31234567-8</p>
+          <p>Valera, Estado Trujillo - Venezuela</p>
+          <p>Tel: +58 412-0000000</p>
+        </div>
+        <div class="document-info">
+          <h2>采购入库单</h2>
+          <p><strong>单号:</strong> {{ a4PrintData.po_no }}</p>
+          <p><strong>日期:</strong> {{ formatDate(a4PrintData.created_at) }}</p>
+        </div>
+      </div>
+
+      <div class="a4-parties">
+        <div class="supplier-box">
+          <h3>供应商信息</h3>
+          <p><strong>名称:</strong> {{ getSupplierName(a4PrintData.supplier_id) }}</p>
+          <p><strong>状态:</strong> {{ a4PrintData.status === 'PENDING' ? '待收货' : a4PrintData.status === 'received' ? '已入库' : '已作废' }}</p>
+        </div>
+      </div>
+
+      <table class="a4-table">
+        <thead>
+          <tr>
+            <th width="5%">#</th>
+            <th width="40%">商品名称 / 描述</th>
+            <th width="20%">OEM 编号</th>
+            <th width="10%">数量</th>
+            <th width="12%">单价 (USD)</th>
+            <th width="13%">小计 (USD)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(item, index) in parsedA4DetailItems" :key="index">
+            <td>{{ index + 1 }}</td>
+            <td>{{ item.name }}</td>
+            <td>{{ item.oem }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>${{ Number(item.unit_price || 0).toFixed(2) }}</td>
+            <td>${{ Number((item.quantity * item.unit_price) || 0).toFixed(2) }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="a4-totals">
+        <div class="total-box">
+          <p>总计金额 (USD): <strong>${{ Number(a4PrintData.total_amount_usd || 0).toFixed(2) }}</strong></p>
+          <p>总计金额 (VES): <strong>Bs. {{ Number((a4PrintData.total_amount_usd || 0) * bcvRate).toFixed(2) }}</strong></p>
+        </div>
+      </div>
+
+      <div class="a4-signatures">
+        <div class="sign-box">
+          <p>交货人签字:</p>
+          <div class="sign-line"></div>
+        </div>
+        <div class="sign-box">
+          <p>收货人签字 / 盖章:</p>
+          <div class="sign-line"></div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -457,7 +533,7 @@ import SideDrawer from './SideDrawer.vue'
 
 const { t, currentLang } = useI18n()
 const { showSuccessModal } = useNotifications()
-const { partsList, fetchParts } = useInventory()
+const { partsList, fetchParts, bcvRate } = useInventory()
 
 const emit = defineEmits(['navigate'])
 
@@ -540,6 +616,7 @@ const tExt = computed(() => {
     saving: isZh ? '保存中...' : isEs ? 'Guardando...' : 'Saving...',
     saveSupBtn: isZh ? '保存供应商' : isEs ? 'Guardar Proveedor' : 'Save Supplier',
     confirmBtn: isZh ? '确认' : isEs ? 'Confirmar' : 'Confirm',
+    btnPrintA4: isZh ? '打印 A4 单据' : isEs ? 'Imprimir A4' : 'Print A4',
     confirmVoidTitle: isZh ? '确认作废采购单' : isEs ? 'Confirmar Anulación' : 'Confirm Void',
     confirmVoidMsg: isZh ? '作废后不可恢复，且不会增加库存。确定要作废该采购单吗？' : isEs ? '¿Anular esta orden? No se puede deshacer.' : 'Void this PO? Cannot be undone.',
     confirmReceiveTitle: isZh ? '确认收货入库' : isEs ? 'Confirmar Recepción' : 'Confirm Receipt',
@@ -956,6 +1033,25 @@ const submitPO = async () => {
   } catch (e) { showSuccessModal('❌ Error') } finally { isSubmittingPO.value = false }
 }
 
+// 🌟 新增：A4 打印控制
+const a4PrintData = ref(null)
+
+const parsedA4DetailItems = computed(() => {
+  if (!a4PrintData.value?.items_json) return []
+  try { return JSON.parse(a4PrintData.value.items_json) } catch (e) { return [] }
+})
+
+const printA4PurchaseOrder = (order) => {
+  if (!order) return
+  a4PrintData.value = order
+  // 延迟 100ms 让 Vue 渲染完 A4 DOM，再唤起打印
+  setTimeout(() => {
+    window.print()
+    // 打印完毕/取消后清理，避免占用内存
+    setTimeout(() => { a4PrintData.value = null }, 1000)
+  }, 100)
+}
+
 onMounted(() => { 
   fetchOrders(); 
   fetchSuppliers();
@@ -966,3 +1062,103 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
 </script>
+
+<style>
+/* 🌟 屏幕端永远隐藏打印区域 */
+@media screen {
+  .a4-print-only {
+    display: none !important;
+  }
+}
+
+/* 🌟 打印端隐藏所有网页元素，只保留打印区域 */
+@media print {
+  /* 隐藏所有东西 */
+  body > * {
+    display: none !important;
+  }
+  
+  /* 单独显示打印区域 */
+  #a4-print-section {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 20mm;
+    background: white;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color: #000;
+  }
+
+  /* 隐藏浏览器自带的页边距 */
+  @page {
+    margin: 0;
+  }
+
+  /* 以下为 A4 表格排版 */
+  .a4-header {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 2px solid #333;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+  }
+  .company-info h1 { font-size: 24px; margin: 0 0 5px 0; }
+  .company-info p { font-size: 12px; margin: 2px 0; color: #555; }
+  
+  .document-info { text-align: right; }
+  .document-info h2 { font-size: 20px; margin: 0 0 10px 0; text-transform: uppercase; }
+  .document-info p { font-size: 13px; margin: 4px 0; }
+
+  .a4-parties { margin-bottom: 20px; }
+  .supplier-box { border: 1px solid #ccc; padding: 10px; border-radius: 4px; }
+  .supplier-box h3 { font-size: 14px; margin: 0 0 8px 0; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+  .supplier-box p { font-size: 13px; margin: 4px 0; }
+
+  .a4-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+  }
+  .a4-table th, .a4-table td {
+    border: 1px solid #333;
+    padding: 8px;
+    font-size: 12px;
+  }
+  .a4-table th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+    text-align: left;
+  }
+  
+  .a4-totals {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 40px;
+  }
+  .total-box {
+    width: 300px;
+    border-top: 2px solid #333;
+    padding-top: 10px;
+  }
+  .total-box p {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    margin: 5px 0;
+  }
+
+  .a4-signatures {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 60px;
+  }
+  .sign-box {
+    width: 200px;
+    text-align: center;
+  }
+  .sign-box p { font-size: 13px; font-weight: bold; margin-bottom: 40px; }
+  .sign-line { border-bottom: 1px solid #333; }
+}
+</style>
