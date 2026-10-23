@@ -374,3 +374,169 @@ python scripts/audit_supplier_debt.py
 **保存方式**：把以上内容保存为项目根目录的 `NOTES.md` 或 `docs/MAINTENANCE.md`，然后 `git add` + `git commit -m "docs: 维护存档 2026-10-23"`。
 
 下次开新对话时，**贴这个文件 + `alembic history | head -10`** 就能快速接上上下文。
+
+
+
+# 📝 存档补充章节
+
+把下面内容**追加到 `NOTES.md` 的第五部分"已知技术债 / 待办"之前**，并更新第六部分的 commit 记录。
+
+---
+
+## 阶段 8：`Supplier` 加账期与信用额度（2026-10-23）
+
+### 改动
+
+**`app/models.py`** — `Supplier` 类新增两字段（`debt_usd` 之后）：
+
+```python
+    payment_terms: int = Field(default=30)         # 账期天数（默认 30 天）
+    credit_limit: float = Field(default=5000.0)    # 信用额度（默认 $5000）
+```
+
+**迁移 `alembic/versions/b1c2d3e4f5a6_supplier_terms_credit.py`** — **手写**（autogenerate 失效，见阶段 9）：
+
+```python
+def upgrade() -> None:
+    from sqlalchemy import inspect
+    bind = op.get_bind()
+    cols = {c["name"] for c in inspect(bind).get_columns("suppliers")}
+    if "payment_terms" not in cols:
+        op.add_column("suppliers", sa.Column("payment_terms", sa.Integer(), nullable=False, server_default="30"))
+    if "credit_limit" not in cols:
+        op.add_column("suppliers", sa.Column("credit_limit", sa.Float(), nullable=False, server_default="5000.0"))
+```
+
+### 过程中的坑
+
+1. **两条重复迁移**：`32f5642042bb` 和 `ac81df5fd3c4` 同名，链上挂了两条。修复：`alembic stamp a1b2c3d4e5f6` 退回，`rm` 两条，重新生成。
+2. **列已存在，`inspect` 跳过 `add_column`**：`b1c2d3e4f5a6` 的 `inspect` 判断发现列已存在（之前空迁移的 `add_column` 曾跑过一次，但 `server_default` 写的是旧值 `0/0.0`），所以 `add_column` 被跳过，`server_default` 没被修正。
+3. **最终修复**：
+   - `UPDATE suppliers SET payment_terms=30, credit_limit=5000.0 WHERE payment_terms=0 AND credit_limit=0.0;`
+   - 重建 `suppliers` 表修正 `server_default`（`PRAGMA foreign_keys=OFF` → drop → create → rename → `PRAGMA foreign_keys=ON`）
+
+### 当前状态（2026-10-23 完成时）
+
+```
+current = b1c2d3e4f5a6 (head)
+suppliers:
+  1|elias|30|5000.0
+
+suppliers 表列：
+  6|payment_terms|INTEGER|1|30|0
+  7|credit_limit|FLOAT|1|5000.0|0
+```
+
+**⚠️ 重建表可能丢失索引/约束** — 已补 `ix_suppliers_name`，但需核对 `models.py` 里是否有其他索引/唯一约束未恢复。**下一轮必检。**
+
+---
+
+## 阶段 9：`alembic autogenerate` 失效（**待修，下一轮最高优先**）
+
+### 现象
+
+连续 3 次 `alembic revision --autogenerate` 对 `Supplier` 加字段，全部输出 `upgrade(): pass`。
+
+### 已排除
+
+- `env.py` 第 23 行有 `target_metadata = SQLModel.metadata`（配置存在）
+- `app.models` 的 `SQLModel.metadata.tables['suppliers'].columns` 里**确实有** `payment_terms` / `credit_limit`（`python -c` 已验证）
+
+### 根因假设
+
+`env.py` 的 import 时机或顺序问题：
+- `from app.models import SQLModel` 可能触发部分加载
+- `alembic` CLI 启动时可能读到了 `.pyc` 缓存
+- 或 autogenerate 对比时 `models.py` 中的新字段尚未注册
+
+### 影响
+
+- **之前所有"零漂移"的 `verify_no_drift` 结论都不成立**（每次都是空迁移，根本没对比）
+- 所有新字段迁移必须手写
+- 一旦漏写某个字段的迁移，生产环境启动时 alembic 不会检测到漂移
+
+### 下一轮修复方向
+
+1. `env.py` 顶部加 `import app.models  # noqa: F401`（强制完整加载）
+2. 清 `app/__pycache__` 和 `alembic/__pycache__`
+3. 用 `alembic revision --autogenerate -m "verify"` 在**不改 models.py** 的情况下生成，若为 `pass` 说明已对齐；若非空，说明有历史漂移
+4. 若 1–3 均无效，改用 `alembic revision --autogenerate --sql` 直接打印对比逻辑，看是"空 metadata"还是"对比后无差异"
+
+---
+
+## 阶段 10：重建表后的索引/约束核对（**待办**）
+
+`suppliers` 表被重建后，需确认：
+
+```bash
+sqlite3 tostiyk_erp.db "SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='suppliers';"
+sqlite3 tostiyk_erp.db "PRAGMA foreign_key_check;"
+```
+
+**预期**：
+- `ix_suppliers_name` 存在
+- `foreign_key_check` 无输出（`purchase_orders` 和 `supplierpaymentrecord` 对 `suppliers.id` 的引用仍完整）
+
+**如果发现 `models.py` 里还有 `Field(index=True)` 或 `unique=True` 但表结构里没有对应的索引/约束** —— 需要补一个迁移恢复。
+
+---
+
+## 更新的 Commit 记录（追加到第六部分）
+
+```
+feat(suppliers): 加账期 payment_terms（默认30天）和信用额度 credit_limit（默认$5000）
+fix(suppliers): 重建 suppliers 表修正 server_default（旧迁移写入 0/0.0）
+
+⚠️ 已知待修（下一轮）：
+  1. alembic autogenerate 输出 pass（env.py metadata 加载时机，见阶段 9）
+  2. 重建表后索引/约束与 models.py 核对（见阶段 10）
+```
+
+---
+
+## 更新的"给下一个维护者的忠告"（追加第 4 条）
+
+> **4. 不要信任 `alembic autogenerate` 直到阶段 9 修复。** 现在它输出 `pass` 不代表没漂移。每次加字段：
+> - 手写迁移（参考 `b1c2d3e4f5a6` 的幂等模板）
+> - 迁移前后都跑 `python -c "from app.models import SQLModel; print(list(SQLModel.metadata.tables['<表名>'].columns.keys()))"` 确认字段真的注册了
+> - 跑 `PRAGMA table_info(<表名>)` 确认 DDL 真的执行了
+
+---
+
+# 下一步提示
+
+**你现在有三个选择**，按紧急程度：
+
+## 🥇 最优先：修 `alembic autogenerate`（阶段 9）
+
+不修的话，未来每次加字段都是"手写迁移 + 各种坑"，成本比修 env.py 高 10 倍。
+
+**任务量**：30 分钟 – 1 小时
+**第一步**：跑这三条诊断命令
+
+```bash
+python -c "import app.models; from app.models import SQLModel; print('metadata tables:', list(SQLModel.metadata.tables.keys())); print('supplier cols:', list(SQLModel.metadata.tables['suppliers'].columns.keys()))"
+grep -n "import" alembic/env.py | head -20
+find . -name "__pycache__" -path "*/app/*" -o -name "__pycache__" -path "*/alembic/*"
+```
+
+## 🥈 次优先：核对重建表的索引/约束（阶段 10）
+
+**任务量**：10 分钟
+**第一步**：
+
+```bash
+sqlite3 tostiyk_erp.db "SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='suppliers';"
+sqlite3 tostiyk_erp.db "PRAGMA foreign_key_check;"
+grep -A 20 "class Supplier(" app/models.py
+```
+
+## 🥉 也可以先收工
+
+这轮已经做了很多，可以先 `git add -A && git commit`，让 `alembic autogenerate` 的问题**明确记录在 NOTES 里**，下次新对话再修。
+
+---
+
+**我的建议：先做 🥈（10 分钟核对表结构），然后做 🥇（修 autogenerate）。** 🥈 不做的话，下次碰 `Supplier` 表可能碰到意外索引丢失；🥇 不做的话，下一次加字段还要再趟一遍坑。
+
+选哪个？
