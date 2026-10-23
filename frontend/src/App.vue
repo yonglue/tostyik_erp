@@ -505,6 +505,7 @@ const InventoryAuditView = defineAsyncComponent(() => import('./components/Inven
 import { apiFetch, apiUrl } from './utils/api'
 import { useExports } from './composables/useExports'
 import { useAuth } from './composables/useAuth'
+import { usePermissions } from './composables/usePermissions'
 import { useNotifications } from './composables/useNotifications'
 import { useInventory } from './composables/useInventory'
 import { usePosCart } from './composables/usePosCart'
@@ -566,29 +567,7 @@ const {
   handleLogin, handleLogout, openResetModal, submitResetPassword, validateSession
 } = useAuth()
 
-// 权限校验工具
-const hasPermission = (permKey) => {
-  if (!currentUserObj.value) return false
-  const role = currentUserObj.value.role || 'staff'
-  const perms = currentUserObj.value.permissions || []
-  if (role === 'super_admin' || role === 'admin' || perms.includes('*')) return true
-  return perms.includes(permKey)
-}
-
-// 获取用户默认应当进入的页面
-const getDefaultAllowedTab = () => {
-  const role = currentUserObj.value?.role || 'staff'
-  if (role === 'super_admin' || role === 'admin') return 'dashboard'
-
-  if (hasPermission('parts:view')) return 'parts'
-  if (hasPermission('clients:view')) return 'clients'
-  if (hasPermission('transactions:history')) return 'transactions'
-  if (hasPermission('financial:view')) return 'financial'
-  if (hasPermission('users:manage')) return 'staff'
-  if (hasPermission('pos:access')) return 'desk'
-  
-  return 'dashboard'
-}
+const { hasPermission, getDefaultAllowedTab } = usePermissions()
 
 // 🌟 核心修复：处理退出 POS 逻辑
 const handleExitPos = () => {
