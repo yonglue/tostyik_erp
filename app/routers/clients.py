@@ -42,13 +42,20 @@ def create_client(
     actor: Actor = Depends(RequirePermission("clients:manage")),
     session: Session = Depends(get_session),
 ):
+    # 1. 放宽电话号码校验：允许 + 号、数字、横杠、空格，长度 8-15 位 (兼容本地号码 04xx 和 +58)
     if client.phone and client.phone != "":
-        if not re.match(r"^\+58\d{10}$", client.phone):
-            raise HTTPException(status_code=400, detail="电话号码格式错误，需为 +58 加 10 位数字")
+        if not re.match(r"^[\d\+\-\s]{8,15}$", client.phone):
+            raise HTTPException(status_code=400, detail="电话号码格式错误：只能包含数字、+号、横杠，长度 8-15 位")
     
+    # 2. 放宽 RIF 校验：横杠 '-' 变为可选，且自动忽略大小写
     if client.rif_or_cedula and client.rif_or_cedula != "":
-        if not re.match(r"^[VEJG]-\d{8,9}$", client.rif_or_cedula):
-            raise HTTPException(status_code=400, detail="RIF/身份证格式错误，需形如 J-12345678")
+        # 将输入转成大写，去除前后空格
+        rif_clean = client.rif_or_cedula.strip().upper()
+        if not re.match(r"^[VEJG]-?\d{8,9}$", rif_clean):
+            raise HTTPException(status_code=400, detail="RIF 格式错误：需以 V/E/J/G 开头，后跟 8-9 位数字，横杠可有可无")
+        
+        # 把整理好的干净 RIF 重新赋值给要存库的数据
+        client.rif_or_cedula = rif_clean
 
     session.add(client)
     session.commit()
@@ -56,6 +63,58 @@ def create_client(
     log_action(session=session, username=actor.username, role=actor.role, action="CREATE_CLIENT",
                details=f"新增客户: {client.name} (RIF: {client.rif_or_cedula})")
     return client
+
+@router.put("/api/clients/{client_id}", response_model=Client)
+def update_client(
+    client_id: int,
+    client_data: Client, # 直接使用 Client 模型接收前端传来的数据
+    actor: Actor = Depends(RequirePermission("clients:manage")),
+    session: Session = Depends(get_session),
+):
+    # 1. 去数据库里找这个客户
+    db_client = session.get(Client, client_id)
+    if not db_client:
+        raise HTTPException(status_code=404, detail="客户不存在")
+
+    # 2. 校验电话格式（和新建保持一样的宽松规则）
+    if client_data.phone and client_data.phone != "":
+        if not re.match(r"^[\d\+\-\s]{8,15}$", client_data.phone):
+            raise HTTPException(status_code=400, detail="电话号码格式错误：只能包含数字、+号、横杠，长度 8-15 位")
+    
+    # 3. 校验 RIF 格式
+    if client_data.rif_or_cedula and client_data.rif_or_cedula != "":
+        rif_clean = client_data.rif_or_cedula.strip().upper()
+        if not re.match(r"^[VEJG]-?\d{8,9}$", rif_clean):
+            raise HTTPException(status_code=400, detail="RIF 格式错误：需以 V/E/J/G 开头，后跟 8-9 位数字，横杠可有可无")
+        client_data.rif_or_cedula = rif_clean
+
+    # 4. 更新数据
+    db_client.name = client_data.name
+    # 注意：确保你的 models.py 的 Client 里加了 store_name 字段
+    db_client.store_name = client_data.store_name 
+    db_client.client_type = client_data.client_type
+    db_client.phone = client_data.phone
+    db_client.address = client_data.address
+    db_client.rif_or_cedula = client_data.rif_or_cedula
+    db_client.notes = client_data.notes
+    
+    # 注意：debt（欠款）不能直接让前端随意修改，所以这里不要更新 debt 字段
+
+    # 5. 保存并记录日志
+    session.add(db_client)
+    session.commit()
+    session.refresh(db_client)
+    
+    log_action(
+        session=session, 
+        username=actor.username, 
+        role=actor.role, 
+        action="UPDATE_CLIENT",
+        details=f"修改客户: {db_client.name} (ID: {db_client.id})"
+    )
+    
+    return db_client
+
 
 @router.post("/api/clients/repay")
 def client_repayment(

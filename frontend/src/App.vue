@@ -341,44 +341,55 @@
       </div>
     </div>
 
+    <!-- 🌟 新增客户弹窗 (拆分店铺与联系人) -->
     <div v-if="clientDialogVisible" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
-        <div class="px-6 py-5 border-b border-slate-100">
-          <h3 class="font-bold text-base text-slate-800">{{ t.clients.addBtn }}</h3>
+      <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 dark:border-slate-700">
+        <div class="px-6 py-5 border-b border-slate-100 dark:border-slate-700">
+          <h3 class="font-bold text-base text-slate-800 dark:text-slate-200">{{ t.clients.addBtn }}</h3>
         </div>
         <div class="p-6 space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clients.colName }}</label>
-            <input v-model="newClient.name" type="text" :placeholder="tExt.placeholderClientName" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
-          </div>
+          
+          <!-- 两列拆分：联系人 + 店铺名 -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clients.colType }}</label>
-              <select v-model="newClient.client_type" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 cursor-pointer">
+              <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase">客户名称 (联系人)</label>
+              <input v-model="newClient.name" type="text" placeholder="例如: Juan Perez" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 dark:text-white" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase">店铺名称</label>
+              <input v-model="newClient.store_name" type="text" placeholder="例如: Auto Taller Valencia" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 dark:text-white" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase">{{ t.clients.colType }}</label>
+              <select v-model="newClient.client_type" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 cursor-pointer dark:text-white">
                 <option value="Regular">{{ tExt.optRegular }}</option>
                 <option value="Taller">{{ tExt.optTaller }}</option>
                 <option value="Mayorista">{{ tExt.optMayorista }}</option>
               </select>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clients.colPhone }}</label>
-              <input v-model="newClient.phone" type="text" placeholder="+58 412..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
+              <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase">{{ t.clients.colPhone }}</label>
+              <input v-model="newClient.phone" type="text" placeholder="+58 412..." class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 dark:text-white" />
             </div>
           </div>
+
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clients.colAddress }}</label>
-              <input v-model="newClient.address" type="text" placeholder="Caracas / Valencia" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
+              <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase">{{ t.clients.colAddress }}</label>
+              <input v-model="newClient.address" type="text" placeholder="Caracas / Valencia" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 dark:text-white" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase">{{ t.clients.colRif }}</label>
-              <input v-model="newClient.rif_or_cedula" type="text" placeholder="J-31234567-8" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500" />
+              <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase">{{ t.clients.colRif }}</label>
+              <input v-model="newClient.rif_or_cedula" type="text" placeholder="J-31234567-8" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 dark:text-white" />
             </div>
           </div>
         </div>
-        <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-          <button @click="clientDialogVisible = false" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-200/60 transition-colors">{{ t.common.cancel }}</button>
-          <button @click="handleAddClient" class="px-5 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-md">{{ t.common.save }}</button>
+        <div class="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-3">
+          <button @click="clientDialogVisible = false" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors">{{ t.common.cancel }}</button>
+          <button @click="handleAddClient(tExt)" class="px-5 py-2 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-md">{{ t.common.save }}</button>
         </div>
       </div>
     </div>

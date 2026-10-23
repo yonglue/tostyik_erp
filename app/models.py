@@ -64,6 +64,7 @@ class Client(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
+    store_name: Optional[str] = Field(default=None)
     phone: Optional[str] = Field(default="")
     address: Optional[str] = Field(default="")
     rif_or_cedula: Optional[str] = Field(default="")
