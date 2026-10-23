@@ -503,6 +503,7 @@ const InventoryAuditView = defineAsyncComponent(() => import('./components/Inven
 
 
 import { apiFetch, apiUrl } from './utils/api'
+import { useExports } from './composables/useExports'
 import { useAuth } from './composables/useAuth'
 import { useNotifications } from './composables/useNotifications'
 import { useInventory } from './composables/useInventory'
@@ -743,6 +744,8 @@ const {
   cartItems, quoteClientName, selectedPaymentMethod, paymentReference, addToCart
 } = usePosCart()
 
+const { exportTransactionsExcel, exportPartsExcel, exportClientsExcel, downloadDatabaseBackup } = useExports()
+
 const { currentDateTime } = useClock()
 
 const handleMenuClick = (key) => {
@@ -779,11 +782,6 @@ const handleConvertToPos = (data) => {
   // 4. 跳转到 POS 页面
   activeTab.value = 'desk'
 }
-
-const exportTransactionsExcel = () => window.open(apiUrl('/api/export/transactions'), '_blank')
-const exportPartsExcel = () => window.open(apiUrl('/api/export/parts'), '_blank')
-const exportClientsExcel = () => window.open(apiUrl('/api/export/clients'), '_blank')
-const downloadDatabaseBackup = () => window.open(apiUrl('/api/backup/download'), '_blank')
 
 const handleImportParts = async (e) => {
   const file = e.target.files[0]
