@@ -973,6 +973,18 @@ const handleGlobalSelect = ({ type, item }) => {
   }
 }
 
+// 403 全局提示（api.js 通过 window.dispatchEvent 广播）
+let _forbiddenDebounce = null
+const _onForbidden = (e) => {
+  clearTimeout(_forbiddenDebounce)
+  _forbiddenDebounce = setTimeout(() => {
+    showSuccessModal('❌ ' + (e.detail?.message || '权限不足'))
+  }, 100)
+}
+
+onMounted(() => window.addEventListener('auth:forbidden', _onForbidden))
+onUnmounted(() => window.removeEventListener('auth:forbidden', _onForbidden))
+
 onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
 

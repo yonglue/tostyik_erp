@@ -101,6 +101,14 @@ export const apiFetch = async (url, options = {}) => {
   })
 
   // 登录/重置接口的 401 属于“凭证错误”，不能影响现有登录态
+
+  // 403 权限不足：广播全局事件，由 App.vue 统一弹窗
+  if (response.status === 403) {
+    window.dispatchEvent(new CustomEvent('auth:forbidden', {
+      detail: { url, message: '权限不足，无法执行此操作' }
+    }))
+  }
+
   if (response.status === 401 && !isAuthPublicPath(url)) {
     if (!token) {
       // 没有 Token 但本地仍标记已登录：属于半登录脏状态，直接回登录页
