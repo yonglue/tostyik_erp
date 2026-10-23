@@ -23,6 +23,7 @@
     <button
       v-for="opt in options"
       :key="opt.value"
+      :data-testid="`theme-${opt.value}`"
       @click="setTheme(opt.value)"
       :title="opt.label"
       :aria-pressed="theme === opt.value"

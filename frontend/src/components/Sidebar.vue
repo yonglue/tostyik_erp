@@ -44,6 +44,7 @@
         <button
           v-for="item in group.items"
           :key="item.key"
+          :data-testid="`nav-${item.key}`"
           @click="handleMenuClick(item.key)"
           :title="isCollapsed ? t.menu[item.labelKey || item.key] : ''"
           :class="[
