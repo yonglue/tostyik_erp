@@ -100,6 +100,8 @@ class Supplier(SQLModel, table=True):
     phone: Optional[str] = Field(default=None, max_length=50)
     address: Optional[str] = Field(default=None)
     debt_usd: float = Field(default=0.0)
+    payment_terms: int = Field(default=30)          # 账期天数（0=即付）
+    credit_limit: float = Field(default=5000.0)       # 信用额度（0=不限）
     updated_at: Optional[NaiveDatetime] = Field(
         default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
