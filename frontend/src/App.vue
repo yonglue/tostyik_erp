@@ -507,6 +507,7 @@ const InventoryAuditView = defineAsyncComponent(() => import('./components/Inven
 
 import { apiFetch, apiUrl } from './utils/api'
 import { useExports } from './composables/useExports'
+import { useTxActions } from './composables/useTxActions'
 import { useAuth } from './composables/useAuth'
 import { usePermissions } from './composables/usePermissions'
 import { useNotifications } from './composables/useNotifications'
@@ -571,6 +572,12 @@ const {
 } = useAuth()
 
 const { hasPermission, getDefaultAllowedTab } = usePermissions()
+const { 
+  txDialogVisible, isSubmittingTx, newTx, 
+  deleteTxModalVisible, targetTxForDelete, 
+  handleAddTx, openDeleteTxModal, confirmDeleteTx, handleConvertToPos 
+} = useTxActions({ activeTab })
+
 
 // 🌟 核心修复：处理退出 POS 逻辑
 const handleExitPos = () => {
@@ -628,48 +635,9 @@ const selectedBrand = ref('ALL')
 const dialogVisible = ref(false)
 const isGlobalSearchVisible = ref(false)
 const clientDialogVisible = ref(false)
-const txDialogVisible = ref(false)
-// 🌟 新增手工单据的响应式数据
-const isSubmittingTx = ref(false)
-const newTx = ref({
-  type: 'OUT', // IN 或 OUT
-  part_oem: '',
-  part_name: '',
-  quantity: 1,
-  unit_price: 0,
-  customer_or_supplier: ''
-})
-
-// 🌟 提交手工单据
-const handleAddTx = async () => {
-  isSubmittingTx.value = true
-  try {
-    const res = await apiFetch('/api/transactions', {
-      method: 'POST',
-      body: JSON.stringify(newTx.value)
-    })
-    if (res.ok) {
-      txDialogVisible.value = false
-      showSuccessModal('✨ ' + (tExt.value.toastTxAdded || 'Saved'))
-      newTx.value = { type: 'OUT', part_oem: '', part_name: '', quantity: 1, unit_price: 0, customer_or_supplier: '' }
-      fetchTransactions()
-      fetchParts()
-      fetchDashboardStats()
-    } else {
-      const err = await res.json()
-      showSuccessModal(`❌ ${t.value.common.error}: ${err.detail || 'Unknown'}`)
-    }
-  } catch (e) {
-    console.error(e)
-    showSuccessModal('❌ ' + tExt.value.toastServerError)
-  } finally {
-    isSubmittingTx.value = false
-  }
-}
 const deleteModalVisible = ref(false)
 const deleteClientModalVisible = ref(false)
 const deletePartModalVisible = ref(false)
-const deleteTxModalVisible = ref(false)
 
 const {
   galleryModalVisible, currentGalleryImages, currentGalleryIndex,
@@ -679,7 +647,6 @@ const {
 const targetQuote = ref(null)
 const targetClient = ref(null)
 const targetPartForDelete = ref(null)
-const targetTxForDelete = ref(null)
 
 const openDeletePartModal = (part) => {
   targetPartForDelete.value = part
@@ -694,23 +661,6 @@ const confirmDeletePart = async () => {
       deletePartModalVisible.value = false
       targetPartForDelete.value = null
       fetchParts(); fetchDashboardStats();
-    }
-  } catch (e) { console.error(e) }
-}
-
-const openDeleteTxModal = (tx) => {
-  targetTxForDelete.value = tx
-  deleteTxModalVisible.value = true
-}
-
-const confirmDeleteTx = async () => {
-  if (!targetTxForDelete.value) return
-  try {
-    const res = await apiFetch(`/api/transactions/${targetTxForDelete.value.id}`, { method: 'DELETE' })
-    if (res.ok) {
-      deleteTxModalVisible.value = false
-      targetTxForDelete.value = null
-      fetchTransactions(); fetchParts(); fetchDashboardStats()
     }
   } catch (e) { console.error(e) }
 }
@@ -734,35 +684,6 @@ const handleMenuClick = (key) => {
   if (key === 'dashboard') fetchDashboardStats()
   if (key === 'clients' || key === 'desk') fetchClients()
   if (key === 'quotations') fetchQuotations()
-}
-
-// 🌟 核心新增：处理从报价单转入 POS
-const handleConvertToPos = (data) => {
-  if (data.id) {
-  localStorage.setItem('pending_quotation_id', String(data.id))
-  }
-  // 1. 清空当前购物车
-  cartItems.value = []
-  
-  // 2. 将报价单的明细映射到购物车格式
-  data.items.forEach(item => {
-    cartItems.value.push({
-      oem: item.oem,
-      name: item.name,
-      brand: item.brand || 'GENERAL',
-      price: Number(item.price),
-      quantity: Number(item.quantity),
-      tax_rate: item.tax_rate ?? 0.16
-    })
-  })
-
-  // 3. 带上客户名字
-  if (data.client_name && data.client_name !== 'Cliente General') {
-    quoteClientName.value = data.client_name
-  }
-
-  // 4. 跳转到 POS 页面
-  activeTab.value = 'desk'
 }
 
 const handleImportParts = async (e) => {
