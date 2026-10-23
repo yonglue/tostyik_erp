@@ -1,309 +1,108 @@
-# 📋 TOSTIYK ERP 维护存档
+这份文档记录得非常详实，但因为是分阶段补充的，导致**时间线被打断**，且**部分结论前后矛盾**（例如阶段 1 认为 autogenerate 跑通了，阶段 9 发现其实一直是空跑），同时 Commit 记录和待办事项有重复。
 
-> 本文件记录 2026-10-22 至 2026-10-23 期间的一次系统性基础设施修复。
-> 目的：让下一个维护者（可能是未来的你）理解"为什么代码长这样"，避免回退或误改。
+我为你进行了全面梳理、去重合并，并重新排布了逻辑优先级。你可以直接用下面这份最终版覆盖原有的 `📋 TOSTIYK ERP 维护存档.md`。
 
 ---
+
+# 📋 TOSTIYK ERP 维护存档
+
+> **记录周期**：2026-10-22 至 2026-10-23
+> **目的**：让下一个维护者理解“为什么代码长这样”，以及“还有哪些坑没填”。
 
 ## 一、项目概况
 
-| 项     | 值                                                      |
-| ------ | ------------------------------------------------------- |
-| 项目名 | TOSTIYK ERP                                             |
-| 后端   | FastAPI + SQLModel + SQLite + Alembic                   |
-| 前端   | Vue 3 + Vite + Tailwind                                 |
-| 数据库 | `tostiyk_erp.db`（生产）、`_test_erp.db`（测试，空库）  |
-| 主入口 | `app/main.py`（根目录 `main.py` 已废弃，仅转发 import） |
+| 项     | 值                                                                  |
+| ------ | ------------------------------------------------------------------- |
+| 项目名 | TOSTIYK ERP                                                         |
+| 后端   | FastAPI + SQLModel + SQLite + Alembic                               |
+| 前端   | Vue 3 + Vite + Tailwind + Playwright(E2E)                           |
+| 数据库 | `tostiyk_erp.db`（生产）、`_test_erp.db`（测试，空库）              |
+| 主入口 | `app/main.py`（根目录 `main.py` 已废弃，仅转发 import，容易误启动） |
 
 ---
 
-## 二、本轮修复时间线
+## 二、本轮修复时间线（按发生顺序）
 
-### 阶段 1：迁移链修复（P0，最关键）
+### 阶段 1：迁移链修复与启动兜底（P0 基础设施）
 
-**问题**：`alembic upgrade head` 从未真正跑通过。所有表靠 `SQLModel.metadata.create_all()` 兜底建。
+- **问题**：`alembic upgrade head` 从未真正跑通过，表全靠 `create_all` 建；且迁移失败会被 `except` 静默吞掉。
+- **修复**：
+  1. 把 3 个空的/`pass` 的迁移改成幂等版（`inspect(bind)` 判断存在再执行）。
+  2. 新增启动开关 `TK_AUTO_CREATE_TABLES`（默认 1，生产应为 0）和 `TK_STRICT_MIGRATION`（默认空，生产应为 1）。
+  3. 迁移失败时按需 `raise RuntimeError`，拒绝启动。
+- **⚠️ 认知反转**：当时验证 `alembic revision --autogenerate` 输出 `pass`，误以为“零漂移”。**但在阶段 9 发现，autogenerate 早就失效了，当时的结论不成立**。
 
-**根因**：
-- `082a363b8b44_initial_migration.py`（初始迁移）是空的
-- `48722d41581c_add_expense_table.py` 是 `pass`（注释写"表已存在"）
-- `2abce90f8fce_add_supplier_payment_table.py` 是 `pass`
-- `alembic current` 长期停在 `c3e5f7a9b1d2`，落后 head 4 个迁移
+### 阶段 2：数据正确性与安全（P0 业务）
 
-**修复**：把 3 个迁移改成幂等版（`inspect(bind)` 判断存在再执行），`alembic upgrade head` 首次真正跑通。
+- **金额浮点漂移**：收货累加 `debt_usd` 时，使用 `Decimal` 计算，并在数据库端 `func.round(..., 2)`。**快照型金额（PO 总额等）保持 float 不动，因为它们不参与累加**。
+- **权限漏洞**：`create/update/delete_supplier` 从 `RequirePermission("procurement:view")` 收紧为 `manage`。
+- **外键强制**：在 SQLite 开启 `PRAGMA foreign_keys=ON`，目前只对真外键（`purchase_orders` 和 `supplierpaymentrecord`）生效。
 
-**验证**：
-```bash
-alembic revision --autogenerate -m "verify_no_drift"
-# 生成的文件 upgrade() 里只有 pass → 零漂移
-```
+### 阶段 3：审计与表结构（P1 维护性）
 
-**注意**：`tostiyk_erp.db` 里的 `expenses` 表**一直在**（此前诊断为"缺失"是查询用错了单数 `expense`，实际表名是 `expenses`）。
+- **审计脚本**：新增 `scripts/audit_supplier_debt.py`，用 `items_json` 重算真值，不依赖可能漂移的 `total_amount_usd`。支持 `--fix` 并自动备份。
+- **外键补全**：`SupplierPaymentRecord` 加 `foreign_key="suppliers.id"`，`created_at` 从 `str` 改为 `datetime`。
+- **新增字段**：`Supplier` 加 `payment_terms`（账期，默认30）和 `credit_limit`（信用，默认5000）。
+- **⚠️ 坑点**：过程中产生了重复迁移文件 `32f564...` 和 `ac81df...`，通过 `stamp` 退回删除后，**手写了迁移** `b1c2d3e4f5a6`。
+- **⚠️ 坑点**：手写迁移时，由于列已存在，`add_column` 被跳过，导致 `server_default` 没被修正。最终通过重建 `suppliers` 表（`PRAGMA foreign_keys=OFF` -> drop -> create -> rename）手动修复了默认值。
 
-**相关文件**：
-- `alembic/versions/edf6251cee6c_*.py`（加幂等）
-- `alembic/versions/48722d41581c_*.py`（加幂等）
-- `alembic/versions/4136d0a0c9ac_*.py`（加幂等）
+### 阶段 4：发现严重隐患（P0 待办，见第五部分）
 
----
-
-### 阶段 2：启动兜底开关（Step A + Step B）
-
-**问题**：`app/database.py:33` 的 `create_all` 和 Alembic 并行，迁移失败被 `except` 静默吞掉，生产环境可能带残缺 schema 启动。
-
-**修复**：
-
-**`app/config.py`** 新增两个开关：
-```python
-AUTO_CREATE_TABLES: bool = os.getenv("TK_AUTO_CREATE_TABLES", "1").strip().lower() in (
-    "1", "true", "yes", "on",
-)
-STRICT_MIGRATION: bool = os.getenv("TK_STRICT_MIGRATION", "").strip().lower() in (
-    "1", "true", "yes", "on",
-)
-```
-
-**`app/database.py`** 的 `init_db()`：
-```python
-if not AUTO_CREATE_TABLES:
-    print("⏭️  TK_AUTO_CREATE_TABLES=0，已跳过 create_all")
-    return
-SQLModel.metadata.create_all(engine)
-```
-
-**`app/main.py`** 的 `bootstrap()`：
-```python
-except Exception as e:
-    print(f"❌ 数据库迁移执行失败: {e}")
-    if not AUTO_CREATE_TABLES or STRICT_MIGRATION:
-        raise RuntimeError(...) from e
-    print("⚠️  继续启动，依赖 create_all 兜底")
-```
-
-**环境变量默认值**（保持现状，生产按需开启）：
-
-| 变量                    | 默认        | 生产建议    |
-| ----------------------- | ----------- | ----------- |
-| `TK_AUTO_CREATE_TABLES` | `1`（开启） | `0`（关闭） |
-| `TK_STRICT_MIGRATION`   | 空（关闭）  | `1`（开启） |
-| `TK_STRICT_SECURITY`    | 空（关闭）  | `1`（开启） |
-
-**验证**（三条启动日志）：
-```
-默认：              ✅ 迁移 → ✅ create_all
-TK_AUTO_CREATE_TABLES=0：  ✅ 迁移 → ⏭️ 跳过
-TK_STRICT_MIGRATION=1：    ✅ 迁移 → ✅ create_all（因为迁移成功）
-```
-
-**未验证**：`raise` 分支未实测（迁移一直成功）。如果哪天迁移失败，注意观察是否真的拒绝启动。
-
----
-
-### 阶段 3：供应商权限漏洞（P0 安全）
-
-**问题**：`app/routers/purchase_orders.py` 里 `create_supplier` / `update_supplier` / `delete_supplier` 三处使用 `RequirePermission("procurement:view")`（只读权限），任何只读角色能删供应商。
-
-**修复**：三处改为 `RequirePermission("procurement:manage")`。`get_suppliers`（列表查询）保持 `view`。
-
-**验证**：
-```bash
-grep -n "RequirePermission" app/routers/purchase_orders.py
-# 41: view （get，不动）
-# 51: manage（create）
-# 76: manage（update）
-# 103: manage（delete）
-# 128: manage（pay，原本就对）
-```
-
-**行为变化**：`procurement:view` 用户点"新建/修改/删除供应商"会收到 403。**前端如果没处理 403 弹窗，可能显示"操作失败"无细节** —— 这是后续一个前端小改进点。
-
----
-
-### 阶段 4：收货路径浮点精度（P0 数据正确性）
-
-**问题**：收货累加 `debt_usd` 时浮点误差跨记录传播。
-
-**根因**：
-```python
-# 旧代码 purchase_orders.py
-total_order_amount = total_order_amount_cents / 100  # ← float 除法
-.values(debt_usd=func.coalesce(Supplier.debt_usd, 0.0) + total_order_amount)  # ← 不 round
-```
-
-两次 100.10 收货后，`debt_usd = 200.20000000000002`（漂移）。
-
-**修复**（2 行）：
-```python
-# purchase_orders.py:370
-total_order_amount = Decimal(total_order_amount_cents) / Decimal("100")
-
-# purchase_orders.py:373-376
-.values(debt_usd=func.round(
-    func.coalesce(Supplier.debt_usd, 0.0) + float(total_order_amount), 2
-))
-```
-
-**为什么这就够了**：`float` 本身不是问题，"无边界地累加 float"才是。每次写入 `round(..., 2)` 让误差不跨记录传播。和付款路径（第 155-156 行）风格统一。
-
-**验证**：
-```
-收货 100.10 → 100.10
-收货 100.10 → 200.20  ← 不漂
-付款 150.00 →  50.20  ← 不漂
-```
-
-**未解决**：快照型金额（`OrderItem.price_usd`、`Order.total_usd`、POS 各字段、`bcv_rate`）仍是 `float`，但它们是写一次只读，**不参与累加**，精度可接受。**不要贸然把它们改成 Decimal**。
-
----
-
-### 阶段 5：供应商欠款审计脚本
-
-**新增文件**：`scripts/audit_supplier_debt.py`
-
-**功能**：
-```
-真值 = sum(received PO 按 items_json 重算) - sum(付款 amount_usd)
-diff = debt_usd - 真值
-|diff| > 0.005 → 标记漂移
-```
-
-**关键设计**：
-- 真值用 `items_json` 重算，**不用** `total_amount_usd`（后者可能已经漂）
-- 默认 dry-run，`--fix` 前自动备份到 `backups/`
-- 只算 `status='received'` 的 PO
-- 孤儿付款记录只报告不删除
-
-**用法**：
-```bash
-python scripts/audit_supplier_debt.py          # 只报告
-python scripts/audit_supplier_debt.py --fix    # 修复（需交互确认）
-python scripts/audit_supplier_debt.py --fix --yes  # 跳过确认
-```
-
-**当前状态**：`elias` 供应商 dry-run 输出 `0 漂移`。
-
----
-
-### 阶段 6：开启 SQLite 外键强制
-
-**问题**：`PRAGMA foreign_keys = 0`（SQLite 默认）。所有 `foreign_key=` 声明从未真正强制。
-
-**修复**：`app/database.py` 的 `engine` 之后加：
-```python
-from sqlalchemy import event
-
-if DATABASE_URL.startswith("sqlite"):
-    @event.listens_for(engine, "connect")
-    def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-```
-
-**现有真外键（只有 2 个）**：
-- `PurchaseOrder.supplier_id → suppliers.id`
-- `OrderItem.order_id → orders.id`
-
-**其他"逻辑外键"**（`SupplierPaymentRecord.supplier_id` 等）不受这个 PRAGMA 影响。
-
-**验证**：
-```bash
-python -c "from app.database import engine; from sqlalchemy import text; print(engine.connect().execute(text('PRAGMA foreign_keys')).scalar())"
-# 预期：1
-```
-
-**风险**：所有未来 DELETE 都会被真正检查。已确认 9 个删除路径全部安全（`delete_supplier` 有 `has_po` 保护）。
-
----
-
-### 阶段 7：SupplierPaymentRecord 加外键 + created_at 改 datetime
-
-**改动**（`app/models.py`）：
-```python
-class SupplierPaymentRecord(SQLModel, table=True):
-    __tablename__ = "supplierpaymentrecord"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    supplier_id: int = Field(foreign_key="suppliers.id", index=True)  # ← 加 foreign_key
-    # ...
-    created_at: NaiveDatetime = Field(                          # ← 从 str 改
-        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
-    )
-```
-
-**迁移**：`alembic/versions/a1b2c3d4e5f6_supplier_payment_record_fk_datetime.py`
-- 表是空的（0 条记录），直接 `drop + create`
-- 如果表非空，`upgrade()` 会 `raise RuntimeError`（需改用 `batch_alter_table`）
-
-**验证**：
-```
-写入后 type: datetime   value: 2026-10-23 01:49:54.775076
-读出后 type: datetime   value: 2026-10-23 01:49:54.775076
-```
-
-**前端影响**：`grep` 确认前端未引用 `created_at`，零影响。
+- **隐患 A（阶段 9）**：`alembic autogenerate` 彻底失效，永远生成 `pass`。这意味着每次加字段必须手写迁移，否则生产必炸。
+- **隐患 B（阶段 10）**：阶段 3 中重建 `suppliers` 表时，可能丢失了未被注意到的索引或唯一约束。当前已补回 `ix_suppliers_name`，但未做全表对比。
 
 ---
 
 ## 三、环境变量清单
 
-| 变量                    | 默认                    | 用途                                  |
+| 变量                    | 默认                    | 生产部署建议                          |
 | ----------------------- | ----------------------- | ------------------------------------- |
-| `TK_AUTO_CREATE_TABLES` | `1`                     | `0` = 跳过 `create_all`，仅靠 Alembic |
-| `TK_STRICT_MIGRATION`   | 空                      | `1` = 迁移失败强制拒绝启动            |
-| `TK_STRICT_SECURITY`    | 空                      | `1` = 弱默认凭据拒绝启动              |
-| `TK_MASTER_PIN`         | `TK-PIN-2026`           | **生产必须改**                        |
-| `TK_ADMIN_PASSWORD`     | `tostiyk2026`           | **生产必须改**                        |
+| `TK_AUTO_CREATE_TABLES` | `1`                     | **`0`**（关闭 create_all，仅靠 Alembic） |
+| `TK_STRICT_MIGRATION`   | 空                      | **`1`**（迁移失败强制拒绝启动）       |
+| `TK_STRICT_SECURITY`    | 空                      | **`1`**（弱默认凭据拒绝启动）         |
+| `TK_MASTER_PIN`         | `TK-PIN-2026`           | **必须改**                            |
+| `TK_ADMIN_PASSWORD`     | `tostiyk2026`           | **必须改**                            |
 | `TK_JWT_SECRET`         | 自动生成                | 多实例部署必须共享                    |
 | `TK_CORS_ORIGINS`       | 见 `config.py`          | 生产白名单                            |
 | `TK_PUBLIC_BASE_URL`    | `http://localhost:8000` | 生产改域名                            |
 
 ---
 
-## 四、生产部署建议
+## 四、已知技术债 / 下一轮待办
 
-```bash
-# .env（生产）
-TK_AUTO_CREATE_TABLES=0
-TK_STRICT_MIGRATION=1
-TK_STRICT_SECURITY=1
-TK_MASTER_PIN=<强随机>
-TK_ADMIN_PASSWORD=<强随机>
-TK_JWT_SECRET=<强随机>
-TK_CORS_ORIGINS=https://your-domain.com
-```
+### 🔴 P0：必须优先解决
 
-**部署流程**：
-1. `alembic upgrade head`（手动跑，失败就不启动）
-2. 启动 `uvicorn app.main:app`
-3. 迁移失败 → `TK_STRICT_MIGRATION=1` 会让应用拒绝启动
+1. **修复 `alembic autogenerate` 失效**：
+   - **现状**：`env.py` 里有配置，模型也真实注册了，但 CLI 跑出来永远是 `pass`（疑似 `.pyc` 缓存或 import 时机问题）。
+   - **对策**：清理 `__pycache__`；在 `env.py` 顶部强加 `import app.models`；如果还不行，用 `alembic revision --autogenerate --sql` 抓出对比细节。
+2. **核对重建表的索引与约束**：
+   - **现状**：手动重建 `suppliers` 表后，需确认没有遗漏 `models.py` 中定义的唯一或索引约束。
+   - **对策**：跑 `PRAGMA index_list` 和 `PRAGMA foreign_key_check`，并与 `models.py` 逐一对比。
 
----
+### 🟡 P1：需要补齐
 
-## 五、已知技术债 / 待办
+3. **前端 403 无友好提示**：供应商权限收紧后，只读角色点写操作会静默失败或报未知错，`SuppliersView.vue` 需补 403 拦截。
+4. **备份无保留策略**：`backups/` 目录无限增长，需要 `services/housekeeping.py`。
+5. **`uploads/` 无生命周期管理**：报价 PDF 和商品图混放，需要按日期归档及清理。
+6. **`Supplier` 的 `float` 字段**：`amount_usd` 等理论上也应该在 DB 层 `round(..., 2)`，目前依赖调用侧处理。
 
-### 🟡 优先级中
+### 🟢 P2：长期优化
 
-1. **快照型金额未改 Decimal** —— POS 订单、报价单等的金额字段仍是 `float`。**不建议改**（见阶段 4 说明），除非有精确对账需求。
-2. **`Supplier` 缺账期字段** —— 没有 `payment_terms` / `credit_limit` / `rating`。业务上需要时再补。
-3. **前端 403 无友好提示** —— 供应商权限收紧后，只读角色点写操作会静默失败。前端 `SuppliersView.vue` 需要补 403 处理。
-4. **备份无保留策略** —— `backups/` 目录会无限增长。需要 `services/housekeeping.py` 定期清理。
-5. **`uploads/` 无生命周期管理** —— `quotation_*.pdf` 和商品图混放，半年后失控。
-
-### 🟢 优先级低
-
-6. **根目录 `main.py` 与 `app/main.py` 重复** —— 根目录 `main.py` 只转发 import，容易误启动。
-7. **`root package.json` 与 `frontend/package.json` 重复** —— 二选一。
-8. **`system_settings.json` 是文件不是表** —— 无法审计、多实例不安全。
-9. **`SupplierPaymentRecord` 的 `float` 字段** —— `amount_usd` 等仍是 `float`，理论上也应该 `round(..., 2)`。当前依赖调用侧已 round，但未在 DB 层强制。
-10. **测试覆盖** —— 只有单文件 `test_erp.py`。财务/库存核心逻辑建议拆成 `tests/` 目录。
+7. **根目录 `main.py` 与 `app/main.py` 重复**。
+8. **根目录 `package.json` 与 `frontend/package.json` 重复**。
+9. **`system_settings.json` 是文件不是表** —— 多实例部署不安全，也无法审计。
+10. **测试覆盖不足** —— 后端核心逻辑目前仅单文件 `test_erp.py`，建议拆成 `tests/` 目录。
 
 ---
 
-## 六、Commit 记录
+## 五、Commit 记录（本轮完整历史）
 
-按时间顺序，本轮应该是以下 commit（可分离回滚）：
-
-```
+```text
+feat(ui): mount ThemeSwitcher in header and expand e2e smoke tests
+refactor(frontend): extract CRUD actions to composables and fix e2e setup
+feat(api): global error interception and request_id idempotency
+feat(suppliers): 加账期 payment_terms（默认30天）和信用额度 credit_limit（默认$5000）
+fix(suppliers): 重建 suppliers 表修正 server_default（旧迁移写入 0/0.0）
 fix(alembic): 重建可信迁移链并加固启动迁移失败处理
 fix(purchase_orders): 供应商增改删权限从 procurement:view 收紧为 manage
 fix(purchase_orders): 收货累加按分精确计算，debt_usd 数据库端 round 到 2 位
@@ -314,241 +113,79 @@ feat(supplier_payment_record): 加 foreign_key + created_at 改 datetime
 
 ---
 
-## 七、当前数据库状态快照（2026-10-23）
+## 六、给下一个维护者的 4 条忠告
 
-```bash
-# 供应商
-id=1  name=elias  debt_usd=22.20
+1. **不要信任 `alembic autogenerate` 直到 P0 修复**。现在它输出 `pass` 不代表没漂移。每次加字段：手写迁移 → 跑 `python -c` 确认模型已注册 → 跑 `PRAGMA table_info` 确认 DDL 已执行。
+2. **永远用迁移工具，别用 `create_all` 或手动 `ALTER TABLE` 修改生产库**。生产必须设 `TK_AUTO_CREATE_TABLES=0` 且 `TK_STRICT_MIGRATION=1`。
+3. **改金额累加代码时，必须有边界**。`round(..., 2)` 是最低要求，`Decimal` 是更好选择。快照型金额可用 `float`，累加型必须严谨。
+4. **重建 SQLite 表后，必须核对索引和默认值**。手写重建极易丢失 `unique` 属性或 `server_default`。
 
-# 采购单
-2 张 received（PO-20261021-*、PO-20261022-*），总额 22.20
+---
 
-# 付款记录
-0 条
+## 七、当前数据库快照（2026-10-23 收尾）
 
+```text
 # Alembic
-current = a1b2c3d4e5f6 (head)
+head = 092e79bcf78e
+alembic check: No new upgrade operations detected
 
-# 表数
-17 张（含 alembic_version）
-```
+# 供应商
+id=1 name=elias debt=22.20 terms=30 credit=5000
 
-**如果未来发现数据异常，先跑**：
-```bash
-python scripts/audit_supplier_debt.py
-```
+# 采购单与付款
+2 张 received PO (总额 22.20)
+0 条 payment_record
 
----
-
-## 八、给下一个维护者的三条忠告
-
-1. **永远用 `alembic revision --autogenerate` + 人工 review 生成新迁移**。迁移链现在是可信的，别再用 `create_all` 或手动 `ALTER TABLE`。
-
-2. **`app/database.py:33` 的 `create_all` 是过渡兜底**。生产环境通过 `TK_AUTO_CREATE_TABLES=0` 关闭。开发环境保留它，但**新增字段时必须同时写迁移**，否则开发环境"能用"但生产跑不起来。
-
-3. **改金额相关代码时，任何 `+` / `-` 操作都要有边界**。`round(..., 2)` 是最低要求，`Decimal` + `quantize` 是更好选择。快照型金额（写一次只读）可以 `float`，累加型金额必须谨慎。
-
----
-
-## 附：关键文件变更速查
-
-| 文件                                 | 变更性质                                                   |
-| ------------------------------------ | ---------------------------------------------------------- |
-| `app/config.py`                      | 加 `AUTO_CREATE_TABLES` / `STRICT_MIGRATION`               |
-| `app/database.py`                    | 加 `if AUTO_CREATE_TABLES` 判断 + `PRAGMA foreign_keys`    |
-| `app/main.py`                        | `bootstrap()` 迁移失败时按需 raise                         |
-| `app/models.py`                      | `SupplierPaymentRecord` 加 foreign_key + `created_at` 类型 |
-| `app/routers/purchase_orders.py`     | 3 处权限 + 收货金额 round                                  |
-| `alembic/versions/edf*.py`           | 加 `inspect` 幂等判断                                      |
-| `alembic/versions/487*.py`           | 加 `inspect` 幂等判断                                      |
-| `alembic/versions/4136*.py`          | 加 `inspect` 幂等判断                                      |
-| `alembic/versions/a1b2c3d4e5f6_*.py` | 新建（SupplierPaymentRecord 迁移）                         |
-| `scripts/audit_supplier_debt.py`     | 新建                                                       |
-
----
-
-*文档生成时间：2026-10-23 | 对应代码状态：commit 完成后*
-
----
-
-**保存方式**：把以上内容保存为项目根目录的 `NOTES.md` 或 `docs/MAINTENANCE.md`，然后 `git add` + `git commit -m "docs: 维护存档 2026-10-23"`。
-
-下次开新对话时，**贴这个文件 + `alembic history | head -10`** 就能快速接上上下文。
-
-
-
-# 📝 存档补充章节
-
-把下面内容**追加到 `NOTES.md` 的第五部分"已知技术债 / 待办"之前**，并更新第六部分的 commit 记录。
-
----
-
-## 阶段 8：`Supplier` 加账期与信用额度（2026-10-23）
-
-### 改动
-
-**`app/models.py`** — `Supplier` 类新增两字段（`debt_usd` 之后）：
-
-```python
-    payment_terms: int = Field(default=30)         # 账期天数（默认 30 天）
-    credit_limit: float = Field(default=5000.0)    # 信用额度（默认 $5000）
-```
-
-**迁移 `alembic/versions/b1c2d3e4f5a6_supplier_terms_credit.py`** — **手写**（autogenerate 失效，见阶段 9）：
-
-```python
-def upgrade() -> None:
-    from sqlalchemy import inspect
-    bind = op.get_bind()
-    cols = {c["name"] for c in inspect(bind).get_columns("suppliers")}
-    if "payment_terms" not in cols:
-        op.add_column("suppliers", sa.Column("payment_terms", sa.Integer(), nullable=False, server_default="30"))
-    if "credit_limit" not in cols:
-        op.add_column("suppliers", sa.Column("credit_limit", sa.Float(), nullable=False, server_default="5000.0"))
-```
-
-### 过程中的坑
-
-1. **两条重复迁移**：`32f5642042bb` 和 `ac81df5fd3c4` 同名，链上挂了两条。修复：`alembic stamp a1b2c3d4e5f6` 退回，`rm` 两条，重新生成。
-2. **列已存在，`inspect` 跳过 `add_column`**：`b1c2d3e4f5a6` 的 `inspect` 判断发现列已存在（之前空迁移的 `add_column` 曾跑过一次，但 `server_default` 写的是旧值 `0/0.0`），所以 `add_column` 被跳过，`server_default` 没被修正。
-3. **最终修复**：
-   - `UPDATE suppliers SET payment_terms=30, credit_limit=5000.0 WHERE payment_terms=0 AND credit_limit=0.0;`
-   - 重建 `suppliers` 表修正 `server_default`（`PRAGMA foreign_keys=OFF` → drop → create → rename → `PRAGMA foreign_keys=ON`）
-
-### 当前状态（2026-10-23 完成时）
-
-```
-current = b1c2d3e4f5a6 (head)
-suppliers:
-  1|elias|30|5000.0
-
-suppliers 表列：
-  6|payment_terms|INTEGER|1|30|0
-  7|credit_limit|FLOAT|1|5000.0|0
-```
-
-**⚠️ 重建表可能丢失索引/约束** — 已补 `ix_suppliers_name`，但需核对 `models.py` 里是否有其他索引/唯一约束未恢复。**下一轮必检。**
-
----
-
-## 阶段 9：`alembic autogenerate` 失效（**待修，下一轮最高优先**）
-
-### 现象
-
-连续 3 次 `alembic revision --autogenerate` 对 `Supplier` 加字段，全部输出 `upgrade(): pass`。
-
-### 已排除
-
-- `env.py` 第 23 行有 `target_metadata = SQLModel.metadata`（配置存在）
-- `app.models` 的 `SQLModel.metadata.tables['suppliers'].columns` 里**确实有** `payment_terms` / `credit_limit`（`python -c` 已验证）
-
-### 根因假设
-
-`env.py` 的 import 时机或顺序问题：
-- `from app.models import SQLModel` 可能触发部分加载
-- `alembic` CLI 启动时可能读到了 `.pyc` 缓存
-- 或 autogenerate 对比时 `models.py` 中的新字段尚未注册
-
-### 影响
-
-- **之前所有"零漂移"的 `verify_no_drift` 结论都不成立**（每次都是空迁移，根本没对比）
-- 所有新字段迁移必须手写
-- 一旦漏写某个字段的迁移，生产环境启动时 alembic 不会检测到漂移
-
-### 下一轮修复方向
-
-1. `env.py` 顶部加 `import app.models  # noqa: F401`（强制完整加载）
-2. 清 `app/__pycache__` 和 `alembic/__pycache__`
-3. 用 `alembic revision --autogenerate -m "verify"` 在**不改 models.py** 的情况下生成，若为 `pass` 说明已对齐；若非空，说明有历史漂移
-4. 若 1–3 均无效，改用 `alembic revision --autogenerate --sql` 直接打印对比逻辑，看是"空 metadata"还是"对比后无差异"
-
----
-
-## 阶段 10：重建表后的索引/约束核对（**待办**）
-
-`suppliers` 表被重建后，需确认：
-
-```bash
-sqlite3 tostiyk_erp.db "SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='suppliers';"
-sqlite3 tostiyk_erp.db "PRAGMA foreign_key_check;"
-```
-
-**预期**：
-- `ix_suppliers_name` 存在
-- `foreign_key_check` 无输出（`purchase_orders` 和 `supplierpaymentrecord` 对 `suppliers.id` 的引用仍完整）
-
-**如果发现 `models.py` 里还有 `Field(index=True)` 或 `unique=True` 但表结构里没有对应的索引/约束** —— 需要补一个迁移恢复。
-
----
-
-## 更新的 Commit 记录（追加到第六部分）
-
-```
-feat(suppliers): 加账期 payment_terms（默认30天）和信用额度 credit_limit（默认$5000）
-fix(suppliers): 重建 suppliers 表修正 server_default（旧迁移写入 0/0.0）
-
-⚠️ 已知待修（下一轮）：
-  1. alembic autogenerate 输出 pass（env.py metadata 加载时机，见阶段 9）
-  2. 重建表后索引/约束与 models.py 核对（见阶段 10）
+# 审计状态
+audit_supplier_debt.py dry-run 输出 0 漂移
 ```
 
 ---
 
-## 更新的"给下一个维护者的忠告"（追加第 4 条）
+## 八、关键文件变更速查
 
-> **4. 不要信任 `alembic autogenerate` 直到阶段 9 修复。** 现在它输出 `pass` 不代表没漂移。每次加字段：
-> - 手写迁移（参考 `b1c2d3e4f5a6` 的幂等模板）
-> - 迁移前后都跑 `python -c "from app.models import SQLModel; print(list(SQLModel.metadata.tables['<表名>'].columns.keys()))"` 确认字段真的注册了
-> - 跑 `PRAGMA table_info(<表名>)` 确认 DDL 真的执行了
-
----
-
-# 下一步提示
-
-**你现在有三个选择**，按紧急程度：
-
-## 🥇 最优先：修 `alembic autogenerate`（阶段 9）
-
-不修的话，未来每次加字段都是"手写迁移 + 各种坑"，成本比修 env.py 高 10 倍。
-
-**任务量**：30 分钟 – 1 小时
-**第一步**：跑这三条诊断命令
-
-```bash
-python -c "import app.models; from app.models import SQLModel; print('metadata tables:', list(SQLModel.metadata.tables.keys())); print('supplier cols:', list(SQLModel.metadata.tables['suppliers'].columns.keys()))"
-grep -n "import" alembic/env.py | head -20
-find . -name "__pycache__" -path "*/app/*" -o -name "__pycache__" -path "*/alembic/*"
-```
-
-## 🥈 次优先：核对重建表的索引/约束（阶段 10）
-
-**任务量**：10 分钟
-**第一步**：
-
-```bash
-sqlite3 tostiyk_erp.db "SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='suppliers';"
-sqlite3 tostiyk_erp.db "PRAGMA foreign_key_check;"
-grep -A 20 "class Supplier(" app/models.py
-```
-
-## 🥉 也可以先收工
-
-这轮已经做了很多，可以先 `git add -A && git commit`，让 `alembic autogenerate` 的问题**明确记录在 NOTES 里**，下次新对话再修。
+| 文件 | 变更性质 |
+| --- | --- |
+| `app/config.py` | 加 `AUTO_CREATE_TABLES` / `STRICT_MIGRATION` |
+| `app/database.py` | 加判断 + `PRAGMA foreign_keys` |
+| `app/main.py` | 启动迁移失败时按需 raise |
+| `app/models.py` | `SupplierPaymentRecord` 外键+时间；`Supplier` 加账期和额度 |
+| `app/routers/purchase_orders.py` | 权限收紧 + 金额 round |
+| `alembic/versions/` | 修复 3 个空迁移、手写 `b1c2...`、新建 `a1b2...` |
+| `scripts/audit_supplier_debt.py` | 新建（欠款审计） |
 
 ---
 
-**我的建议：先做 🥈（10 分钟核对表结构），然后做 🥇（修 autogenerate）。** 🥈 不做的话，下次碰 `Supplier` 表可能碰到意外索引丢失；🥇 不做的话，下一次加字段还要再趟一遍坑。
-
-选哪个？
-
+**下一步行动建议**：
+先花 10 分钟执行 `PRAGMA` 核对表结构（P0 第 2 点），再花 30 分钟排查 `autogenerate` 失效的原因（P0 第 1 点）。搞定后直接 `git commit -m "docs: update maintenance archive with P0 todos"` 收工休息。
 
 
-## 本轮最终状态（2026-10-23 收尾）
 
-- alembic head: 092e79bcf78e
-- alembic check: No new upgrade operations detected
-- suppliers: id=1 elias / debt=22.20 / terms=30 / credit=5000
-- supplierpaymentrecord: 0 条 / 外键 + datetime 就绪
-- audit_supplier_debt.py: dry-run 0 漂移
+# 项目上下文：TOSTIYK ERP 开发与重构（接续前文）
 
-Git commit: 7e499f6 → 本次新增 fix(suppliers) commit
+你好，我们正在继续开发一个名为 TOSTIYK ERP 的全栈项目。
+后端：FastAPI + SQLModel + SQLite + Alembic
+前端：Vue 3 + Vite + Tailwind + Playwright(E2E)
+
+## 当前进度：
+1. **前端重构完成**：App.vue 已从 1000 行瘦身至 ~700 行，CRUD 逻辑已抽离到 `useTxActions` / `usePartActions` / `useClientActions`。
+2. **E2E 基建完成**：已引入 Playwright，3 个用例（登录、切 Tab、切主题）全绿。
+3. **API 层重构完成**：`apiFetch` 已加入全局 500/断网拦截，并自动生成 `X-Request-Id`。
+4. **后端加固完成**：修复了权限漏洞、收货浮点精度、SQLite 外键开启、新增供应商账期字段。
+
+## 当前 Git 状态：
+HEAD -> main，最新 commit 包含前端重构和 API 层加固。
+
+## 🚨 本次对话的绝对优先级（P0）：修复 Alembic 隐患
+我们遇到了一个致命问题：`alembic revision --autogenerate` 完全失效，永远生成空迁移（`pass`）。这意味着目前所有的迁移都是手写的，极易出错。同时，之前手动重建 `suppliers` 表，需要核对索引是否丢失。
+
+## 你（AI）现在的第一个任务：
+请引导我运行以下命令来诊断：
+1. 打印 SQLModel metadata 和 suppliers 表的列。
+2. 检查 alembic/env.py 的 import 时序。
+3. 用 sqlite3 核对 suppliers 表的 index 和 foreign_key。
+先不要盲目给代码，请让我把命令输出的结果贴给你，我们再决定修复方案。
+
+（如果有余力，搞定 P0 后，我们继续做 P1：前端 403 无提示问题，以及 backups/uploads 目录的生命周期管理。）
+
+我们要一步一步来，我每跑完一步都会把终端结果贴给你。
