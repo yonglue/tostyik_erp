@@ -55,7 +55,7 @@
       <div class="overflow-x-auto flex-1">
         <table class="w-full text-left border-collapse min-w-[900px]">
           <thead>
-            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase">
+            <tr class="bg-transparent border-b border-slate-200 dark:border-slate-700 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider">
               <th class="py-4 px-4 w-12 text-center">
                 <input 
                   type="checkbox" 
@@ -175,7 +175,7 @@
       <div class="overflow-x-auto flex-1">
         <table class="w-full text-left border-collapse min-w-[800px]">
           <thead>
-            <tr class="bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase">
+            <tr class="bg-transparent border-b border-slate-200 dark:border-slate-700 text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider">
               <th class="py-4 px-6 w-12 text-center">
                 <input type="checkbox" :checked="isAllSuggestionsSelected" @change="toggleSelectAllSuggestions" class="rounded border-slate-300 text-amber-500 focus:ring-amber-500 w-4 h-4 cursor-pointer" />
               </th>

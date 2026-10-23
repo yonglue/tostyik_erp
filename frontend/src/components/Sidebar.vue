@@ -8,35 +8,34 @@
 
   <aside 
     :class="[
-      'fixed md:static inset-y-0 left-0 z-30 bg-white/75 backdrop-blur-xl border-r border-white/60 flex flex-col transition-all duration-300 shrink-0 shadow-xl',
+      'fixed md:static inset-y-0 left-0 z-30 bg-white/75 dark:bg-slate-900/75 backdrop-blur-xl border-r border-white/60 dark:border-slate-800 flex flex-col transition-all duration-300 shrink-0 shadow-xl',
       mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
       isCollapsed ? 'w-[72px]' : 'w-64'
     ]"
   >
     
     <!-- Logo 区域 -->
-    <div class="h-16 px-4 border-b border-slate-200/60 flex items-center justify-between shrink-0 bg-white/40 transition-all">
+    <div class="h-16 px-4 border-b border-slate-200/60 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white/40 dark:bg-slate-900/40 transition-all">
       <div class="flex items-center gap-3 overflow-hidden">
         <div class="w-9 h-9 min-w-[36px] rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25 shrink-0">
           <Cpu :size="20" />
         </div>
         <div v-show="!isCollapsed" class="whitespace-nowrap transition-opacity duration-300">
-          <h1 class="font-bold text-sm tracking-tight text-slate-900">TOSTIKYK ERP</h1>
-          <p class="text-[10px] text-slate-400 font-medium tracking-wide">Automotive Parts System</p>
+          <h1 class="font-bold text-sm tracking-tight text-slate-900 dark:text-white">TOSTIKYK ERP</h1>
+          <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium tracking-wide">Automotive Parts System</p>
         </div>
       </div>
-      <button @click="$emit('update:mobileMenuOpen', false)" class="md:hidden p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer">
+      <button @click="$emit('update:mobileMenuOpen', false)" class="md:hidden p-1.5 text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300 rounded-lg cursor-pointer">
         ✕
       </button>
     </div>
 
     <!-- 导航菜单列表 -->
-    <!-- 导航菜单列表 -->
     <nav class="flex-1 px-3 py-4 space-y-3 overflow-y-auto overflow-x-hidden custom-scrollbar">
       <div v-for="(group, groupIndex) in groupedMenuItems" :key="groupIndex" class="space-y-1">
         
         <!-- 分组标题 (折叠时隐藏) -->
-        <div v-show="!isCollapsed" class="px-3 pb-1 text-[11px] font-bold tracking-wider text-slate-400 uppercase whitespace-nowrap transition-all">
+        <div v-show="!isCollapsed" class="px-3 pb-1 text-[11px] font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase whitespace-nowrap transition-all">
           {{ group.title }}
         </div>
         
@@ -52,7 +51,7 @@
             isCollapsed ? 'justify-center px-0 py-3' : 'px-4 py-2.5',
             activeTab === item.key 
               ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25' 
-              : 'text-slate-600 bg-white/70 hover:bg-blue-50/90 hover:text-blue-700 border border-slate-200/80 hover:border-blue-300 shadow-2xs hover:scale-[1.02]'
+              : 'text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-slate-800/60 hover:bg-blue-50/90 dark:hover:bg-slate-700/80 hover:text-blue-700 dark:hover:text-blue-400 border border-slate-200/80 dark:border-slate-700/60 shadow-2xs hover:scale-[1.02]'
           ]"
         >
           <component :is="item.icon" :size="18" class="shrink-0" />
@@ -62,22 +61,22 @@
         </button>
 
         <!-- 组间分隔线 -->
-        <div v-if="groupIndex < groupedMenuItems.length - 1" class="pt-2.5 mx-3 border-b border-slate-200/50"></div>
+        <div v-if="groupIndex < groupedMenuItems.length - 1" class="pt-2.5 mx-3 border-b border-slate-200/50 dark:border-slate-700/50"></div>
       </div>
     </nav>
 
     <!-- 底部实时时间胶囊 -->
-    <div class="p-3 border-t border-slate-200/60 shrink-0 bg-white/40">
+    <div class="p-3 border-t border-slate-200/60 dark:border-slate-800 shrink-0 bg-white/40 dark:bg-slate-900/40">
       <div 
         :class="[
-          'bg-white/80 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white shadow-2xs text-xs font-mono font-semibold text-slate-700 transition-all',
+          'bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white dark:border-slate-700 shadow-2xs text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 transition-all',
           isCollapsed ? 'px-2 py-3' : 'px-3.5 py-2.5 gap-2'
         ]"
       >
         <span v-if="!isCollapsed">📅</span>
         <span v-show="!isCollapsed" class="truncate">{{ currentDateTime }}</span>
         <!-- 折叠时只显示时间 -->
-        <span v-if="isCollapsed" class="text-[10px] text-center leading-tight text-slate-500">
+        <span v-if="isCollapsed" class="text-[10px] text-center leading-tight text-slate-500 dark:text-slate-400">
           {{ currentDateTime.split(' ')[1] || '⏱' }}
         </span>
       </div>
@@ -180,42 +179,26 @@ const groupedMenuItems = computed(() => {
 })
 </script>
 
-
 <style scoped>
-/* 🌟 幽灵侧边栏滚动条（白色高光版） */
+/* 滚动条美化 */
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent; 
   transition: scrollbar-color 0.3s ease;
 }
-
-/* 鼠标移入侧边栏时，显示半透明白色 */
 .custom-scrollbar:hover {
   scrollbar-color: rgba(255, 255, 255, 0.6) transparent; 
 }
-
-/* Chrome, Edge, Safari 兼容 */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* 默认滑块完全透明 */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background-color: transparent; 
   border-radius: 10px;
   transition: background-color 0.3s ease;
 }
-
-/* 悬浮时显现半透明白色 */
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
   background-color: rgba(255, 255, 255, 0.6); 
 }
-
-/* 鼠标直接按住或悬浮在滑块上时，变成高亮纯白 */
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: rgba(255, 255, 255, 0.95); 
 }

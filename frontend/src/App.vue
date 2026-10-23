@@ -1,11 +1,11 @@
 <!-- src/App.vue -->
 <template>
-  <div class="h-screen w-screen overflow-hidden bg-slate-50 text-slate-900">
+  <div class="h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-300">
     
     <LoginView v-if="!isLoggedIn" />
 
-    <!-- 🌟 ERP 主界面结构 -->
-    <div v-else class="flex flex-col md:flex-row h-full w-full overflow-hidden bg-slate-50 text-slate-900">
+    <!-- 第 6 行 -->
+    <div v-else class="flex flex-col md:flex-row h-full w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
       
       <Sidebar 
         v-if="activeTab !== 'desk'"
@@ -21,7 +21,7 @@
       <!-- 右侧主工作区 -->
       <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
         
-        <header v-if="activeTab !== 'desk'" class="h-16 bg-white/75 backdrop-blur-xl border-b border-white/60 px-6 flex items-center justify-between shrink-0 shadow-xs transition-all">
+        <header v-if="activeTab !== 'desk'" class="h-16 bg-white/75 dark:bg-slate-900/75 backdrop-blur-xl border-b border-white/60 dark:border-slate-800 px-6 flex items-center justify-between shrink-0 shadow-xs transition-all">
           <div class="flex items-center space-x-4">
             <!-- 移动端菜单按钮 (保留) -->
             <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 text-slate-600 hover:bg-blue-50/90 rounded-2xl transition-colors cursor-pointer">

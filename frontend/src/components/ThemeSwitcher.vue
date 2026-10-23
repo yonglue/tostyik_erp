@@ -1,41 +1,32 @@
 <!-- src/components/ThemeSwitcher.vue -->
 <template>
-  <div
-    class="relative inline-flex items-center p-1 rounded-2xl
-           bg-white/70 dark:bg-slate-800/70
+  <button
+    @click="toggleTheme"
+    class="group relative flex items-center justify-center w-10 h-10 rounded-2xl
            border border-slate-200/80 dark:border-slate-700/60
            shadow-2xs backdrop-blur-md
-           transition-all duration-200
-           hover:scale-[1.02] hover:shadow-md
-           hover:border-blue-300 dark:hover:border-blue-500/50"
-    role="group"
-    aria-label="主题切换"
+           transition-all duration-300 ease-out hover:scale-105 active:scale-95"
+    :class="{
+      'bg-amber-50/80 hover:bg-amber-100 dark:bg-slate-800/70 dark:hover:bg-slate-700/80': theme === 'light',
+      'bg-indigo-50/80 hover:bg-indigo-100 dark:bg-indigo-900/40 dark:hover:bg-indigo-800/60': theme === 'dark',
+      'bg-sky-50/80 hover:bg-sky-100 dark:bg-slate-800/70 dark:hover:bg-slate-700/80': theme === 'system'
+    }"
+    :title="`当前: ${currentOption.label}，点击切换`"
   >
-    <!-- 滑动指示器 -->
-    <div
-      class="absolute top-1 h-8 w-9 rounded-xl
-             bg-gradient-to-tr from-blue-500 to-indigo-500
-             shadow-md shadow-blue-500/30
-             transition-all duration-300 ease-out"
-      :style="{ left: 4 + activeIndex * 36 + 'px' }"
-    ></div>
-
-    <button
-      v-for="opt in options"
-      :key="opt.value"
-      :data-testid="`theme-${opt.value}`"
-      @click="setTheme(opt.value)"
-      :title="opt.label"
-      :aria-pressed="theme === opt.value"
-      class="relative z-10 flex items-center justify-center w-9 h-8 rounded-xl
-             transition-colors duration-200 cursor-pointer"
-      :class="theme === opt.value
-        ? 'text-white'
-        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100'"
-    >
-      <component :is="opt.icon" :size="15" :stroke-width="2.5" />
-    </button>
-  </div>
+    <Transition name="spin-fade" mode="out-in">
+      <component 
+        :is="currentOption.icon" 
+        :size="20" 
+        :stroke-width="2.5" 
+        :key="currentOption.value"
+        :class="{
+          'text-amber-500': theme === 'light',
+          'text-indigo-500 dark:text-indigo-400': theme === 'dark',
+          'text-sky-500': theme === 'system'
+        }"
+      />
+    </Transition>
+  </button>
 </template>
 
 <script setup>
@@ -51,5 +42,31 @@ const options = [
   { value: 'system', icon: MonitorSmartphone,  label: '跟随系统' },
 ]
 
-const activeIndex = computed(() => options.findIndex(o => o.value === theme.value))
+// 当前选中的选项
+const currentOption = computed(() => {
+  return options.find(o => o.value === theme.value) || options[0]
+})
+
+// 单点循环切换
+const toggleTheme = () => {
+  const currentIndex = options.findIndex(o => o.value === theme.value)
+  const nextIndex = (currentIndex + 1) % options.length
+  setTheme(options[nextIndex].value)
+}
 </script>
+
+<style scoped>
+/* 切换时的旋转 + 淡入淡出动画 */
+.spin-fade-enter-active,
+.spin-fade-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.spin-fade-enter-from {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.5);
+}
+.spin-fade-leave-to {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.5);
+}
+</style>

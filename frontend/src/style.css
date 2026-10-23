@@ -1,13 +1,19 @@
 @import "tailwindcss";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
+/* 告诉 Tailwind v4 使用 class 来切换深色模式 */
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
     --background: 210 40% 98%;
     --foreground: 222.2 84% 4.9%;
     --border: 214.3 31.8% 91.4%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
   }
 }
 
@@ -18,20 +24,109 @@ body {
   color: hsl(var(--foreground));
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* 滚动条美化 */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.dark ::-webkit-scrollbar-thumb { background: #475569; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+
+/* =========================================
+   V2 终极深色模式 (无边框沉浸版)
+   去除生硬线框，使用色阶和阴影构建高级感
+   ========================================= */
+
+/* 1. 核心大背景：使用极深的藏青灰 (Slate 900) */
+.dark .bg-slate-50:not(.rounded-lg):not(.rounded-xl):not(.rounded-2xl):not(.rounded-3xl),
+.dark body {
+  background-color: #0f172a !important;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+/* 2. 卡片与容器：提亮色阶 (Slate 800)，并加上微弱阴影代替边框 */
+.dark .bg-white,
+.dark .bg-slate-50,
+.dark .bg-slate-100,
+.dark .bg-white\/50,
+.dark .bg-white\/60,
+.dark .bg-white\/70,
+.dark .bg-white\/75,
+.dark .bg-white\/80,
+.dark .bg-white\/90,
+.dark .bg-white\/95,
+.dark .bg-slate-50\/80,
+.dark .bg-blue-50,
+.dark .bg-emerald-50,
+.dark .bg-amber-50,
+.dark .bg-rose-50 {
+  background-color: #1e293b !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4) !important; /* 柔和阴影 */
 }
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+
+/* 3. 干掉所有多余的线框 (Border)，变成极弱的透明线 */
+.dark .border-slate-200,
+.dark .border-slate-100,
+.dark .border-slate-300,
+.dark .border-white,
+.dark .border-slate-200\/60,
+.dark .border-white\/80,
+.dark .border-gray-200 {
+  border-color: rgba(255, 255, 255, 0.05) !important; 
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+
+/* 4. 彻底清理表格的边框和灰块 */
+.dark thead tr {
+  background-color: transparent !important; /* 表头去掉灰色块 */
 }
+.dark thead th {
+  color: #94a3b8 !important; /* 表头文字变柔和 */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+.dark tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important; /* 极弱的行分割线 */
+}
+.dark tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03) !important; /* 悬浮行微亮 */
+}
+
+/* 5. 文字色阶全局提亮 */
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-gray-900,
+.dark .text-black { color: #f1f5f9 !important; }
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-gray-600 { color: #cbd5e1 !important; }
+.dark .text-slate-500,
+.dark .text-gray-500 { color: #94a3b8 !important; }
+
+/* 彩色文字提亮 */
+.dark .text-blue-600 { color: #60a5fa !important; } 
+.dark .text-emerald-600 { color: #34d399 !important; } 
+.dark .text-amber-600 { color: #fbbf24 !important; } 
+.dark .text-rose-600 { color: #fb7185 !important; } 
+
+/* 6. 输入框：取消边框，用背景色区分 */
+.dark input, 
+.dark select, 
+.dark textarea {
+  background-color: #0f172a !important; /* 输入框比卡片暗一级 */
+  color: #f8fafc !important;
+  border: 1px solid transparent !important; /* 默认无边框 */
+}
+.dark input:focus, 
+.dark select:focus, 
+.dark textarea:focus {
+  border-color: #3b82f6 !important; /* 聚焦时才有蓝色高光 */
+  outline: none !important;
+}
+.dark input::placeholder {
+  color: #475569 !important;
+}
+
+/* 7. 保持主按钮纯正 */
+.dark .bg-blue-600 { background-color: #2563eb !important; }
