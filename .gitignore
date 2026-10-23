@@ -1,70 +1,55 @@
-# ---------- Python ----------
+# =========================
+# Python & 后端相关
+# =========================
 __pycache__/
 *.py[cod]
 *$py.class
 .venv/
 venv/
 env/
-venv/
-build/
-dist/
-*.db
 .pytest_cache/
 .coverage
-.coverage.*
 htmlcov/
-.mypy_cache/
-.ruff_cache/
-*.egg-info/
 
-# ---------- 数据库（运行期数据，通过 backups/ 或 /api/backup/download 备份）----------
+# =========================
+# 数据库与备份文件 (核心保护)
+# =========================
+# 永远不要将真实的数据库提交到 Git
 *.db
 *.sqlite
 *.sqlite3
-
-# ---------- 上传的用户文件（配件图片 / 生成的报价单 PDF）----------
-uploads/*
-!uploads/.gitkeep
-
-# ---------- 本地备份归档（保留在磁盘，但不进版本库）----------
+*.db.bak*
 backups/
 
-# ---------- 大体积二进制资源 ----------
-# 华文细黑字体 55MB，PDF 中文渲染依赖它；如需随仓库分发请用: git add -f "STHeiti Light.ttc"
-*.ttc
-*.ttf
-*.otf
+# 运行时的配置文件（包含公司信息、离线汇率等，建议不提交）
+system_settings.json
 
-# ---------- 前端 ----------
-frontend/node_modules/
-frontend/dist/
-frontend/dist-ssr/
-frontend/*.local
+# =========================
+# 前端 & Node 相关
+# =========================
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# ---------- 自动生成的密钥（未配 TK_JWT_SECRET 时由程序落盘）----------
-.jwt_secret
+# =========================
+# Playwright 测试产物
+# =========================
+test-results/
+playwright-report/
+playwright/.cache/
+frontend/test-results/
+frontend/playwright-report/
 
-# ---------- 环境变量与密钥 ----------
-# 只忽略含真实密钥的 .env 及本地覆盖文件；
-# .env.example / frontend/.env.development / frontend/.env.production 需入库
-.env
-.env.local
-.env.*.local
-!.env.example
-
-# ---------- 编辑器 / 操作系统 ----------
+# =========================
+# 操作系统 & 编辑器
+# =========================
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/*
-!.vscode/extensions.json
+.vscode/
 *.swp
-*.swo
-
-# ---------- 日志 / 临时文件 ----------
-*.log
-logs/
-*.tmp
-tostiyk_erp.db.bak*
-backups/
-*.db.bak*
+tree.txt

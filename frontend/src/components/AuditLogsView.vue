@@ -1,6 +1,6 @@
 <!-- src/components/AuditLogsView.vue -->
 <template>
-  <div class="space-y-6 max-w-6xl mx-auto">
+  <div class="space-y-6 max-w-11xl mx-auto">
     <!-- 头部标题与一键导出按钮 -->
     <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
       <div>
