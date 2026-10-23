@@ -88,6 +88,19 @@ STRICT_SECURITY: bool = os.getenv("TK_STRICT_SECURITY", "").strip().lower() in (
     "1", "true", "yes", "on",
 )
 
+# 是否允许 SQLModel.metadata.create_all() 在启动时兜底建表。
+# 默认 True（保持现状）；设为 0 后由 Alembic 独立管理表结构。
+AUTO_CREATE_TABLES: bool = os.getenv("TK_AUTO_CREATE_TABLES", "1").strip().lower() in (
+    "1", "true", "yes", "on",
+)
+
+
+# 迁移失败时是否拒绝启动。默认 False（保持 warn 行为）；
+# 设为 1，或 AUTO_CREATE_TABLES=0 时，迁移失败将强制 raise。
+STRICT_MIGRATION: bool = os.getenv("TK_STRICT_MIGRATION", "").strip().lower() in (
+    "1", "true", "yes", "on",
+)
+
 # ─────────────────────── JWT 签名密钥 ───────────────────────
 # 不再保留可预测的默认密钥：未配置时自动生成一份随机密钥并持久化到
 # <项目根>/.jwt_secret（0600，已 gitignore），这样即使运维忘了配环境变量，

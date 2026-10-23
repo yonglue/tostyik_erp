@@ -9,6 +9,7 @@
 
 from contextlib import asynccontextmanager
 import os  # 🌟 引入 os 用于路径处理
+from app.config import AUTO_CREATE_TABLES, STRICT_MIGRATION
 
 from app.routers import backup  # 🌟 导入备份路由
 from app.services.backup import auto_backup_task  # 🌟 导入自动备份定时任务
@@ -63,18 +64,22 @@ def bootstrap() -> None:
     # 🌟 核心修改 1：自动执行 Alembic 迁移
     try:
         print("⏳ 正在检查并应用数据库迁移 (Alembic)...")
-        # 获取当前文件所在目录，确保 Alembic 能够找到 alembic.ini
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         alembic_ini_path = os.path.join(base_dir, "alembic.ini")
-        
         alembic_cfg = Config(alembic_ini_path)
-        # 自动升级到最新版本
         command.upgrade(alembic_cfg, "head")
         print("✅ 数据库迁移检查完成。")
     except Exception as e:
-        print(f"⚠️ 数据库迁移执行失败: {e}")
-        # 如果迁移失败，建议直接抛出异常阻止应用启动，防止产生脏数据
-        # raise e 
+        print(f"❌ 数据库迁移执行失败: {e}")
+        # 无 create_all 兜底，或显式要求严格 → 必须拒绝启动，防止带着残缺 schema 上线
+        if not AUTO_CREATE_TABLES or STRICT_MIGRATION:
+            raise RuntimeError(
+                f"Alembic 迁移失败，且当前不允许静默兜底"
+                f"（TK_AUTO_CREATE_TABLES={AUTO_CREATE_TABLES}, "
+                f"TK_STRICT_MIGRATION={STRICT_MIGRATION}）。"
+                f"请先修复迁移，再启动应用。原始错误: {e}"
+            ) from e
+        print("⚠️  继续启动，依赖 create_all 兜底。生产环境请勿如此。")
 
     # 兜底建表（如果 Alembic 还没接管，或者全新数据库）
     init_db()

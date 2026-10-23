@@ -1,6 +1,7 @@
 """数据库接入层：全项目唯一的 engine / Session / 依赖注入。"""
 
 from typing import Iterator
+from app.config import DATABASE_URL, AUTO_CREATE_TABLES
 
 from sqlmodel import Session, SQLModel, create_engine
 from app.config import DATABASE_URL
@@ -22,13 +23,15 @@ def get_session() -> Iterator[Session]:
 
 def init_db() -> None:
     """按模型定义建表（已存在的表不会被改动）。
-    
-    🌟 注意：现在新增或修改字段，请使用 Alembic 命令行生成迁移脚本，
-    不再在此处写 ALTER TABLE 强行补字段。
+
+    🌟 新增或修改字段请用 Alembic，不再在此处写 ALTER TABLE。
     """
     # 必须在此处导入，确保所有 table=True 的模型都已注册到 SQLModel.metadata
     from app import models  # noqa: F401
 
-    # 保留 create_all 作为兜底，防止全新的空数据库无法初始化
+    if not AUTO_CREATE_TABLES:
+        print("⏭️  TK_AUTO_CREATE_TABLES=0，已跳过 create_all（表结构由 Alembic 管理）。")
+        return
+
     SQLModel.metadata.create_all(engine)
     print("✅ 数据库表结构初始化完成 (由 SQLModel 接管)。")
