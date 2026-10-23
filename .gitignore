@@ -1,5 +1,16 @@
 # =========================
-# Python & 后端相关
+# 🚨 核心保护：数据库与业务数据
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+*.db.bak*
+backups/
+uploads/
+system_settings.json
+
+# =========================
+# 🐍 Python & 后端相关
 # =========================
 __pycache__/
 *.py[cod]
@@ -12,20 +23,7 @@ env/
 htmlcov/
 
 # =========================
-# 数据库与备份文件 (核心保护)
-# =========================
-# 永远不要将真实的数据库提交到 Git
-*.db
-*.sqlite
-*.sqlite3
-*.db.bak*
-backups/
-
-# 运行时的配置文件（包含公司信息、离线汇率等，建议不提交）
-system_settings.json
-
-# =========================
-# 前端 & Node 相关
+# ⚡ 前端 & Node 相关
 # =========================
 node_modules/
 dist/
@@ -36,7 +34,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # =========================
-# Playwright 测试产物
+# 🎭 Playwright 测试产物
 # =========================
 test-results/
 playwright-report/
@@ -45,7 +43,7 @@ frontend/test-results/
 frontend/playwright-report/
 
 # =========================
-# 操作系统 & 编辑器
+# 💻 操作系统 & 编辑器
 # =========================
 .DS_Store
 Thumbs.db
