@@ -65,3 +65,6 @@ Thumbs.db
 *.log
 logs/
 *.tmp
+tostiyk_erp.db.bak*
+backups/
+*.db.bak*

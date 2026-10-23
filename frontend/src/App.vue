@@ -753,6 +753,9 @@ const handleMenuClick = (key) => {
 
 // 🌟 核心新增：处理从报价单转入 POS
 const handleConvertToPos = (data) => {
+  if (data.id) {
+  localStorage.setItem('pending_quotation_id', String(data.id))
+  }
   // 1. 清空当前购物车
   cartItems.value = []
   

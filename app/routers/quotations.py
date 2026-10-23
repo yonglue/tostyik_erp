@@ -228,3 +228,27 @@ def download_existing_pdf(
         return FileResponse(latest_pdf, media_type="application/pdf", filename="Tostiyk_Quotation.pdf")
 
     raise HTTPException(status_code=404, detail="PDF 文件不存在")
+
+
+from datetime import datetime, timezone
+@router.post("/api/quotations/{quotation_id}/mark-converted")
+def mark_quotation_converted(
+    quotation_id: int,
+    payload: dict,
+    session: Session = Depends(get_session),
+    actor: Actor = Depends(RequirePermission("pos:access")),
+):
+    """POS 下单成功后，把对应报价单标记为已转订单。幂等：已转过就原样返回。"""
+    quote = session.get(QuotationRecord, quotation_id)
+    if not quote:
+        raise HTTPException(status_code=404, detail="报价单不存在")
+    if quote.converted_order_id:
+        return {"status": "already_converted", "order_id": quote.converted_order_id}
+    order_id = payload.get("order_id")
+    if not order_id:
+        raise HTTPException(status_code=400, detail="缺少 order_id")
+    quote.converted_order_id = int(order_id)
+    quote.converted_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    session.add(quote)
+    session.commit()
+    return {"status": "success", "quotation_id": quotation_id, "order_id": order_id}

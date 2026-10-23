@@ -199,6 +199,8 @@ class QuotationRecord(SQLModel, table=True):
     lang: str
     items_json: str
     timestamp: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M"))
+    converted_order_id: Optional[int] = Field(default=None)
+    converted_at: Optional[NaiveDatetime] = Field(default=None)
 
 
 # ══════════════════════════ 收银班结 ══════════════════════════

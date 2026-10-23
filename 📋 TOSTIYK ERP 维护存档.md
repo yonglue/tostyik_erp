@@ -540,3 +540,15 @@ grep -A 20 "class Supplier(" app/models.py
 **我的建议：先做 🥈（10 分钟核对表结构），然后做 🥇（修 autogenerate）。** 🥈 不做的话，下次碰 `Supplier` 表可能碰到意外索引丢失；🥇 不做的话，下一次加字段还要再趟一遍坑。
 
 选哪个？
+
+
+
+## 本轮最终状态（2026-10-23 收尾）
+
+- alembic head: 092e79bcf78e
+- alembic check: No new upgrade operations detected
+- suppliers: id=1 elias / debt=22.20 / terms=30 / credit=5000
+- supplierpaymentrecord: 0 条 / 外键 + datetime 就绪
+- audit_supplier_debt.py: dry-run 0 漂移
+
+Git commit: 7e499f6 → 本次新增 fix(suppliers) commit

@@ -58,9 +58,11 @@
                   </button>
                   <button 
                     @click="convertToPos(q)"
+                    :disabled="q.converted_order_id"
+                    :class="{ 'opacity-40 cursor-not-allowed': q.converted_order_id }"
                     class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1 cursor-pointer"
                   >
-                    🚀 {{ tExt.btnConvert }}
+                    {{ q.converted_order_id ? `✅ ${tExt.btnConvert} #${q.converted_order_id}` : tExt.btnConvert }}
                   </button>
                 </div>
               </td>
@@ -159,9 +161,11 @@
             </button>
             <button 
               @click="convertToPos(currentQuote)" 
+              :disabled="currentQuote.converted_order_id"
+              :class="{ 'opacity-40 cursor-not-allowed': currentQuote.converted_order_id }"
               class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 transition-colors cursor-pointer flex items-center gap-1"
             >
-              🚀 {{ tExt.btnConvert }}
+              🚀 {{ currentQuote.converted_order_id ? `✅ ${tExt.btnConvert} #${currentQuote.converted_order_id}` : tExt.btnConvert }}
             </button>
           </div>
         </div>
@@ -339,7 +343,7 @@ const downloadPdf = async (quotationNo) => {
 const convertToPos = (q) => {
   try {
     const items = JSON.parse(q.items_json)
-    emit('convert-to-pos', { client_name: q.client_name, items })
+    emit('convert-to-pos', { id: q.id, client_name: q.client_name, items })
     closeDrawer()
   } catch (e) {
     console.error('解析报价单明细失败', e)

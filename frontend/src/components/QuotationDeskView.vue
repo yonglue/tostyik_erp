@@ -2007,6 +2007,20 @@ const confirmAndPrint = async () => {
 
     showToast(`✅ ${tExt.value.toastCheckoutSuccess} ${data.order_no}`, 'success')
 
+    // 如果本次 POS 是从报价单转入的，标记该报价为已转订单
+    const pendingQid = localStorage.getItem('pending_quotation_id')
+    if (pendingQid && data.order_id) {
+      try {
+        await apiFetch(`/api/quotations/${pendingQid}/mark-converted`, {
+          method: 'POST',
+          body: JSON.stringify({ order_id: data.order_id })
+        })
+      } catch (e) {
+        console.warn('mark-converted 失败（不影响 POS 结账）', e)
+      }
+      localStorage.removeItem('pending_quotation_id')
+    }
+
     // 🌟 核心新增：组装打印数据
     printData.value = {
       order_no: data.order_no,
