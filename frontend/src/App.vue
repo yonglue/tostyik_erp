@@ -49,6 +49,8 @@
               <option value="en">🇺🇸 EN</option>
             </select>
 
+            <ThemeSwitcher />
+
             <!-- 用户与登出区域 -->
             <div class="flex items-center gap-3 pl-3 border-l border-slate-200/60">
               <div class="flex items-center gap-2.5 bg-white/70 hover:bg-blue-50/90 border border-slate-200/80 hover:border-blue-300 pl-2 pr-4 py-1.5 rounded-2xl shadow-2xs transition-all duration-200 backdrop-blur-md cursor-pointer hover:scale-[1.02]">
@@ -481,6 +483,7 @@ import { ref, computed, defineAsyncComponent, onMounted, onUnmounted, watch} fro
 import { useI18n } from './composables/useI18n'
 
 import Sidebar from './components/Sidebar.vue'
+import ThemeSwitcher from './components/ThemeSwitcher.vue'
 import LoginView from './components/LoginView.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import ImageGalleryModal from './components/ImageGalleryModal.vue'
