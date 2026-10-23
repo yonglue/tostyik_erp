@@ -733,6 +733,16 @@ const _onForbidden = (e) => {
   }, 100)
 }
 
+// 监听全局 API 错误 (500 / 断网)
+const _onGlobalApiError = (e) => {
+  const msg = e.detail?.message || '服务器发生未知错误'
+  // 复用你现有的全局 Modal 组件
+  showSuccessModal('❌ ' + msg) 
+}
+
+onMounted(() => window.addEventListener('api:global-error', _onGlobalApiError))
+onUnmounted(() => window.removeEventListener('api:global-error', _onGlobalApiError))
+
 onMounted(() => window.addEventListener('auth:forbidden', _onForbidden))
 onUnmounted(() => window.removeEventListener('auth:forbidden', _onForbidden))
 

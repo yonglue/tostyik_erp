@@ -86,6 +86,10 @@ const notifyAuthExpired = () => {
 export const apiFetch = async (url, options = {}) => {
   const token = getToken()
 
+  // 新增：支持 silent 模式，例如后台轮询、心跳请求不需要全局弹窗
+  const silent = options.silent || false
+  delete options.silent
+
   // FormData 必须让浏览器自动带 multipart boundary，不能手动指定 Content-Type
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
 
@@ -95,13 +99,30 @@ export const apiFetch = async (url, options = {}) => {
     ...(options.headers || {})
   }
 
-  const response = await fetch(apiUrl(url), {
-    ...options,
-    headers
-  })
+  // 新增：自动生成并注入 X-Request-Id（防重复提交幂等）
+  if (!headers['X-Request-Id']) {
+    headers['X-Request-Id'] = typeof crypto !== 'undefined' && crypto.randomUUID 
+      ? crypto.randomUUID() 
+      : Date.now().toString(36) + Math.random().toString(36).substring(2)
+  }
+
+  let response
+  try {
+    response = await fetch(apiUrl(url), {
+      ...options,
+      headers
+    })
+  } catch (error) {
+    // 新增：网络断开或跨域失败
+    if (!silent) {
+      window.dispatchEvent(new CustomEvent('api:global-error', {
+        detail: { message: '网络连接异常，请检查网络或服务端', status: 0 }
+      }))
+    }
+    throw error // 必须抛出，因为根本没有 response 对象
+  }
 
   // 登录/重置接口的 401 属于“凭证错误”，不能影响现有登录态
-
   // 403 权限不足：广播全局事件，由 App.vue 统一弹窗
   if (response.status === 403) {
     window.dispatchEvent(new CustomEvent('auth:forbidden', {
@@ -111,17 +132,23 @@ export const apiFetch = async (url, options = {}) => {
 
   if (response.status === 401 && !isAuthPublicPath(url)) {
     if (!token) {
-      // 没有 Token 但本地仍标记已登录：属于半登录脏状态，直接回登录页
       if (localStorage.getItem(AUTH_LOGGED_IN_KEY) === 'true') {
         notifyAuthExpired()
       }
     } else {
-      // 关键：个别接口 401 不代表 Token 失效，必须用 /api/auth/me 复核
       const valid = await verifySessionToken(token)
       if (valid === false && getToken() === token) {
         notifyAuthExpired()
       }
     }
+  }
+
+  // 新增：拦截 500 等服务器端异常（422 表单验证错误保留给业务组件自己处理，不弹全局）
+  if (response.status >= 500 && !silent) {
+    window.dispatchEvent(new CustomEvent('api:global-error', {
+      detail: { message: `服务器异常 (${response.status})`, status: response.status }
+    }))
+    // 这里不抛出错误，依然返回 response，让原有的 if(res.ok) 逻辑正常走到 else 分支
   }
 
   return response
