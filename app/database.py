@@ -1,5 +1,8 @@
 """数据库接入层：全项目唯一的 engine / Session / 依赖注入。"""
 
+from sqlalchemy import event
+
+
 from typing import Iterator
 from app.config import DATABASE_URL, AUTO_CREATE_TABLES
 
@@ -11,6 +14,12 @@ engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {},
 )
+if DATABASE_URL.startswith("sqlite"):
+    @event.listens_for(engine, "connect")
+    def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 SessionLocal = Session
 
