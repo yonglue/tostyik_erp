@@ -48,7 +48,7 @@ def get_suppliers(
 def create_supplier(
     payload: SupplierCreatePayload,
     session: Session = Depends(get_session),
-    actor: Actor = Depends(RequirePermission("procurement:view"))
+    actor: Actor = Depends(RequirePermission("procurement:manage"))
 ):
     """新建供应商"""
     existing = session.exec(select(Supplier).where(Supplier.name == payload.name)).first()
@@ -73,7 +73,7 @@ def update_supplier(
     supplier_id: int,
     payload: SupplierUpdatePayload,
     session: Session = Depends(get_session),
-    actor: Actor = Depends(RequirePermission("procurement:view"))
+    actor: Actor = Depends(RequirePermission("procurement:manage"))
 ):
     """修改供应商"""
     sup = session.get(Supplier, supplier_id)
@@ -100,7 +100,7 @@ def update_supplier(
 def delete_supplier(
     supplier_id: int,
     session: Session = Depends(get_session),
-    actor: Actor = Depends(RequirePermission("procurement:view"))
+    actor: Actor = Depends(RequirePermission("procurement:manage"))
 ):
     """删除供应商（带有安全检查）"""
     sup = session.get(Supplier, supplier_id)
