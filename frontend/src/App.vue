@@ -104,7 +104,6 @@
             @open-gallery="openGallery"
             @delete-part="openDeletePartModal"
             @refresh-data="fetchParts"
-            @download-template="downloadPartsTemplate"
           />
           <ClientsView 
             v-else-if="activeTab === 'clients' && hasPermission('clients:view')"

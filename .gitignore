@@ -1,6 +1,5 @@
-# =========================
-# 🚨 核心保护：数据库与业务数据
-# =========================
+# 核心保护：敏感数据
+.jwt_secret
 *.db
 *.sqlite
 *.sqlite3
@@ -9,45 +8,26 @@ backups/
 uploads/
 system_settings.json
 
-# =========================
-# 🐍 Python & 后端相关
-# =========================
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
 .venv/
 venv/
 env/
-.pytest_cache/
-.coverage
-htmlcov/
 
-# =========================
-# ⚡ 前端 & Node 相关
-# =========================
+# 前端与 Node
 node_modules/
 dist/
 dist-ssr/
 *.local
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# =========================
-# 🎭 Playwright 测试产物
-# =========================
+# 测试产物
 test-results/
 playwright-report/
 playwright/.cache/
-frontend/test-results/
-frontend/playwright-report/
 
-# =========================
-# 💻 操作系统 & 编辑器
-# =========================
+# 系统和编辑器
 .DS_Store
-Thumbs.db
 .idea/
 .vscode/
-*.swp
 tree.txt

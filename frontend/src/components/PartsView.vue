@@ -61,14 +61,6 @@
 
       <!-- 右侧：操作按钮 -->
       <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
-        
-        <!-- 🌟 新增：下载模板按钮 -->
-        <button 
-          @click="$emit('download-template')" 
-          class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
-        >
-          📥 下载导入模板
-        </button>
 
         <button 
           v-if="selectedIds.length > 0" 
@@ -446,11 +438,7 @@ const props = defineProps({
 })
 
 // 🌟 合并所有 emit 事件，加了 download-template
-const emit = defineEmits([
-  'update:searchQuery', 'update:selectedBrand', 
-  'open-add-modal', 'open-gallery', 'delete-part', 
-  'refresh-data', 'download-template'
-])
+const emit = defineEmits(['open-add-modal', 'open-gallery', 'delete-part', 'refresh-data'])
 const { t, currentLang } = useI18n()
 const { showSuccessModal } = useNotifications()
 
@@ -482,7 +470,7 @@ const tExt = computed(() => {
   }
 })
 
-const pageSize = 8
+const pageSize = 10
 const currentPage = ref(1)
 const jumpPageInput = ref(1)
 const selectedIds = ref([])
