@@ -309,16 +309,18 @@ class SupplierPaymentRecord(SQLModel, table=True):
     __tablename__ = "supplierpaymentrecord"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    supplier_id: int = Field(index=True)
+    supplier_id: int = Field(foreign_key="suppliers.id", index=True)
     supplier_name: str
     amount_usd: float
-    currency: str = Field(default="USD") # 记录原币种
-    original_amount: float = Field(default=0.0) # 原币金额
-    exchange_rate: float = Field(default=1.0) # 当时的汇率
+    currency: str = Field(default="USD")  # 记录原币种
+    original_amount: float = Field(default=0.0)  # 原币金额
+    exchange_rate: float = Field(default=1.0)  # 当时的汇率
     payment_method: str
     reference_no: Optional[str] = Field(default="")
     notes: Optional[str] = Field(default="")
-    created_at: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M"))
+    created_at: NaiveDatetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
+    )
 
 
 
