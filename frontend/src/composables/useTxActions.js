@@ -1,4 +1,4 @@
-cat > src/composables/useTxActions.js << 'EOF'
+
 import { ref } from 'vue'
 import { apiFetch } from '../utils/api'
 import { useNotifications } from './useNotifications'
@@ -129,4 +129,3 @@ export function useTxActions({ activeTab }) {
     handleConvertToPos
   }
 }
-EOF

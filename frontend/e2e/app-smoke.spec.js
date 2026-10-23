@@ -11,6 +11,11 @@ if (!PASSWORD) {
 // 提取公共的登录逻辑，避免每个 test 里重复写
 async function login(page) {
   await page.goto('/')
+  
+  // 🌟 强制清空本地存储，防止残留 Token 直接跳过登录
+  await page.evaluate(() => localStorage.clear())
+  await page.reload()
+
   const passwordInput = page.locator('input[type="password"]')
   await expect(passwordInput).toBeVisible({ timeout: 10_000 })
   
@@ -18,7 +23,6 @@ async function login(page) {
   await passwordInput.fill(PASSWORD)
   await page.locator('form button[type="submit"]').click()
 
-  // 断言登录成功（密码框消失 + 侧边栏出现）
   await expect(page.locator('input[type="password"]')).toHaveCount(0, { timeout: 10_000 })
   await expect(page.locator('nav')).toBeVisible({ timeout: 5_000 })
 }

@@ -488,7 +488,6 @@ import LoginView from './components/LoginView.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import ImageGalleryModal from './components/ImageGalleryModal.vue'
 import GlobalNoticeModal from './components/GlobalNoticeModal.vue'
-
 import GlobalSearchModal from './components/GlobalSearchModal.vue'
 
 const DashboardView = defineAsyncComponent(() => import('./components/DashboardView.vue'))
@@ -504,10 +503,11 @@ const QuotationListView = defineAsyncComponent(() => import('./components/Quotat
 const GastosView = defineAsyncComponent(() => import('./components/GastosView.vue'))
 const InventoryAuditView = defineAsyncComponent(() => import('./components/InventoryAuditView.vue'))
 
-
 import { apiFetch, apiUrl } from './utils/api'
 import { useExports } from './composables/useExports'
 import { useTxActions } from './composables/useTxActions'
+import { usePartActions } from './composables/usePartActions'
+import { useClientActions } from './composables/useClientActions'
 import { useAuth } from './composables/useAuth'
 import { usePermissions } from './composables/usePermissions'
 import { useNotifications } from './composables/useNotifications'
@@ -518,6 +518,65 @@ import { useGallery } from './composables/useGallery'
 
 const { t, currentLang } = useI18n()
 
+// 核心 UI 状态
+const mobileMenuOpen = ref(false)
+const isSidebarCollapsed = ref(false)
+const searchQuery = ref('')
+const clientSearchQuery = ref('')
+const selectedBrand = ref('ALL')
+const isGlobalSearchVisible = ref(false)
+const deleteModalVisible = ref(false)
+const targetQuote = ref(null)
+
+// 业务数据层
+const {
+  bcvRate, partsList, clientsList, transactionsList, quotationsList,
+  stats, brandsList,
+  fetchParts, fetchClients, fetchTransactions, fetchQuotations,
+  fetchDashboardStats, fetchBcvRate, updateBcvRate, refreshAll
+} = useInventory()
+
+const { cartItems, quoteClientName, selectedPaymentMethod, paymentReference, addToCart } = usePosCart()
+
+// 弹窗与通知
+const { successModalVisible, successModalMessage, isErrorMessage, showSuccessModal, closeSuccessModal } = useNotifications()
+
+// 认证与权限
+const {
+  isLoggedIn, currentAdminUser, currentUserObj,
+  loginForm, loginError, resetMessage,
+  resetModalVisible, resetPinInput,
+  handleLogin, handleLogout, openResetModal, submitResetPassword, validateSession
+} = useAuth()
+
+const { hasPermission, getDefaultAllowedTab } = usePermissions()
+
+// 核心 Tab 状态 (依赖 getDefaultAllowedTab)
+const activeTab = ref(getDefaultAllowedTab())
+
+// 抽离的业务动作 (CRUD)
+const { 
+  txDialogVisible, isSubmittingTx, newTx, 
+  deleteTxModalVisible, targetTxForDelete, 
+  handleAddTx, openDeleteTxModal, confirmDeleteTx, handleConvertToPos 
+} = useTxActions({ activeTab })
+
+const { 
+  dialogVisible, deletePartModalVisible, targetPartForDelete, newPart, selectedFiles,
+  handleFileChange, handleAddPart, openDeletePartModal, confirmDeletePart
+} = usePartActions()
+
+const { 
+  clientDialogVisible, deleteClientModalVisible, targetClient, newClient,
+  handleAddClient, openDeleteClientModal, confirmDeleteClient
+} = useClientActions()
+
+// 画廊与导出
+const { galleryModalVisible, currentGalleryImages, currentGalleryIndex, openGallery, prevGalleryImage, nextGalleryImage } = useGallery()
+const { exportTransactionsExcel, exportPartsExcel, exportClientsExcel, downloadDatabaseBackup } = useExports()
+const { currentDateTime } = useClock()
+
+// 翻译计算属性 (供全局和部分操作提示使用)
 const tExt = computed(() => {
   const isZh = currentLang.value === 'zh'
   const isEs = currentLang.value === 'es'
@@ -559,30 +618,9 @@ const tExt = computed(() => {
   }
 })
 
-const {
-  successModalVisible, successModalMessage, isErrorMessage,
-  showSuccessModal, closeSuccessModal
-} = useNotifications()
-
-const {
-  isLoggedIn, currentAdminUser, currentUserObj,
-  loginForm, loginError, resetMessage,
-  resetModalVisible, resetPinInput,
-  handleLogin, handleLogout, openResetModal, submitResetPassword, validateSession
-} = useAuth()
-
-const { hasPermission, getDefaultAllowedTab } = usePermissions()
-const { 
-  txDialogVisible, isSubmittingTx, newTx, 
-  deleteTxModalVisible, targetTxForDelete, 
-  handleAddTx, openDeleteTxModal, confirmDeleteTx, handleConvertToPos 
-} = useTxActions({ activeTab })
-
-
-// 🌟 核心修复：处理退出 POS 逻辑
+// 动作编排
 const handleExitPos = () => {
   const role = currentUserObj.value?.role || 'staff'
-  // 判断是否有除 POS 以外的后台权限
   const hasBackendAccess = hasPermission('parts:view') || 
                            hasPermission('clients:view') || 
                            hasPermission('financial:view') || 
@@ -592,11 +630,9 @@ const handleExitPos = () => {
                            role === 'super_admin'
 
   if (!hasBackendAccess) {
-    // 纯收银员，直接登出
     showSuccessModal(tExt.value.toastPosExit)
     setTimeout(() => { handleLogout() }, 1500)
   } else {
-    // 有后台权限，回退到他有权限的页面
     activeTab.value = getDefaultAllowedTab()
   }
 }
@@ -604,81 +640,6 @@ const handleExitPos = () => {
 const checkAndSwitchTab = (tab) => {
   activeTab.value = tab
 }
-
-const mobileMenuOpen = ref(false)
-const isSidebarCollapsed = ref(false) // 🌟 新增：默认不折叠
-const activeTab = ref(getDefaultAllowedTab())
-
-watch(isLoggedIn, (newVal) => {
-  if (newVal) {
-    activeTab.value = getDefaultAllowedTab()
-    // 登录成功后按权限加载数据（onMounted 时通常还没登录）
-    refreshAll()
-  } else {
-    activeTab.value = 'dashboard' 
-  }
-})
-
-watch(currentUserObj, (newUser) => {
-  if (isLoggedIn.value && newUser && newUser.username) {
-    const defaultTab = getDefaultAllowedTab()
-    if (defaultTab !== 'dashboard' || !newUser.permissions || newUser.permissions.length === 0) {
-       activeTab.value = defaultTab
-    }
-  }
-}, { deep: true })
-
-const searchQuery = ref('')
-const clientSearchQuery = ref('')
-const selectedBrand = ref('ALL')
-
-const dialogVisible = ref(false)
-const isGlobalSearchVisible = ref(false)
-const clientDialogVisible = ref(false)
-const deleteModalVisible = ref(false)
-const deleteClientModalVisible = ref(false)
-const deletePartModalVisible = ref(false)
-
-const {
-  galleryModalVisible, currentGalleryImages, currentGalleryIndex,
-  openGallery, prevGalleryImage, nextGalleryImage
-} = useGallery()
-
-const targetQuote = ref(null)
-const targetClient = ref(null)
-const targetPartForDelete = ref(null)
-
-const openDeletePartModal = (part) => {
-  targetPartForDelete.value = part
-  deletePartModalVisible.value = true
-}
-
-const confirmDeletePart = async () => {
-  if (!targetPartForDelete.value) return
-  try {
-    const res = await apiFetch(`/api/parts/${targetPartForDelete.value.id}`, { method: 'DELETE' })
-    if (res.ok) {
-      deletePartModalVisible.value = false
-      targetPartForDelete.value = null
-      fetchParts(); fetchDashboardStats();
-    }
-  } catch (e) { console.error(e) }
-}
-
-const {
-  bcvRate, partsList, clientsList, transactionsList, quotationsList,
-  stats, brandsList,
-  fetchParts, fetchClients, fetchTransactions, fetchQuotations,
-  fetchDashboardStats, fetchBcvRate, updateBcvRate, refreshAll // 🌟 确保有 updateBcvRate
-} = useInventory()
-
-const {
-  cartItems, quoteClientName, selectedPaymentMethod, paymentReference, addToCart
-} = usePosCart()
-
-const { exportTransactionsExcel, exportPartsExcel, exportClientsExcel, downloadDatabaseBackup } = useExports()
-
-const { currentDateTime } = useClock()
 
 const handleMenuClick = (key) => {
   if (key === 'dashboard') fetchDashboardStats()
@@ -703,95 +664,27 @@ const confirmDeleteQuotation = async () => {
   }
 }
 
-const openDeleteClientModal = (c) => {
-  targetClient.value = c
-  deleteClientModalVisible.value = true
-}
+// 监听器
+watch(isLoggedIn, (newVal) => {
+  if (newVal) {
+    activeTab.value = getDefaultAllowedTab()
+    refreshAll()
+  } else {
+    activeTab.value = 'dashboard' 
+  }
+})
 
-const confirmDeleteClient = async () => {
-  if (!targetClient.value) return
-  try {
-    const res = await apiFetch(`/api/clients/${targetClient.value.id}`, { method: 'DELETE' })
-    if (res.ok) {
-      deleteClientModalVisible.value = false
-      targetClient.value = null
-      fetchClients()
-      showSuccessModal('🗑️ ' + tExt.value.toastClientDeleted)
-    } else {
-      const err = await res.json()
-      deleteClientModalVisible.value = false
-      showSuccessModal(`❌ ${t.common.error}: ${err.detail || tExt.value.toastErrorUnknown}`)
+watch(currentUserObj, (newUser) => {
+  if (isLoggedIn.value && newUser && newUser.username) {
+    const defaultTab = getDefaultAllowedTab()
+    if (defaultTab !== 'dashboard' || !newUser.permissions || newUser.permissions.length === 0) {
+       activeTab.value = defaultTab
     }
-  } catch (e) {
-    console.error(e)
-    deleteClientModalVisible.value = false
-    showSuccessModal('❌ ' + tExt.value.toastServerError)
   }
-}
+}, { deep: true })
 
-// 🌟 修改：加上进货价初始值
-const newPart = ref({ oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, cost_price: 10.00, tax_rate: 0.16, bin_location: 'Estante A-1', cross_references: '' })
-const selectedFiles = ref([])
-const handleFileChange = (e) => { selectedFiles.value = Array.from(e.target.files).slice(0, 5) }
-
-const handleAddPart = async () => {
-  if (!newPart.value.oem || !newPart.value.name) return
-  
-  const formData = new FormData()
-  formData.append('oem', newPart.value.oem || '')
-  formData.append('name', newPart.value.name || '')
-  formData.append('brand', newPart.value.brand || 'GENERAL')
-  formData.append('category', newPart.value.category || 'Uncategorized')
-  formData.append('stock', newPart.value.stock ?? 0)
-  formData.append('price', newPart.value.price ?? 0.0)
-  formData.append('cost_price', newPart.value.cost_price ?? 0.0) // 🌟 新增：提交进货价
-  formData.append('tax_rate', newPart.value.tax_rate ?? 0.16)
-  formData.append('bin_location', newPart.value.bin_location || 'Estante A-1')
-  formData.append('cross_references', newPart.value.cross_references || '')
-  
-  selectedFiles.value.forEach(f => formData.append('files', f))
-  
-  try {
-    const res = await apiFetch('/api/parts', {
-      method: 'POST',
-      body: formData
-    })
-    
-    if (res.ok) {
-      dialogVisible.value = false
-      // 🌟 修改：重置表单也带上进货价
-      newPart.value = { oem: '', name: '', brand: '', category: '', stock: 10, price: 15.00, cost_price: 10.00, tax_rate: 0.16, bin_location: 'Estante A-1', cross_references: '' }
-      selectedFiles.value = []
-      fetchParts(); fetchDashboardStats();
-      showSuccessModal('✨ ' + tExt.value.toastPartAdded)
-    } else {
-      const err = await res.json()
-      const errorMsg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail)
-      showSuccessModal(`❌ ${t.common.error}: ${errorMsg}`)
-    }
-  } catch (e) {
-    console.error(e)
-    showSuccessModal('❌ ' + tExt.value.toastServerError)
-  }
-}
-
-const newClient = ref({ name: '', phone: '', address: '', rif_or_cedula: '', client_type: 'Regular', notes: '' })
-const handleAddClient = async () => {
-  if (!newClient.value.name) return
-  const res = await apiFetch('/api/clients', {
-    method: 'POST',
-    body: JSON.stringify(newClient.value)
-  })
-  if (res.ok) {
-    clientDialogVisible.value = false
-    newClient.value = { name: '', phone: '', address: '', rif_or_cedula: '', client_type: 'Regular', notes: '' }
-    fetchClients()
-    showSuccessModal('✨ ' + tExt.value.toastClientAdded)
-  }
-}
-
+// 全局快捷键
 const handleGlobalKeydown = (e) => {
-  // 🌟 最高优先级：监听全局 Ctrl+K 或 Cmd+K
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
     e.preventDefault()
     isGlobalSearchVisible.value = true
@@ -799,21 +692,9 @@ const handleGlobalKeydown = (e) => {
   }
 
   if (galleryModalVisible.value) {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      galleryModalVisible.value = false 
-      return
-    }
-    if (e.key === 'ArrowLeft') {
-      e.preventDefault()
-      prevGalleryImage() 
-      return
-    }
-    if (e.key === 'ArrowRight') {
-      e.preventDefault()
-      nextGalleryImage() 
-      return
-    }
+    if (e.key === 'Escape') { e.preventDefault(); galleryModalVisible.value = false; return; }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prevGalleryImage(); return; }
+    if (e.key === 'ArrowRight') { e.preventDefault(); nextGalleryImage(); return; }
   }
 
   if (e.key === 'Escape') {
@@ -823,58 +704,27 @@ const handleGlobalKeydown = (e) => {
 
   if (e.key !== 'Enter') return
 
-  if (successModalVisible.value) {
-    e.preventDefault()
-    successModalVisible.value = false
-    return
-  }
-  if (dialogVisible.value) {
-    e.preventDefault()
-    handleAddPart()
-    return
-  }
-  if (clientDialogVisible.value) {
-    e.preventDefault()
-    handleAddClient()
-    return
-  }
-  if (deletePartModalVisible.value) {
-    e.preventDefault()
-    confirmDeletePart()
-    return
-  }
-  if (deleteClientModalVisible.value) {
-    e.preventDefault()
-    confirmDeleteClient()
-    return  
-  }
-  if (deleteModalVisible.value) {
-    e.preventDefault()
-    confirmDeleteQuotation()
-    return
-  }
-  if (deleteTxModalVisible.value) {
-    e.preventDefault()
-    confirmDeleteTx()
-    return
-  }
+  if (successModalVisible.value) { e.preventDefault(); successModalVisible.value = false; return; }
+  if (dialogVisible.value) { e.preventDefault(); handleAddPart(tExt, t); return; }
+  if (clientDialogVisible.value) { e.preventDefault(); handleAddClient(tExt); return; }
+  if (deletePartModalVisible.value) { e.preventDefault(); confirmDeletePart(); return; }
+  if (deleteClientModalVisible.value) { e.preventDefault(); confirmDeleteClient(tExt); return; }
+  if (deleteModalVisible.value) { e.preventDefault(); confirmDeleteQuotation(); return; }
+  if (deleteTxModalVisible.value) { e.preventDefault(); confirmDeleteTx(); return; }
 }
 
 const handleGlobalSelect = ({ type, item }) => {
   if (type === 'part') {
-    // 跳转到商品库存
     activeTab.value = 'parts'
-    // 为了让用户进去能直接看到搜到的商品，把搜索词带过去
     searchQuery.value = item.oem || item.name
-    selectedBrand.value = 'ALL' // 重置品牌筛选，防止过滤掉
+    selectedBrand.value = 'ALL'
   } else if (type === 'client') {
-    // 跳转到客户账本
     activeTab.value = 'clients'
     clientSearchQuery.value = item.name
   }
 }
 
-// 403 全局提示（api.js 通过 window.dispatchEvent 广播）
+// 403 全局提示
 let _forbiddenDebounce = null
 const _onForbidden = (e) => {
   clearTimeout(_forbiddenDebounce)
@@ -888,11 +738,7 @@ onUnmounted(() => window.removeEventListener('auth:forbidden', _onForbidden))
 
 onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
-
-  // 未登录时不要发任何受保护请求，避免无 Token 的 401 反过来清空登录态
   if (!isLoggedIn.value) return
-
-  // 刷新页面后先复核 Token；有效再拉业务数据，并同步最新权限
   if (await validateSession()) {
     refreshAll()
   }
