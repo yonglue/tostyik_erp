@@ -367,12 +367,14 @@ def receive_purchase_order(
                 customer_or_supplier=supplier.name if supplier else "Unknown Supplier",
             ))
 
-        total_order_amount = total_order_amount_cents / 100
+        total_order_amount = Decimal(total_order_amount_cents) / Decimal("100")
         if supplier:
             session.exec(
                 update(Supplier)
                 .where(Supplier.id == supplier.id)
-                .values(debt_usd=func.coalesce(Supplier.debt_usd, 0.0) + total_order_amount)
+                .values(debt_usd=func.round(
+                    func.coalesce(Supplier.debt_usd, 0.0) + float(total_order_amount), 2
+                ))
             )
 
         po.status = "received"
