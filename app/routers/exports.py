@@ -8,6 +8,9 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+
 from app.config import DB_PATH
 from app.database import get_session
 from app.deps import Actor, get_current_actor
@@ -22,6 +25,11 @@ def _csv_response(rows, header, filename: str) -> StreamingResponse:
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(header)
+
+    # 🌟 如果解析出来连一行数据都没有，直接抛错
+    if not rows:
+        raise HTTPException(status_code=400, detail="未读取到任何数据，请确保文件有内容并已保存")
+
     for row in rows:
         writer.writerow(row)
     output.seek(0)
@@ -77,8 +85,8 @@ def export_audit_logs(
 def export_parts_csv(session: Session = Depends(get_session)):
     parts = session.exec(select(AutoPart)).all()
     return _csv_response(
-        ([p.oem, p.name, p.brand, p.category, p.stock, p.price, p.bin_location] for p in parts),
-        ["oem", "name", "brand", "category", "stock", "price", "bin_location"],
+        ([p.oem, p.name, p.brand, p.category, p.stock, p.price, p.cost_price, p.bin_location, p.cross_references] for p in parts),
+        ["oem", "name", "brand", "category", "stock", "price", "cost_price", "bin_location", "cross_references"],
         "Tostiyk_Parts_Catalog.csv",
     )
 
@@ -96,56 +104,102 @@ def export_clients_csv(session: Session = Depends(get_session)):
 @router.post("/api/import/parts")
 async def import_parts_csv(file: UploadFile = File(...), session: Session = Depends(get_session)):
     contents = await file.read()
-    decoded = contents.decode("utf-8", errors="ignore")
-    reader = csv.DictReader(io.StringIO(decoded))
-    count = 0
-    for row in reader:
-        oem = row.get("oem") or row.get("OEM")
-        name = row.get("name") or row.get("配件名称")
+    filename = file.filename.lower()
+    
+    imported_count = 0
+    skipped_count = 0
+    errors = []
+    rows = []
+
+    # 1. 智能解析文件
+    try:
+        if filename.endswith('.xlsx') or filename.endswith('.xls'):
+            wb = load_workbook(io.BytesIO(contents), data_only=True)
+            ws = wb.active
+            
+            headers = [str(cell.value).strip() if cell.value else "" for cell in ws[1]]
+            
+            if not any(h in headers for h in ["OEM编号", "oem", "OEM"]):
+                raise HTTPException(status_code=400, detail="Excel 表头错误：找不到 'OEM编号' 列。请下载标准模板！")
+
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                if not any(row): continue
+                rows.append(dict(zip(headers, row)))
+        else:
+            decoded = contents.decode("utf-8-sig", errors="ignore")
+            reader = csv.DictReader(io.StringIO(decoded))
+            fieldnames = [f.strip() for f in reader.fieldnames] if reader.fieldnames else []
+            
+            if not any(h in fieldnames for h in ["OEM编号", "oem", "OEM"]):
+                raise HTTPException(status_code=400, detail="CSV 表头错误：找不到 'OEM编号' 列。请下载标准模板！")
+                
+            for r in reader:
+                if any(r.values()): rows.append(r)
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=400, detail=f"文件解析失败: {str(e)}")
+
+    if len(rows) == 0:
+        raise HTTPException(status_code=400, detail="文件内没有找到任何数据行，请检查文件是否已保存，或是否填在了第一个Sheet中。")
+
+    # 2. 逐行处理
+    for idx, row in enumerate(rows, start=2):
+        oem = str(row.get("oem") or row.get("OEM") or row.get("OEM编号") or "").strip()
+        name = str(row.get("name") or row.get("配件名称") or row.get("Name") or "").strip()
+
         if not oem or not name:
+            skipped_count += 1
+            if len(errors) < 5:
+                errors.append(f"第 {idx} 行: 缺少 OEM编号 或 配件名称")
             continue
 
-        try:
-            stock_val = int(row.get("stock", 0))
-        except (ValueError, TypeError):
-            stock_val = 0
+        def safe_float(val):
+            try: return float(val or 0.0)
+            except: return 0.0
+        def safe_int(val):
+            try: return int(val or 0)
+            except: return 0
 
-        try:
-            price_val = float(row.get("price", 0.0))
-        except (ValueError, TypeError):
-            price_val = 0.0
+        stock_val = safe_int(row.get("stock") or row.get("库存数量"))
+        price_val = safe_float(row.get("price") or row.get("销售价(USD)"))
+        cost_price_val = safe_float(row.get("cost_price") or row.get("进货价(USD)"))
+        
+        brand = str(row.get("brand") or row.get("品牌") or "GENERAL").strip() or "GENERAL"
+        category = str(row.get("category") or row.get("分类") or "未分类").strip()
+        bin_loc = str(row.get("bin_location") or row.get("货架位") or "Estante A-1").strip()
+        cross_refs = str(row.get("cross_references") or row.get("交叉参考号") or "").strip()
 
-        brand = (row.get("brand") or "GENERAL").strip() or "GENERAL"
-        existing = session.exec(
-            select(AutoPart).where(AutoPart.oem == oem, AutoPart.brand == brand)
-        ).first()
+        existing = session.exec(select(AutoPart).where(AutoPart.oem == oem, AutoPart.brand == brand)).first()
         if existing:
             existing.name = name
-            existing.category = row.get("category", existing.category)
+            existing.category = category
             existing.stock = stock_val
             existing.price = price_val
-            existing.bin_location = row.get("bin_location", existing.bin_location)
+            existing.cost_price = cost_price_val
+            existing.bin_location = bin_loc
+            existing.cross_references = cross_refs
             session.add(existing)
         else:
             session.add(AutoPart(
-                oem=oem,
-                name=name,
-                brand=brand,
-                category=row.get("category", "未分类"),
-                stock=stock_val,
-                price=price_val,
-                bin_location=row.get("bin_location", "Estante A-1"),
+                oem=oem, name=name, brand=brand, category=category, 
+                stock=stock_val, price=price_val, cost_price=cost_price_val,
+                bin_location=bin_loc, cross_references=cross_refs
             ))
-        count += 1
+        imported_count += 1
+
+    # 3. 提交数据库
     try:
         session.commit()
     except IntegrityError:
         session.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="CSV 中存在重复的 (oem, brand)，请先去重后再导入",
-        )
-    return {"status": "success", "imported_count": count}
+        raise HTTPException(status_code=409, detail="文件中存在重复的 (OEM编号, 品牌) 组合，请先去重")
+
+    return {
+        "status": "success",
+        "imported_count": imported_count,
+        "skipped_count": skipped_count,
+        "errors": errors
+    }
 
 
 @router.get("/api/backup/download")
@@ -153,3 +207,43 @@ def download_database_backup():
     if DB_PATH.exists():
         return FileResponse(str(DB_PATH), media_type="application/x-sqlite3", filename="tostiyk_backup.db")
     raise HTTPException(status_code=404, detail="数据库文件不存在")
+
+
+@router.get("/api/export/template/parts")
+def export_parts_template():
+    """下载商品导入的 Excel 模板 (带下拉框，统一中英文)"""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "商品导入模板"
+
+    # 补齐了进货价和交叉参考号
+    headers = ["OEM编号", "配件名称", "品牌", "分类", "库存数量", "销售价(USD)", "进货价(USD)", "货架位", "交叉参考号"]
+    ws.append(headers)
+
+    # 美化表头
+    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    center_alignment = Alignment(horizontal="center", vertical="center")
+
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = center_alignment
+
+    # 设置列宽
+    column_widths = [20, 30, 15, 15, 10, 15, 15, 15, 25]
+    for i, width in enumerate(column_widths, 1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
+
+    # 示例数据
+    ws.append(["17801-74060", "空气滤清器", "Toyota", "滤清器", 10, 15.50, 10.00, "A-1-2", "WIX: 51348"])
+
+    file_stream = io.BytesIO()
+    wb.save(file_stream)
+    file_stream.seek(0)
+
+    return StreamingResponse(
+        file_stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=Parts_Import_Template.xlsx"}
+    )

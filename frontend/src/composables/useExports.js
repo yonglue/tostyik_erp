@@ -5,6 +5,10 @@ export function useExports() {
   const exportPartsExcel        = () => window.open(apiUrl('/api/export/parts'), '_blank')
   const exportClientsExcel      = () => window.open(apiUrl('/api/export/clients'), '_blank')
   const downloadDatabaseBackup  = () => window.open(apiUrl('/api/backup/download'), '_blank')
+  
+  // 🌟 新增这一行
+  const downloadPartsTemplate   = () => window.open(apiUrl('/api/export/template/parts'), '_blank')
 
-  return { exportTransactionsExcel, exportPartsExcel, exportClientsExcel, downloadDatabaseBackup }
+  // 🌟 这里把 downloadPartsTemplate 导出去
+  return { exportTransactionsExcel, exportPartsExcel, exportClientsExcel, downloadDatabaseBackup, downloadPartsTemplate }
 }

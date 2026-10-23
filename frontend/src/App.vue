@@ -104,6 +104,7 @@
             @open-gallery="openGallery"
             @delete-part="openDeletePartModal"
             @refresh-data="fetchParts"
+            @download-template="downloadPartsTemplate"
           />
           <ClientsView 
             v-else-if="activeTab === 'clients' && hasPermission('clients:view')"
@@ -573,7 +574,7 @@ const {
 
 // 画廊与导出
 const { galleryModalVisible, currentGalleryImages, currentGalleryIndex, openGallery, prevGalleryImage, nextGalleryImage } = useGallery()
-const { exportTransactionsExcel, exportPartsExcel, exportClientsExcel, downloadDatabaseBackup } = useExports()
+const { exportTransactionsExcel, exportPartsExcel, exportClientsExcel, downloadDatabaseBackup, downloadPartsTemplate } = useExports()
 const { currentDateTime } = useClock()
 
 // 翻译计算属性 (供全局和部分操作提示使用)
