@@ -145,8 +145,9 @@ const groupedMenuItems = computed(() => {
         { key: 'clients', icon: Users, requiredPerm: 'clients:view' },
         { key: 'procurement', icon: ShoppingCart, requiredPerm: 'procurement:view' },
         { key: 'transactions', icon: History, requiredPerm: 'transactions:history' },
-        { key: 'desk', icon: Calculator, requiredPerm: 'pos:access' },
-        { key: 'quotations', labelKey: 'quotations', icon: FileText, requiredPerm: 'pos:access' },
+        { key: 'pos', icon: Calculator, requiredPerm: 'pos:access' }, // 快速收银
+        { key: 'quotation', labelKey: 'quotation', icon: FileText, requiredPerm: 'pos:access' }, // 开单报价
+        { key: 'quotations', labelKey: 'quotations', icon: History, requiredPerm: 'pos:access' }, // 历史报价
         { key: 'cash_register', labelKey: 'cashRegister', icon: FileText, requiredPerm: 'shift:report' },
       ]
     },

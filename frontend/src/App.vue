@@ -8,7 +8,7 @@
     <div v-else class="flex flex-col md:flex-row h-full w-full overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
       
       <Sidebar 
-        v-if="activeTab !== 'desk'"
+        v-if="activeTab !== 'pos'"
         :activeTab="activeTab" 
         :mobileMenuOpen="mobileMenuOpen"
         :currentDateTime="currentDateTime"
@@ -21,7 +21,7 @@
       <!-- 右侧主工作区 -->
       <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
         
-        <header v-if="activeTab !== 'desk'" class="h-16 bg-white/75 dark:bg-slate-900/75 backdrop-blur-xl border-b border-white/60 dark:border-slate-800 px-6 flex items-center justify-between shrink-0 shadow-xs transition-all">
+        <header v-if="activeTab !== 'pos'" class="h-16 bg-white/75 dark:bg-slate-900/75 backdrop-blur-xl border-b border-white/60 dark:border-slate-800 px-6 flex items-center justify-between shrink-0 shadow-xs transition-all">
           <div class="flex items-center space-x-4">
             <!-- 移动端菜单按钮 (保留) -->
             <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden p-2 text-slate-600 hover:bg-blue-50/90 rounded-2xl transition-colors cursor-pointer">
@@ -129,7 +129,7 @@
             v-else-if="activeTab === 'inventory_audit' && hasPermission('parts:manage')" 
           />
           
-          <!-- 🌟 挂载报价单列表 -->
+          <!-- 挂载报价单列表 -->
           <QuotationListView 
             v-else-if="activeTab === 'quotations' && hasPermission('pos:access')"
             @convert-to-pos="handleConvertToPos"
@@ -137,8 +137,9 @@
             @show-toast="(msg, type) => showSuccessModal(msg)"
           />
 
-          <QuotationDeskView 
-            v-else-if="activeTab === 'desk' && hasPermission('pos:access')"
+          <!-- 🌟 新拆分出来的：纯收银页面 -->
+          <PosView 
+            v-else-if="activeTab === 'pos' && hasPermission('pos:access')"
             :partsList="partsList"
             :clientsList="clientsList"
             :cartItems="cartItems"
@@ -151,6 +152,24 @@
             @clear-cart="cartItems = []"
             @refresh-clients="fetchClients"
           />
+
+          <!-- 🌟 新拆分出来的：纯开单报价页面 -->
+          <QuotationView 
+            v-else-if="activeTab === 'quotation' && hasPermission('pos:access')"
+            :partsList="partsList"
+            :clientsList="clientsList"
+            :cartItems="cartItems"
+            :bcvRate="bcvRate"
+            :currentDateTime="currentDateTime"
+            :currentUser="currentUserObj"
+            @add-to-cart="addToCart"
+            @generate-quote="fetchTransactions(); fetchParts(); fetchDashboardStats(); fetchClients()"
+            @exit-pos="handleExitPos" 
+            @clear-cart="cartItems = []"
+            @refresh-clients="fetchClients"
+          />
+
+          <!-- 🌟 这里就是你误删的 BackupView，现在补回来 -->
           <BackupView 
             v-else-if="activeTab === 'backup' && hasPermission('settings:manage')"
             @export-parts="exportPartsExcel"
@@ -158,21 +177,6 @@
             @export-clients="exportClientsExcel"
             @download-db="downloadDatabaseBackup"
           />
-          
-          <div v-else class="bg-white p-12 rounded-3xl text-center space-y-4 border border-slate-200 max-w-lg mx-auto mt-12 shadow-sm">
-            <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl mx-auto flex items-center justify-center text-3xl font-bold shadow-inner">
-              ✨
-            </div>
-            <div class="space-y-1">
-              <h3 class="font-bold text-lg text-slate-900">{{ tExt.welcomeUser }}，{{ currentUserObj.username }}</h3>
-              <p class="text-xs text-slate-500">
-                {{ tExt.noPermissionMsg1 }}<strong class="uppercase text-blue-600">{{ currentUserObj.role }}</strong>{{ tExt.noPermissionMsg2 }}
-              </p>
-            </div>
-            <button @click="activeTab = getDefaultAllowedTab()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer">
-              {{ tExt.goToWorkspace }}
-            </button>
-          </div>
         </main>
       </div>
 
@@ -506,7 +510,8 @@ const FinancialView = defineAsyncComponent(() => import('./components/FinancialV
 const PartsView = defineAsyncComponent(() => import('./components/PartsView.vue'))
 const ClientsView = defineAsyncComponent(() => import('./components/ClientsView.vue'))
 const TransactionsView = defineAsyncComponent(() => import('./components/TransactionsView.vue'))
-const QuotationDeskView = defineAsyncComponent(() => import('./components/QuotationDeskView.vue'))
+const PosView = defineAsyncComponent(() => import('./components/PosView.vue'))
+const QuotationView = defineAsyncComponent(() => import('./components/QuotationView.vue'))
 const BackupView = defineAsyncComponent(() => import('./components/BackupView.vue'))
 const AuditLogsView = defineAsyncComponent(() => import('./components/AuditLogsView.vue'))
 const PurchaseOrdersView = defineAsyncComponent(() => import('./components/ProcurementCenterView.vue'))
@@ -654,7 +659,7 @@ const checkAndSwitchTab = (tab) => {
 
 const handleMenuClick = (key) => {
   if (key === 'dashboard') fetchDashboardStats()
-  if (key === 'clients' || key === 'desk') fetchClients()
+  if (key === 'clients' || key === 'pos') fetchClients()
   if (key === 'quotations') fetchQuotations()
 }
 

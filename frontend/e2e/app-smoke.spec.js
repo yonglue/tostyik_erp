@@ -57,13 +57,33 @@ test('侧边栏能切换 tab 且激活状态正确', async ({ page }) => {
 test('主题能在 light / dark 间切换', async ({ page }) => {
   await login(page)
 
-  // 切到黑夜模式 (假设 html 标签会加上 class="dark")
-  const darkBtn = page.locator('[data-testid="theme-dark"]')
-  await darkBtn.click()
+  // 现在的主题切换器只有一个按钮，我们通过 aria-label 或 class 来定位它
+  const themeBtn = page.locator('button[title*="点击切换"]')
+  
+  // 1. 强行切到深色模式
+  // 因为它是循环的（Light -> Dark -> System），我们点两次确保到达 Dark
+  // 或者直接判断 html 是否有了 dark 类
+  await themeBtn.click() // 可能到了 dark
+  await themeBtn.click() // 可能到了 system
+  
+  // 最好写个循环直到变成 dark（防止初始状态不是 light）
+  // 简单点，直接看 html 元素有没有 dark 类
+  for (let i = 0; i < 3; i++) {
+    const isDark = await page.locator('html').evaluate(el => el.classList.contains('dark'))
+    if (isDark) break
+    await themeBtn.click()
+  }
+  
   await expect(page.locator('html')).toHaveClass(/dark/)
 
-  // 切回白天模式 (html 标签移除 dark)
-  const lightBtn = page.locator('[data-testid="theme-light"]')
-  await lightBtn.click()
+  // 2. 继续点击，切回白天模式 (直到 class 里没有 dark)
+  for (let i = 0; i < 3; i++) {
+    const isDark = await page.locator('html').evaluate(el => el.classList.contains('dark'))
+    if (!isDark) break
+    await themeBtn.click()
+  }
+  
   await expect(page.locator('html')).not.toHaveClass(/dark/)
 })
+
+
