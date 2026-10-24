@@ -121,6 +121,7 @@ feat(api): global error interception and request_id idempotency
 fix(suppliers): 重建 suppliers 表修正 server_default（旧迁移写入 0/0.0）
 fix(alembic): 重建可信迁移链并加固启动迁移失败处理
 fix(purchase_orders): 供应商增改删权限从 procurement:view 收紧为 manage
+refactor(ui): split POS and Quotation views, fix cart clearing bug, and add E2E tests
 ```
 
 
@@ -151,3 +152,16 @@ git commit -m "feat(ui): add client store_name split, unified pagination, and au
 ### 4. 遗留技术债彻底清空 (2026-10-24)
 - **修复 Alembic 瞎眼问题**：在 `alembic/env.py` 中补上了缺失的 `import app.models`。现在 `alembic autogenerate` 已完全恢复正常，并且测试确认当前数据库与模型零漂移。
 - **验证表结构完整性**：确认 `suppliers` 表重建后，`ix_suppliers_name` 唯一索引仍然完好无损。
+
+
+
+
+
+### 4. 核心页面架构拆分与 E2E 深度测试 (2026-10-24)
+- **彻底拆分 POS 与报价**：将原本混合了收银与报价的“缝合怪”页面，重构为两个完全独立的页面：
+  - `PosView.vue`（快速收银）：纯净的现金/刷卡/Pago Movil 结账界面，不含挂账功能。
+  - `QuotationView.vue`（开单报价）：专门处理生成报价单 PDF 和全单挂账（Fiado）。
+  - 同步更新了 `App.vue` 的异步路由和 `Sidebar.vue` 的菜单项，并补齐了 `pos` 和 `quotation` 的多语言配置。
+- **权限静默失败修复**：在 `SuppliersView.vue` 中，利用 `usePermissions` 对“新建/编辑/删除”按钮进行了 `v-if` 级别的隐藏，彻底解决了越权访问引发的全局 403 弹窗冲突。
+- **E2E 业务防弹衣**：新增了 `pos-quote.spec.js` 测试文件，通过 `data-testid` 精准定位，覆盖了“快速收银成功清空购物车”和“报价挂账成功清空购物车”两个核心业务闭环。
+- **顺手修复的隐藏 Bug**：在编写 E2E 测试时，意外抓出并修复了“结账/挂账成功后，前端未清空购物车”的真实 Bug（通过 `props.cartItems.splice(0)` 强制执行）。
