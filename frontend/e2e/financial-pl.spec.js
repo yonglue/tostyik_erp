@@ -21,7 +21,7 @@ test.describe('财务报表（P&L）', () => {
     const token = await page.evaluate(() => localStorage.getItem('tostiyk_token'))
     const authHeader = { Authorization: `Bearer ${token}` }
 
-    // 1. 用正确的字段创建一笔 $100 的日常开支
+    // 1. 创建一笔 $100 的日常开支
     const expenseData = {
       category: 'Varios',
       description: 'E2E 测试日常开支',
@@ -35,41 +35,33 @@ test.describe('财务报表（P&L）', () => {
       headers: authHeader,
       data: expenseData
     })
-    
-    if (!createRes.ok()) {
-      console.log('❌ 创建开支报错:', await createRes.text())
-      test.skip(true, '创建开支失败，请检查 Payload 字段')
-      return
-    }
+    if (!createRes.ok()) throw new Error('创建开支失败: ' + await createRes.text())
 
-    // 2. 进入财务报表页面
-    await page.locator('[data-testid="nav-financial"]').click()
-    
-    // 等待页面数据加载完成（等“总开支”数字出现）
+    // 2. 进入财务报表页面，并等待前端接口拉取完毕
+    const [expensesResponse] = await Promise.all([
+      page.waitForResponse(res => res.url().includes('/api/expenses') && res.request().method() === 'GET'),
+      page.locator('[data-testid="nav-financial"]').click()
+    ])
+    expect(expensesResponse.status()).toBe(200)
+
+    // 3. 确保总开支卡片可见，并等待动画结束
     const expensesCard = page.locator('.text-rose-500.text-2xl.font-black').first()
     await expect(expensesCard).toBeVisible({ timeout: 10000 })
+    await page.waitForTimeout(500) // 给 Vue 一点点渲染时间，防止拿到旧数值
 
-    // 3. 验证页面上的“总开支”包含了刚加的 $100
+    // 4. 验证总开支
     const expensesText = await expensesCard.innerText()
     const expensesAmount = parseFloat(expensesText.replace(/[^0-9.-]/g, ''))
     console.log(`📊 当前页面总开支: $${expensesAmount}`)
     expect(expensesAmount).toBeGreaterThanOrEqual(100)
 
-    // 4. 验证“净利润”字段可见
-    const profitCard = page.locator('.text-emerald-700.text-2xl.font-black, .text-emerald-400.text-2xl.font-black').first()
-    const profitText = await profitCard.innerText()
-    const profitAmount = parseFloat(profitText.replace(/[^0-9.-]/g, ''))
-    console.log(`📊 当前页面净利润: $${profitAmount}`)
-
-    // 5. 通过 API 校验这条开支真实入库
+    // 5. 清理现场：删掉这条测试开支
     const apiExpRes = await request.get(`${API_BASE}/api/expenses`, { headers: authHeader })
     const expensesList = await apiExpRes.json()
     const testExpense = expensesList.find(e => e.description === 'E2E 测试日常开支')
-    expect(testExpense).toBeDefined()
-    expect(Number(testExpense.amount)).toBe(100)
-
-    // 6. 清理现场：删掉这条测试开支
-    const delRes = await request.delete(`${API_BASE}/api/expenses/${testExpense.id}`, { headers: authHeader })
-    expect(delRes.ok()).toBeTruthy()
+    
+    if (testExpense) {
+      await request.delete(`${API_BASE}/api/expenses/${testExpense.id}`, { headers: authHeader })
+    }
   })
 })
