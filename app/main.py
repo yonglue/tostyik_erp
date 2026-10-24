@@ -13,6 +13,7 @@ from app.config import AUTO_CREATE_TABLES, STRICT_MIGRATION
 
 from app.routers import backup  # 🌟 导入备份路由
 from app.services.backup import auto_backup_task  # 🌟 导入自动备份定时任务
+from app.services.housekeeping import cleanup_old_backups
 import asyncio # 如果没导入的话
 
 from fastapi import FastAPI
@@ -54,6 +55,7 @@ from app.security import hash_password, verify_password
 from app.startup_checks import config_warnings, report
 from app.routers import staff
 from app.routers import expenses
+
 
 
 
@@ -119,11 +121,16 @@ def bootstrap() -> None:
                 ".venv/bin/python scripts/set_admin_password.py"
             )
 
+    # 🌟 每次启动时，自动清理一次旧备份
+    cleanup_old_backups(retention_days=30)
+    
+    report(warnings)
     report(warnings)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+
     bootstrap()
     yield
 
