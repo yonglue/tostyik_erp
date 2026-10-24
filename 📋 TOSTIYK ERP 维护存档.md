@@ -142,3 +142,12 @@ git commit -m "feat(ui): add client store_name split, unified pagination, and au
 - Relax phone and RIF regex validations.
 - Add full pagination for Clients, Audit Logs, and Inventory Audit views.
 - Apply global dark mode patches to ClientsView and AuditLogsView."
+```
+
+
+
+
+
+### 4. 遗留技术债彻底清空 (2026-10-24)
+- **修复 Alembic 瞎眼问题**：在 `alembic/env.py` 中补上了缺失的 `import app.models`。现在 `alembic autogenerate` 已完全恢复正常，并且测试确认当前数据库与模型零漂移。
+- **验证表结构完整性**：确认 `suppliers` 表重建后，`ix_suppliers_name` 唯一索引仍然完好无损。

@@ -7,6 +7,7 @@
       <!-- 右上角语言切换器 -->
       <div class="absolute top-6 right-6">
         <select v-model="currentLang" class="bg-slate-100 border border-slate-200 text-xs rounded-lg px-2.5 py-1.5 outline-none font-semibold text-slate-700 cursor-pointer focus:border-blue-500 transition-colors">
+          <!-- 语言选项 -->
           <option value="es">🇪🇸 ES</option>
           <option value="zh">🇨🇳 中文</option>
           <option value="en">🇺🇸 EN</option>
@@ -74,6 +75,10 @@ const {
   handleLogin, openResetModal
 } = useAuth()
 
+/**
+ * 计算函数：用于获取国际化文案
+ * @returns {Object} - 文案对象
+ */
 const tExt = computed(() => {
   const isZh = currentLang.value === 'zh'
   const isEs = currentLang.value === 'es'
@@ -87,8 +92,14 @@ const tExt = computed(() => {
   }
 })
 
+/**
+ * ref：用户名输入框
+ */
 const usernameInputRef = ref(null)
 
+/**
+ * mounted 钩子函数：使用户名输入框自动聚焦
+ */
 onMounted(async () => {
   await nextTick()
   if (usernameInputRef.value) {
