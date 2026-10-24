@@ -14,20 +14,16 @@ from app.services.audit import log_action
 
 router = APIRouter(tags=["客户"])
 
-# 🌟 辅助函数：从本地配置读取当前手动汇率
-import os
-import json
-from app.config import DB_PATH
-SETTINGS_FILE = os.path.join(os.path.dirname(DB_PATH), "system_settings.json")
+from app.services.config_service import get_system_settings
 
 def get_local_rate() -> float:
+    """从数据库获取当前汇率（取代原来的 JSON 读取）"""
     try:
-        if os.path.exists(SETTINGS_FILE):
-            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-                return float(json.load(f).get("bcv_rate", 36.50))
-    except Exception:
-        pass
-    return 36.50
+        settings = get_system_settings()
+        return float(settings.bcv_rate)
+    except Exception as e:
+        print(f"⚠️ 从数据库读取汇率失败，使用兜底汇率 36.50: {e}")
+        return 36.50
 
 @router.get("/api/clients", response_model=list[Client])
 def get_clients(

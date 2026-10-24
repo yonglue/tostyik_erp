@@ -1,19 +1,17 @@
 """服务端权威汇率（全项目唯一入口）。
 任何把 Bs 折算成 USD 的业务，都只能调用此模块，绝不采信客户端传来的 exchange_rate。
 """
-
 from __future__ import annotations
 
-import json
 import threading
 import time
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 
-from app.config import BASE_DIR, DEFAULT_BCV_RATE
+from app.config import DEFAULT_BCV_RATE
 from app.services.bcv import get_official_rate
+from app.services.config_service import get_system_settings
 
-SETTINGS_PATH = BASE_DIR / "system_settings.json"
 CACHE_TTL_SECONDS = 300
 
 _HARD_CURRENCIES = {"USD", "USDT"}
@@ -31,11 +29,13 @@ class RateSnapshot:
 
 
 def _manual_rate() -> Decimal | None:
+    """从数据库获取手动配置的汇率"""
     try:
-        data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
-        rate = Decimal(str(data.get("bcv_rate", 0)))
+        settings = get_system_settings()
+        rate = Decimal(str(settings.bcv_rate))
         return rate if rate > 0 else None
-    except Exception:
+    except Exception as e:
+        print(f"⚠️ 读取数据库汇率失败，将使用在线/兜底汇率: {e}")
         return None
 
 
@@ -49,7 +49,8 @@ def get_effective_rate(force_refresh: bool = False) -> RateSnapshot:
 
     manual = _manual_rate()
     if manual is not None:
-        snapshot = RateSnapshot(manual.quantize(Decimal("0.0001")), "system_settings.json")
+        # 🌟 来源改成明确的 database_settings
+        snapshot = RateSnapshot(manual.quantize(Decimal("0.0001")), "database_settings")
     else:
         official = Decimal(str(get_official_rate())).quantize(Decimal("0.0001"))
         fallback = Decimal(str(DEFAULT_BCV_RATE)).quantize(Decimal("0.0001"))

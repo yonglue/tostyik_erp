@@ -150,3 +150,99 @@ def test_purchase_receive_requires_brand_when_oem_has_multiple_brands():
 
 # ══════════════════ 保留你原有的其他测试用例 ══════════════════
 # (请确保在这行下面粘贴你原有的 test_staff_creation_and_audit_logging 等等测试用例)
+
+# ==============================================================================
+# 追加的进阶测试：多币种汇率精度与 POS 信用额度边界
+# ==============================================================================
+from decimal import Decimal, ROUND_HALF_UP
+from app.services.fx import to_usd
+from app.models import Client, AutoPart # 确保已导入
+
+def test_fx_to_usd_precision():
+    """测试多币种折算精度，确保四舍五入严格保留两位小数，无浮点污染"""
+    # 1. 测试美元精度（模拟前端传入浮点数 10.005）
+    usd_amt, _ = to_usd(10.005, "USD")
+    assert isinstance(usd_amt, Decimal)
+    assert usd_amt == Decimal("10.01") # ROUND_HALF_UP 四舍五入
+
+    # 2. 测试玻利瓦尔精度（假设汇率为 36.50）
+    # 我们强行 mock 一下汇率，防止真实汇率变化导致测试失败
+    from unittest.mock import patch
+    from app.services.fx import RateSnapshot
+    
+    mock_snapshot = RateSnapshot(rate=Decimal("36.50"), source="test")
+    with patch("app.services.fx.get_effective_rate", return_value=mock_snapshot):
+        bs_amt, _ = to_usd(365.00, "BS")
+        assert bs_amt == Decimal("10.00")
+        
+        # 测试最恶心的浮点边界：365.0001 / 36.50
+        bs_amt_2, _ = to_usd(365.0001, "BS")
+        assert bs_amt_2 == Decimal("10.00")
+
+def test_pos_credit_limit_boundary():
+    """测试挂账时，信用额度的极限边界拦截是否绝对精确"""
+    with Session(test_engine) as session:
+        # 创建一个专用测试客户，信用额度设为 100.00 美元
+        test_client = Client(
+            name="Credit Boundary Test Client",
+            debt=0.0,
+            credit_limit=100.0
+        )
+        session.add(test_client)
+        
+        # 创建一个测试商品，确保库存足够
+        test_part = AutoPart(
+            oem="TEST-CREDIT-001", 
+            name="Test Part", 
+            brand="TEST", 
+            stock=100, 
+            price=100.00, 
+            tax_rate=0.0
+        )
+        session.add(test_part)
+        session.commit()
+        session.refresh(test_client)
+        session.refresh(test_part)
+        
+        client_id = test_client.id
+        part_id = test_part.oem
+
+    # 使用 TestClient 模拟前端发起 POS 挂账请求
+    with TestClient(app) as client:
+        # 订单 1：正好花光 100.00 额度 (单价 100 * 数量 1)，不超限，应该成功
+        payload1 = {
+            "client_id": client_id,
+            "payment_method": "Fiado_USD", # 挂账
+            "bcv_rate": 36.50,
+            "igtf_amount": 0,
+            "request_id": "req-credit-test-1",
+            "items": [{"oem": part_id, "name": "Test Part", "quantity": 1, "price": 100.00}]
+        }
+        res1 = client.post("/api/pos/orders", json=payload1, headers=AUTH_ADMIN)
+        assert res1.status_code == 200, f"首次挂账失败: {res1.json()}"
+        
+        # 验证客户欠款是否精确等于 100.00
+        with Session(test_engine) as session:
+            c = session.get(Client, client_id)
+            assert c.debt == 100.0
+
+        # 订单 2：再买哪怕 0.01 美元，也会超出额度，应该被 400 拦截
+        payload2 = {
+            "client_id": client_id,
+            "payment_method": "Fiado_USD",
+            "bcv_rate": 36.50,
+            "igtf_amount": 0,
+            "request_id": "req-credit-test-2",
+            "items": [{"oem": part_id, "name": "Test Part", "quantity": 1, "price": 0.01}]
+        }
+        res2 = client.post("/api/pos/orders", json=payload2, headers=AUTH_ADMIN)
+        
+        # 期望：HTTP 400 Bad Request，且错误信息包含“超出客户信用额度”
+        assert res2.status_code == 400
+        assert "超出客户信用额度" in res2.json()["detail"]
+
+        # 清理测试数据，防止污染下次测试
+        with Session(test_engine) as session:
+            session.delete(session.get(Client, client_id))
+            session.delete(session.get(AutoPart, test_part.id))
+            session.commit()

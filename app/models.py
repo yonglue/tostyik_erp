@@ -327,6 +327,16 @@ class SupplierPaymentRecord(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
+class SystemSettings(SQLModel, table=True):
+    __tablename__ = "system_settings"
+    
+    id: int = Field(default=1, primary_key=True) # 强制单行表
+    company_name: str = Field(default="TOSTIYK (TK) - AUTOPARTES VENEZUELA")
+    rif: str = Field(default="J-00000000-0")
+    address: str = Field(default="Valera, Estado Trujillo, Venezuela")
+    phone: str = Field(default="+58 412-0000000")
+    email: str = Field(default="tostiyk.ventas@gmail.com")
+    bcv_rate: float = Field(default=36.50)
 
 
 __all__ = [
@@ -346,4 +356,8 @@ __all__ = [
     "AuditLog",
     "HeldOrder",
     "Expense",
+    "SystemSettings",
 ]
+
+
+
