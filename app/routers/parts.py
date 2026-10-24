@@ -303,12 +303,15 @@ def audit_inventory(
 ):
     """接收前端提交的盘点单，比对系统库存并生成损益流水"""
     changed_count = 0
-    
-    # 🌟 新增：生成全局唯一的批次号，并获取当前操作人
     batch_no = f"AUDIT-{datetime.now().strftime('%Y%m%d%H%M%S')}"
     operator = actor.username
-    
+    audit_logs = [] # 🌟 收集日志，避免在循环内 commit 导致事务断裂
+
     for item in payload.items:
+        # 🌟 新增：防御性校验，防止非法入参
+        if item.actual_stock < 0:
+            raise HTTPException(status_code=400, detail=f"商品 ID {item.part_id} 的实盘数量不能为负数")
+
         part = session.get(AutoPart, item.part_id)
         if not part:
             continue
@@ -329,26 +332,30 @@ def audit_inventory(
             quantity=abs(diff),
             unit_price=part.cost_price or 0.0,
             total_amount=abs(diff) * (part.cost_price or 0.0),
-            # 🌟 核心修改：写入批次号和操作人
             customer_or_supplier=f"库存盘点调整|{batch_no}|{operator}",
             timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         )
         session.add(tx)
         changed_count += 1
         
+        audit_logs.append(
+            f"盘点调整(批次:{batch_no}): {part.name}(OEM:{part.oem}) 原库存:{old_stock} -> 实盘:{item.actual_stock}，原因:{item.reason or '未填'}"
+        )
+        
+    # 🌟 1. 先原子提交所有库存和流水变更
+    session.commit()
+    
+    # 🌟 2. 主业务成功后，再统一写审计日志
+    for log_detail in audit_logs:
         log_action(
             session=session,
             username=actor.username,
             role=actor.role,
             action="UPDATE_STOCK",
-            details=f"盘点调整(批次:{batch_no}): {part.name}(OEM:{part.oem}) 原库存:{old_stock} -> 实盘:{item.actual_stock}，原因:{item.reason}"
+            details=log_detail
         )
-        
-    session.commit()
+
     return {"status": "success", "message": f"盘点完成，共调整了 {changed_count} 个商品库存"}
-
-
-
 
 
 

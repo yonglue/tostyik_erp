@@ -459,7 +459,9 @@ const fetchHistory = async () => {
   try {
     const res = await apiFetch('/api/transactions')
     if (res.ok) {
-      const allTxs = await res.json()
+      const data = await res.json()
+      // 🌟 兼容后端分页结构 {items: [...]}
+      const allTxs = Array.isArray(data) ? data : (data.items || [])
       historyList.value = allTxs.filter(tx => tx.customer_or_supplier?.includes('库存盘点调整'))
     }
   } catch (e) {
