@@ -17,6 +17,7 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
+import app.models
 from app.models import SQLModel  # 引入你的 SQLModel 基类
 from app.config import DATABASE_URL # 引入你的数据库地址
 
