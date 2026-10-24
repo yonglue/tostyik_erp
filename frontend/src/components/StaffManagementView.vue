@@ -3,45 +3,45 @@
   <div class="space-y-6 max-w-11xl mx-auto pb-12">
     
     <!-- 顶部标题栏 -->
-    <div class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80 flex items-center justify-between">
+    <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xs border border-slate-200/80 dark:border-slate-700 flex items-center justify-between transition-colors">
       <div>
-        <h2 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+        <h2 class="font-bold text-lg text-slate-800 dark:text-slate-200 flex items-center gap-2">
           <span>👥</span> {{ t.staff.title }}
         </h2>
-        <p class="text-xs text-slate-500 mt-1">{{ t.staff.subtitle }}</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ t.staff.subtitle }}</p>
       </div>
     </div>
 
     <!-- 新增员工表单 -->
-    <form @submit.prevent="handleCreateStaff" class="bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80 space-y-6">
-      <h3 class="font-bold text-sm text-slate-700 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+    <form @submit.prevent="handleCreateStaff" class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xs border border-slate-200/80 dark:border-slate-700 space-y-6 transition-colors">
+      <h3 class="font-bold text-sm text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
         <span>➕</span> {{ t.staff.addTitle }}
       </h3>
       
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1.5">{{ t.staff.usernameLabel }}</label>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{{ t.staff.usernameLabel }}</label>
           <input 
             v-model="newStaff.username" 
             type="text" 
             autocomplete="off" 
             :placeholder="tExt.phUsername" 
-            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:bg-white transition-all font-mono" 
+            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:bg-white dark:focus:bg-slate-900 transition-all font-mono placeholder:text-slate-400 dark:placeholder:text-slate-500" 
           />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1.5">{{ t.staff.passwordLabel }}</label>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{{ t.staff.passwordLabel }}</label>
           <input 
             v-model="newStaff.password" 
             type="password" 
             autocomplete="new-password" 
             placeholder="••••••••" 
-            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:bg-white transition-all font-mono" 
+            class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:bg-white dark:focus:bg-slate-900 transition-all font-mono placeholder:text-slate-400 dark:placeholder:text-slate-500" 
           />
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1.5">{{ t.staff.roleLabel }}</label>
-          <select v-model="newStaff.role" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:bg-white transition-all cursor-pointer font-semibold text-slate-700">
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{{ t.staff.roleLabel }}</label>
+          <select v-model="newStaff.role" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:bg-white dark:focus:bg-slate-900 transition-all cursor-pointer font-semibold">
             <option v-for="role in roleOptions" :key="role.value" :value="role.value">
               {{ role.label }}
             </option>
@@ -51,18 +51,18 @@
 
       <!-- 权限矩阵 -->
       <div class="space-y-4 pt-2">
-        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
           <span>🛡️</span> {{ t.staff.colPermissions }}
         </label>
         
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          <div v-for="group in permissionGroups" :key="group.title" class="bg-slate-50/50 border border-slate-200/80 rounded-2xl p-4 space-y-3 shadow-2xs hover:shadow-sm transition-all">
-            <div class="flex items-center justify-between border-b border-slate-200/60 pb-2">
-              <span class="text-xs font-black text-slate-800">{{ group.title }}</span>
+          <div v-for="group in permissionGroups" :key="group.title" class="bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-700 rounded-2xl p-4 space-y-3 shadow-2xs hover:shadow-sm transition-all">
+            <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-700 pb-2">
+              <span class="text-xs font-black text-slate-800 dark:text-slate-200">{{ group.title }}</span>
               <button 
                 type="button" 
                 @click="toggleGroup(group.permissions)" 
-                class="text-[10px] text-blue-600 hover:text-blue-800 hover:underline font-bold cursor-pointer"
+                class="text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-bold cursor-pointer transition-colors"
               >
                 {{ isGroupAllSelected(group.permissions) ? t.common.clearAll : t.common.selectAll }}
               </button>
@@ -71,15 +71,15 @@
               <label 
                 v-for="p in group.permissions" 
                 :key="p.key" 
-                class="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer select-none group"
+                class="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none group"
               >
                 <input 
                   type="checkbox" 
                   :checked="newStaff.permissions.includes(p.key)"
                   @change="(e) => handleCheckboxChange(p.key, e.target.checked)"
-                  class="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer transition-all" 
+                  class="mt-0.5 rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer transition-all" 
                 />
-                <span class="font-medium group-hover:text-blue-700 transition-colors leading-tight">{{ p.label }}</span>
+                <span class="font-medium group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors leading-tight">{{ p.label }}</span>
               </label>
             </div>
           </div>
@@ -87,12 +87,12 @@
       </div>
 
       <!-- 提交操作 -->
-      <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+      <div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-700">
         <div>
-          <p v-if="errorMessage" class="text-xs font-semibold text-rose-600 flex items-center gap-1">
+          <p v-if="errorMessage" class="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
             <span>❌</span> {{ errorMessage }}
           </p>
-          <p v-if="successMessage" class="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+          <p v-if="successMessage" class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
             <span>✅</span> {{ successMessage }}
           </p>
         </div>
@@ -103,14 +103,14 @@
     </form>
 
     <!-- 员工列表 -->
-    <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
-      <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-        <h3 class="font-bold text-sm text-slate-700">{{ t.staff.listTitle }}</h3>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-200/80 dark:border-slate-700 overflow-hidden transition-colors">
+      <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
+        <h3 class="font-bold text-sm text-slate-700 dark:text-slate-300">{{ t.staff.listTitle }}</h3>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-left border-collapse min-w-[700px]">
           <thead>
-            <tr class="bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <tr class="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               <th class="px-6 py-3 w-16">{{ t.staff.colId }}</th>
               <th class="px-6 py-3">{{ t.staff.colUser }}</th>
               <th class="px-6 py-3">{{ t.staff.colRole }}</th>
@@ -119,10 +119,10 @@
               <th class="px-6 py-3 text-right">{{ t.common.actions }}</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100 text-xs">
-            <tr v-for="s in staffList" :key="s.id" class="hover:bg-blue-50/30 transition-colors">
-              <td class="px-6 py-4 font-mono text-slate-400">#{{ s.id }}</td>
-              <td class="px-6 py-4 font-bold text-slate-800 text-sm">{{ s.username }}</td>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-700 text-xs">
+            <tr v-for="s in staffList" :key="s.id" class="hover:bg-blue-50/30 dark:hover:bg-slate-700/50 transition-colors">
+              <td class="px-6 py-4 font-mono text-slate-400 dark:text-slate-500">#{{ s.id }}</td>
+              <td class="px-6 py-4 font-bold text-slate-800 dark:text-slate-200 text-sm">{{ s.username }}</td>
               <td class="px-6 py-4">
                 <span 
                   class="px-2.5 py-1 rounded-lg font-bold text-[10px] border"
@@ -132,19 +132,19 @@
                 </span>
               </td>
               <td class="px-6 py-4">
-                <span class="inline-flex items-center gap-1 text-[11px] font-mono font-semibold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-md">
+                <span class="inline-flex items-center gap-1 text-[11px] font-mono font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 px-2.5 py-1 rounded-md">
                   <span>🔑</span> {{ s.permissions ? s.permissions.length : 0 }} {{ t.staff.permissionCount }}
                 </span>
               </td>
-              <td class="px-6 py-4 font-mono text-slate-500">{{ s.created_at }}</td>
+              <td class="px-6 py-4 font-mono text-slate-500 dark:text-slate-400">{{ s.created_at }}</td>
               <td class="px-6 py-4 text-right">
-                <button @click="openDeleteStaffModal(s)" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-100 rounded-lg font-bold transition-colors cursor-pointer">
+                <button @click="openDeleteStaffModal(s)" class="px-3 py-1.5 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800 rounded-lg font-bold transition-colors cursor-pointer">
                   {{ t.common.delete }}
                 </button>
               </td>
             </tr>
             <tr v-if="staffList.length === 0">
-              <td colspan="6" class="px-6 py-12 text-center text-slate-400">
+              <td colspan="6" class="px-6 py-12 text-center text-slate-400 dark:text-slate-500">
                 <span class="text-3xl block mb-2">📭</span>
                 {{ t.staff.empty }}
               </td>
@@ -262,10 +262,10 @@ const getRoleLabel = (roleVal) => {
 }
 
 const getRoleColorClass = (roleVal) => {
-  if (roleVal === 'cashier') return 'bg-amber-50 text-amber-700 border-amber-200'
-  if (roleVal === 'warehouse') return 'bg-emerald-50 text-emerald-700 border-emerald-200'
-  if (roleVal === 'manager') return 'bg-purple-50 text-purple-700 border-purple-200'
-  return 'bg-blue-50 text-blue-700 border-blue-200'
+  if (roleVal === 'cashier') return 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+  if (roleVal === 'warehouse') return 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+  if (roleVal === 'manager') return 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800'
+  return 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800'
 }
 
 const newStaff = ref({ 
@@ -385,4 +385,4 @@ const confirmDeleteStaff = async () => {
 onMounted(() => {
   fetchStaff()
 })
-</script> 
+</script>
