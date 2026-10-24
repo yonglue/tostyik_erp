@@ -47,12 +47,55 @@ def _resolve_part_by_oem(session: Session, oem: str) -> AutoPart:
 
 
 # 🌟 加锁：必须拥有查看历史流水的权限
-@router.get("/api/transactions", response_model=List[InventoryTransaction])
+@router.get("/api/transactions")
 def get_transactions(
+    page: int = 1,
+    page_size: int = 20,
+    tx_type: Optional[str] = None,
     session: Session = Depends(get_session),
-    actor: Actor = Depends(RequirePermission("transactions:history"))
+    actor: Actor = Depends(RequirePermission("transactions:history")),
 ):
-    return session.exec(select(InventoryTransaction).order_by(InventoryTransaction.id.desc())).all()
+    # 1) 基础过滤（ALL / OUT / IN）
+    base = select(InventoryTransaction)
+    if tx_type == "OUT":
+        base = base.where(InventoryTransaction.type.in_(["OUT", "REFUND"]))
+    elif tx_type == "IN":
+        base = base.where(InventoryTransaction.type == "IN")
+
+    # 2) 总数（用于分页）
+    total = session.exec(
+        select(func.count()).select_from(base.subquery())
+    ).one()
+
+    # 3) 全量汇总（不受分页/过滤影响，始终返回全部数据的进出总额）
+    summary_rows = session.exec(
+        select(InventoryTransaction.type, func.sum(InventoryTransaction.total_amount))
+        .group_by(InventoryTransaction.type)
+    ).all()
+    summary = {"in_total": 0.0, "out_total": 0.0}
+    for t, s in summary_rows:
+        s = float(s or 0)
+        if t == "IN":
+            summary["in_total"] += s
+        else:  # OUT / REFUND 归入出货
+            summary["out_total"] += s
+
+    # 4) 当前页
+    page = max(1, page)
+    page_size = max(1, min(page_size, 100))
+    items = session.exec(
+        base.order_by(InventoryTransaction.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+    ).all()
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "summary": summary,
+    }
 
 
 # 🌟 加锁：必须拥有管理库存的权限

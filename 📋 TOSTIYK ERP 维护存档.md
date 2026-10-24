@@ -165,3 +165,42 @@ git commit -m "feat(ui): add client store_name split, unified pagination, and au
 - **权限静默失败修复**：在 `SuppliersView.vue` 中，利用 `usePermissions` 对“新建/编辑/删除”按钮进行了 `v-if` 级别的隐藏，彻底解决了越权访问引发的全局 403 弹窗冲突。
 - **E2E 业务防弹衣**：新增了 `pos-quote.spec.js` 测试文件，通过 `data-testid` 精准定位，覆盖了“快速收银成功清空购物车”和“报价挂账成功清空购物车”两个核心业务闭环。
 - **顺手修复的隐藏 Bug**：在编写 E2E 测试时，意外抓出并修复了“结账/挂账成功后，前端未清空购物车”的真实 Bug（通过 `props.cartItems.splice(0)` 强制执行）。
+
+
+
+# 项目上下文：TOSTIYK ERP 全栈重构（接续前文）
+
+你好，我们正在继续开发一个名为 TOSTIYK ERP 的全栈项目。
+技术栈：FastAPI + SQLModel + SQLite + Alembic（后端）；Vue 3 + Vite + Tailwind CSS + Playwright (E2E)（前端）。
+
+## 🏆 已完成的核心基建（勿动，均已通过测试）：
+1. **前后端分离与瘦身**：`App.vue` 大幅瘦身，业务逻辑已抽离到 composables。客户字段拆分了 `store_name`，并放宽了电话/RIF正则。
+2. **核心业务页面拆分**：彻底废弃了原先“缝合怪”式的收银/报价混用页面，拆分为：
+   - `PosView.vue`（快速收银）：纯粹的现金/刷卡结账，不含挂账。
+   - `QuotationView.vue`（开单报价）：处理生成报价单 PDF 和全单挂账。
+3. **后端深度加固**：修复了 `alembic autogenerate` 失效的隐患；把 `system_settings.json` 迁移到了数据库表；增加了 `housekeeping.py` 清理旧备份；统一了金额 `Decimal` 精度。
+4. **前端体验升级**：全局深色模式补丁（覆盖了所有页面的白块）、所有列表页面接入了完整分页、API 层封装了全局错误拦截和 `X-Request-Id` 幂等。
+5. **E2E 防弹衣**：已配置 Playwright，`app-smoke.spec.js` (3个) 和 `pos-quote.spec.js` (2个) 共 5 个核心用例全绿，使用了 `data-testid` 避免多语言干扰。
+
+## 当前 Git 状态：
+最新代码已全部提交，工作区干净。
+
+## 🚨 本次对话的初始状态与下一步方向：
+历史遗留的 P0 雷区（Alembic、索引缺失、JSON配置）已全部清零。
+用户刚刚要求处理了一个路由白屏的 Bug，并增加了兜底提示。
+
+## 你（AI）现在的第一个任务：
+请先向用户确认一下，接下来想优先做哪个方向的优化（或者用户有其他想做的业务）：
+- **方向 A（前端打磨）**：为更多未覆盖的页面补齐深色模式；或优化某些列表（如 TransactionsView）的分页。
+- **方向 B（业务功能）**：增加后端自动化测试（如库存盘点、采购入库）。
+- **方向 C（系统运维）**：解决剩余的小问题，比如设置一些定时任务，或者清理未使用的冗余代码。
+
+## 工作规范：
+1. 一步一步来，我每跑完一步都会把终端或浏览器结果贴给你。
+2. 给代码时请精准定位，如果太长请告诉我如何局部修改，或直接提供完整组件。
+3. 每次改动核心页面后，必须提醒我跑 `npm run build` 和 Playwright 测试。
+
+
+
+
+
