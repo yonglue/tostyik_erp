@@ -121,9 +121,12 @@
           <TransactionsView 
             v-else-if="activeTab === 'transactions' && hasPermission('transactions:history')"
             :transactionsList="transactionsList"
+            :meta="transactionsMeta"
             @export-transactions="exportTransactionsExcel"
             @open-tx-modal="txDialogVisible = true"
             @delete-tx="openDeleteTxModal"
+            @change-tab="onTransactionsChangeTab"
+            @change-page="onTransactionsChangePage"
           />
           <InventoryAuditView 
             v-else-if="activeTab === 'inventory_audit' && hasPermission('parts:manage')" 
@@ -546,7 +549,7 @@ const targetQuote = ref(null)
 
 // 业务数据层
 const {
-  bcvRate, partsList, clientsList, transactionsList, quotationsList,
+  bcvRate, partsList, clientsList, transactionsList, transactionsMeta, quotationsList,
   stats, brandsList,
   fetchParts, fetchClients, fetchTransactions, fetchQuotations,
   fetchDashboardStats, fetchBcvRate, updateBcvRate, refreshAll
@@ -661,6 +664,24 @@ const handleMenuClick = (key) => {
   if (key === 'dashboard') fetchDashboardStats()
   if (key === 'clients' || key === 'pos') fetchClients()
   if (key === 'quotations') fetchQuotations()
+  if (key === 'transactions') {
+    txCurrentTab.value = 'ALL'
+    fetchTransactions({ page: 1, type: '' })
+  }
+}
+
+const txCurrentTab = ref('ALL')
+
+const onTransactionsChangeTab = (tab) => {
+  txCurrentTab.value = tab
+  fetchTransactions({ page: 1, type: tab === 'ALL' ? '' : tab })
+}
+
+const onTransactionsChangePage = (page) => {
+  fetchTransactions({
+    page,
+    type: txCurrentTab.value === 'ALL' ? '' : txCurrentTab.value,
+  })
 }
 
 const handleImportParts = async (e) => {

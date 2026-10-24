@@ -66,9 +66,20 @@ test.describe('POS 与 报价单拆分测试', () => {
     // 挂账
     const creditBtn = page.locator('[data-testid="quote-credit-btn"]')
     await expect(creditBtn).toBeEnabled()
-    await creditBtn.click()
     
-    await page.waitForTimeout(1500)
+    // 🌟 监听挂账接口，等待后端真正返回
+    const [response] = await Promise.all([
+      page.waitForResponse(res => res.url().includes('/api/pos/orders') && res.request().method() === 'POST'),
+      creditBtn.click()
+    ])
+    
+    // 如果后端又拦截了（比如报红字），直接把错误打印出来
+    if (response.status() !== 200) {
+      const errBody = await response.json().catch(() => ({}))
+      console.error('❌ 后端拒绝了挂账请求:', response.status(), errBody)
+    }
+    
+    await page.waitForTimeout(500) // 给 Vue 清空购物车和弹 Toast 的时间
     
     // 🌟 修复断言：只要出现了“购物车为空”的提示，就代表成功清空了
     await expect(page.getByText(/购物车为空|Carrito vacío|Cart is empty/)).toBeVisible()

@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
+  globalSetup: './e2e/global-setup.js',
   testDir: './e2e',
   fullyParallel: false,
   workers: 1,                       // SQLite + 单库，串行更稳

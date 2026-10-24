@@ -54,16 +54,46 @@ export function useInventory() {
     const data = await safeJson('/api/clients')
     if (data) clientsList.value = data
   }
-  const fetchTransactions = async () => {
-    if (!checkUserPermission('transactions:history')) return
-    const data = await safeJson('/api/transactions')
-    if (data) transactionsList.value = data
+const transactionsMeta = ref({
+  total: 0,
+  page: 1,
+  page_size: 20,
+  summary: { in_total: 0, out_total: 0 },
+})
+
+const fetchTransactions = async (opts = {}) => {
+  if (!checkUserPermission('transactions:history')) return
+  const page = opts.page ?? transactionsMeta.value.page ?? 1
+  const pageSize = opts.pageSize ?? transactionsMeta.value.page_size ?? 20
+  const type = opts.type ?? ''
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+  if (type) params.set('tx_type', type)
+  const data = await safeJson(`/api/transactions?${params.toString()}`)
+  if (data && Array.isArray(data.items)) {
+    transactionsList.value = data.items
+    transactionsMeta.value = {
+      total: data.total ?? 0,
+      page: data.page ?? page,
+      page_size: data.page_size ?? pageSize,
+      summary: data.summary ?? { in_total: 0, out_total: 0 },
+    }
+  } else if (Array.isArray(data)) {
+    // 兼容兜底：万一后端还是老结构
+    transactionsList.value = data
+    transactionsMeta.value = {
+      total: data.length,
+      page: 1,
+      page_size: data.length || 20,
+      summary: { in_total: 0, out_total: 0 },
+    }
   }
+}
   const fetchQuotations = async () => {
-    if (!checkUserPermission('pos:access')) return  // 🛡️ 没有 POS / 开单权限时，禁止静默拉取报价单，避免 401 报错
+    if (!checkUserPermission('pos:access')) return
     const data = await safeJson('/api/quotations')
     if (data) quotationsList.value = data
   }
+
   const fetchDashboardStats = async () => {
     const data = await safeJson('/api/dashboard/stats')
     if (data) stats.value = data
@@ -123,6 +153,7 @@ export function useInventory() {
     fetchDashboardStats,
     fetchBcvRate,
     updateBcvRate, // 🌟 把新方法导出去
-    refreshAll
+    refreshAll,
+    transactionsMeta,
   }
 }
